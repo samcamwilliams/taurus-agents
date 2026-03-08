@@ -1,9 +1,10 @@
 // ─── Content Blocks (provider-agnostic, Anthropic-compatible) ───
 
+export type ThinkingBlock = { type: 'thinking'; thinking: string; signature?: string };
 export type TextBlock = { type: 'text'; text: string };
 export type ToolUseBlock = { type: 'tool_use'; id: string; name: string; input: any };
 export type ToolResultBlock = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+export type ContentBlock = ThinkingBlock | TextBlock | ToolUseBlock | ToolResultBlock;
 
 export type ChatMessage = {
   role: 'user' | 'assistant';
@@ -13,6 +14,7 @@ export type ChatMessage = {
 // ─── Stream Events (emitted by inference, consumed by agents/UI) ───
 
 export type StreamEvent =
+  | { type: 'thinking_delta'; text: string }
   | { type: 'text_delta'; text: string }
   | { type: 'tool_use_start'; id: string; name: string }
   | { type: 'tool_input_delta'; id: string; partialJson: string }

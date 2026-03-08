@@ -322,6 +322,15 @@ export class Daemon {
         break;
 
       case 'log': {
+        if (msg.event === 'llm.thinking') {
+          this.sse.broadcast(agentId, {
+            type: 'llm_thinking',
+            agentId,
+            text: msg.message,
+          });
+          break;
+        }
+
         if (msg.event === 'llm.text') {
           this.sse.broadcast(agentId, {
             type: 'llm_text',

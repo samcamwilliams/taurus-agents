@@ -22,40 +22,32 @@ export class AnthropicProvider extends InferenceProvider {
       system: params.system,
       messages: params.messages as Anthropic.MessageParam[],
       tools: params.tools as Anthropic.Tool[] | undefined,
-      max_tokens: params.maxTokens ?? 8192,
-      temperature: params.temperature,
+      max_tokens: params.maxTokens ?? 16000,
+      // Extended thinking — temperature must be omitted (defaults to 1)
+      thinking: { type: 'enabled', budget_tokens: 10000 },
     });
 
-    // Track state for assembling the complete message
-    const contentBlocks: ContentBlock[] = [];
+    // Track tool state for streaming tool_use_end events
     let currentToolId = '';
-    let currentToolName = '';
     let currentToolJson = '';
 
     for await (const event of response) {
       switch (event.type) {
         case 'content_block_start': {
           const block = event.content_block;
-          if (block.type === 'text') {
-            contentBlocks.push({ type: 'text', text: '' });
-          } else if (block.type === 'tool_use') {
+          if (block.type === 'tool_use') {
             currentToolId = block.id;
-            currentToolName = block.name;
             currentToolJson = '';
-            contentBlocks.push({ type: 'tool_use', id: block.id, name: block.name, input: {} });
             yield { type: 'tool_use_start', id: block.id, name: block.name };
           }
           break;
         }
 
         case 'content_block_delta': {
-          const delta = event.delta;
-          if (delta.type === 'text_delta') {
-            // Append to last text block
-            const last = contentBlocks[contentBlocks.length - 1];
-            if (last && last.type === 'text') {
-              last.text += delta.text;
-            }
+          const delta = event.delta as any;
+          if (delta.type === 'thinking_delta') {
+            yield { type: 'thinking_delta', text: delta.thinking };
+          } else if (delta.type === 'text_delta') {
             yield { type: 'text_delta', text: delta.text };
           } else if (delta.type === 'input_json_delta') {
             currentToolJson += delta.partial_json;
@@ -65,42 +57,36 @@ export class AnthropicProvider extends InferenceProvider {
         }
 
         case 'content_block_stop': {
-          // If we were accumulating tool input, parse it now
           if (currentToolJson) {
-            const last = contentBlocks[contentBlocks.length - 1];
-            if (last && last.type === 'tool_use') {
-              try {
-                last.input = JSON.parse(currentToolJson);
-              } catch {
-                last.input = currentToolJson;
-              }
-              yield { type: 'tool_use_end', id: currentToolId, input: last.input };
-            }
+            let input: any;
+            try { input = JSON.parse(currentToolJson); } catch { input = currentToolJson; }
+            yield { type: 'tool_use_end', id: currentToolId, input };
             currentToolJson = '';
             currentToolId = '';
-            currentToolName = '';
           }
           break;
         }
 
-        case 'message_stop': {
-          // Don't emit here — we'll emit after getting the final message
+        case 'message_stop':
           break;
-        }
       }
     }
 
-    // Get the final assembled message with usage stats
+    // Use the API's final message — preserves thinking signatures for multi-turn
     const finalMessage = await response.finalMessage();
 
-    const assembledMessage: ChatMessage = {
-      role: 'assistant',
-      content: contentBlocks,
-    };
+    const assembledContent: ContentBlock[] = finalMessage.content.map((block: any) => {
+      switch (block.type) {
+        case 'thinking': return { type: 'thinking', thinking: block.thinking, signature: block.signature };
+        case 'text': return { type: 'text', text: block.text };
+        case 'tool_use': return { type: 'tool_use', id: block.id, name: block.name, input: block.input };
+        default: return block;
+      }
+    });
 
     yield {
       type: 'message_complete',
-      message: assembledMessage,
+      message: { role: 'assistant', content: assembledContent } as ChatMessage,
       usage: {
         inputTokens: finalMessage.usage.input_tokens,
         outputTokens: finalMessage.usage.output_tokens,

@@ -303,6 +303,9 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     })) {
       switch (event.type) {
         case 'stream':
+          if (event.event.type === 'thinking_delta') {
+            log('debug', 'llm.thinking', event.event.text);
+          }
           if (event.event.type === 'text_delta') {
             log('debug', 'llm.text', event.event.text);
           }

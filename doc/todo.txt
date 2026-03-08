@@ -1,5 +1,7 @@
-[] markdown
+i notice tool use input seems to always be a json object, and it's taking some space for the { } lines. could we perhaps parse it out into a kv table instead? and maybe we could have a universal component that could also do it hierarchically, i.e. if the value is an object, also recursively turn it into a table etc. and yeah let's make sure it's contained properly. again, maybe some util that is specifically making text safe for html injection like that? oh i think react sanitizes it by default right?
+
 [] show thinking summaries
+[] table for tool use?
 
 [] track mtime and error out on edit without reading first
 
@@ -23,6 +25,8 @@ we should really stop doing that and use migrations instead
 [] chatml: token count and HUD managing/partial compactify/collapse/uncollapse
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
+
+toolu_01 kinda useless
 
 [] what are the read line limits
 

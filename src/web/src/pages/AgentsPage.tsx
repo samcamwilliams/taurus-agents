@@ -17,6 +17,7 @@ export function AgentsPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
+  const [streamingThinking, setStreamingThinking] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Refs so SSE callbacks see latest values without re-subscribing
@@ -24,6 +25,7 @@ export function AgentsPage() {
   const runIdRef = useRef(runId);
   const messagesRef = useRef(messages);
   const streamingTextRef = useRef('');
+  const streamingThinkingRef = useRef('');
   useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
   useEffect(() => { runIdRef.current = runId; }, [runId]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -118,9 +120,11 @@ export function AgentsPage() {
   useEffect(() => {
     if (!agentId) return;
 
-    // Reset streaming text when agent changes
+    // Reset streaming state when agent changes
     streamingTextRef.current = '';
+    streamingThinkingRef.current = '';
     setStreamingText('');
+    setStreamingThinking('');
 
     const es = new EventSource(`/api/agents/${agentId}/stream`);
 
@@ -135,9 +139,11 @@ export function AgentsPage() {
             break;
 
           case 'run_complete':
-            // Clear streaming text, fetch final messages, refresh runs
+            // Clear streaming state, fetch final messages, refresh runs
             streamingTextRef.current = '';
+            streamingThinkingRef.current = '';
             setStreamingText('');
+            setStreamingThinking('');
             fetchNewMessages();
             api.listRuns(agentIdRef.current!).then(setRuns);
             loadAgents();
@@ -155,6 +161,13 @@ export function AgentsPage() {
             ));
             break;
 
+          case 'llm_thinking':
+            if (typeof data.text === 'string') {
+              streamingThinkingRef.current += data.text;
+              setStreamingThinking(streamingThinkingRef.current);
+            }
+            break;
+
           case 'llm_text':
             // Accumulate streaming text chunks
             if (typeof data.text === 'string') {
@@ -167,7 +180,9 @@ export function AgentsPage() {
             if (data.event === 'message.saved') {
               // A message was persisted — fetch new messages incrementally and clear streaming
               streamingTextRef.current = '';
+              streamingThinkingRef.current = '';
               setStreamingText('');
+              setStreamingThinking('');
               fetchNewMessages();
             }
             break;
@@ -347,7 +362,7 @@ export function AgentsPage() {
               {/* Messages */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} />
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} />
                 ) : (
                   <div className="empty-state">Select a run to view messages</div>
                 )}
