@@ -53,7 +53,7 @@ export const api = {
     return request(`/api/agents/${id}`, { method: 'DELETE' });
   },
 
-  startRun(agentId: string, opts?: { trigger?: string; input?: string; run_id?: string }): Promise<{ runId: string }> {
+  startRun(agentId: string, opts?: { trigger?: string; input?: string; run_id?: string; images?: { base64: string; mediaType: string }[] }): Promise<{ runId: string }> {
     return request(`/api/agents/${agentId}/run`, {
       method: 'POST',
       body: { trigger: 'manual', ...opts },
@@ -71,10 +71,10 @@ export const api = {
     });
   },
 
-  injectMessage(agentId: string, message: string): Promise<{ ok: boolean }> {
+  injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[]): Promise<{ ok: boolean }> {
     return request(`/api/agents/${agentId}/inject`, {
       method: 'POST',
-      body: { message },
+      body: { message, images },
     });
   },
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
 import { JsonKV } from './JsonKV';
-import { ScreenshotImage } from './ScreenshotImage';
+import { Lightbox } from './Lightbox';
 
 // ── Collapsible thinking block ──
 
@@ -46,6 +46,15 @@ function ContentBlockView({ block }: { block: any }) {
   if (block.type === 'text') {
     return <Markdown>{block.text}</Markdown>;
   }
+  if (block.type === 'image' && block.source?.type === 'base64') {
+    return (
+      <Lightbox
+        src={`data:${block.source.media_type};base64,${block.source.data}`}
+        alt="Uploaded image"
+        className="msg-tool-result__image"
+      />
+    );
+  }
   if (block.type === 'tool_use') {
     return (
       <div className="msg-tool-use">
@@ -72,10 +81,11 @@ function ContentBlockView({ block }: { block: any }) {
               if (sub.type === 'text') return <pre key={i} style={{ margin: 0 }}>{sub.text}</pre>;
               if (sub.type === 'image' && sub.source?.type === 'base64') {
                 return (
-                  <ScreenshotImage
+                  <Lightbox
                     key={i}
                     src={`data:${sub.source.media_type};base64,${sub.source.data}`}
                     alt="Screenshot"
+                    className="msg-tool-result__image"
                   />
                 );
               }

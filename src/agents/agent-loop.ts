@@ -1,4 +1,4 @@
-import type { AgentEvent, StreamEvent, ToolDef } from '../core/types.js';
+import type { AgentEvent, StreamEvent, ToolDef, ContentBlock } from '../core/types.js';
 import type { ChatML } from '../core/chatml.js';
 import type { InferenceService } from '../inference/service.js';
 import type { ToolRegistry } from '../tools/registry.js';
@@ -23,7 +23,7 @@ export interface AgentLoopParams {
   model?: string;
 
   /** Returns queued injected messages (drains the queue). Used for mid-run user messages. */
-  getInjectedMessages?: () => string[];
+  getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
 }
 
 /**
@@ -50,24 +50,34 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     // ── Check for injected user messages ──
     const injected = getInjectedMessages?.() ?? [];
     if (injected.length > 0) {
-      const combined = injected.join('\n\n');
+      const combinedText = injected.map(m => m.text).filter(Boolean).join('\n\n');
+      const allImages = injected.flatMap(m => m.images ?? []);
+
+      // Build content blocks for the injected message
+      const blocks: ContentBlock[] = [];
+      if (combinedText) blocks.push({ type: 'text', text: `[User message]: ${combinedText}` });
+      for (const img of allImages) {
+        blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+      }
+
       const messages = chatml.getMessages();
       const last = messages[messages.length - 1];
 
       if (last?.role === 'user' && Array.isArray(last.content)) {
-        // Last message is user with content blocks (e.g. tool_results) — append text block
-        (last.content as import('../core/types.js').ContentBlock[]).push({
-          type: 'text',
-          text: `[User message]: ${combined}`,
-        });
-      } else {
-        // Between turns or first turn — add as user message
-        // But we need to ensure alternation. If last is user (string), we can't add another user.
-        // In that case, we modify the existing string content.
-        if (last?.role === 'user' && typeof last.content === 'string') {
-          last.content += `\n\n[User message]: ${combined}`;
+        // Last message is user with content blocks (e.g. tool_results) — append
+        (last.content as ContentBlock[]).push(...blocks);
+      } else if (last?.role === 'user' && typeof last.content === 'string') {
+        if (allImages.length > 0) {
+          // Convert string content to blocks so we can add images
+          last.content = [{ type: 'text', text: last.content }, ...blocks];
         } else {
-          chatml.addUser(`[User message]: ${combined}`);
+          last.content += `\n\n[User message]: ${combinedText}`;
+        }
+      } else {
+        if (allImages.length > 0) {
+          chatml.addUser(blocks);
+        } else {
+          chatml.addUser(`[User message]: ${combinedText}`);
         }
       }
     }

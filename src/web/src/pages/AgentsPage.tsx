@@ -95,13 +95,25 @@ export function AgentsPage() {
 
   // ── Optimistic user message helper ──
 
-  function appendOptimisticUserMessage(text: string) {
+  function appendOptimisticUserMessage(text: string, images?: import('../components/InputBar').ImageAttachment[]) {
+    // Build content: plain string if no images, content blocks if images present
+    let content: string | any[] = text;
+    if (images && images.length > 0) {
+      content = [
+        { type: 'text', text },
+        ...images.map(img => ({
+          type: 'image',
+          source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+        })),
+      ];
+    }
+
     const optimistic: MessageRecord = {
       id: `_optimistic_${Date.now()}`,
       run_id: runIdRef.current ?? '',
       seq: Infinity, // sorts last, ignored by maxSeq calc
       role: 'user',
-      content: text,
+      content,
       stop_reason: null,
       input_tokens: 0,
       output_tokens: 0,
@@ -269,11 +281,14 @@ export function AgentsPage() {
     await loadAgents();
   }
 
-  async function handleSend(message: string) {
+  async function handleSend(message: string, images?: import('../components/InputBar').ImageAttachment[]) {
     if (!agentId) return;
 
+    // Normalize images for the API (drop name)
+    const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
+
     // Show the message instantly
-    appendOptimisticUserMessage(message);
+    appendOptimisticUserMessage(message, images);
 
     if (selectedAgent?.status === 'paused') {
       await handleResume(message);
@@ -282,7 +297,7 @@ export function AgentsPage() {
 
     if (selectedAgent?.status === 'running') {
       try {
-        await api.injectMessage(agentId, message);
+        await api.injectMessage(agentId, message, apiImages);
         return;
       } catch {
         // Agent may have just stopped — fall through to start/continue
@@ -293,6 +308,7 @@ export function AgentsPage() {
     const latestRunId = runs[0]?.id;
     const result = await api.startRun(agentId, {
       input: message,
+      images: apiImages,
       ...(latestRunId ? { run_id: latestRunId } : {}),
     });
     await loadAgents();
@@ -390,7 +406,7 @@ export function AgentsPage() {
 
             {/* Tab content */}
             {activeTab === 'runs' ? (
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minWidth: 0 }}>
                 {/* Runs list */}
                 <div className="runs-panel">
                   <div className="runs-panel__header">Runs ({runs.length})</div>
@@ -423,7 +439,7 @@ export function AgentsPage() {
                 </div>
 
                 {/* Messages */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
                   {selectedRun ? (
                     <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} />
                   ) : (

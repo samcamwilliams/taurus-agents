@@ -1,9 +1,24 @@
 [...] browser
 [] screenshot captured but can't use
 [] browser tool featureset: Yes, you should definitely expand it! A few approaches:
-[] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
 
 [] pdfs! see how codex does it etc. but also deepseek pdf (skill/agent?)
+
+[] add tools inside container (maintain docker/Dockerfile)
+    base: bash, git, curl, wget, jq, rg (ripgrep), fd-find, tree, python3
+    node: via mise or nvm (needed for playwright cli, bun also an option)
+    playwright: npm install -g @playwright/mcp && npx playwright install --with-deps chromium
+      - CLI ships with @playwright/mcp: playwright-cli open/snapshot/click/fill/screenshot/close
+      - 4-10x fewer tokens than MCP (27K vs 114K per session)
+      - needs --shm-size=256m docker flag for Chromium (safer than --ipc=host)
+      - NO alpine (needs glibc)
+    alternative: vercel agent-browser (Rust+Node, ~200 tokens/snapshot, 93% less context)
+    codex-universal has: bun, git, curl, wget, jq, rg, python3, go, ruby, java, swift, php — but NO node/npm, NO browsers (25.8GB)
+    skills: playwright-cli install --skills
+
+[] Screenshot of "httpbin.org" (https://httpbin.org/)
+Viewport: 1280x720, 27438 bytes
+- are bytes needed for the agent? what was the rationale behind it. or only i can see this?
 
 
 [] different placeholders and templates stored somewhere
@@ -24,6 +39,8 @@
 [] instead of tool list in ui maybe something better in agent list. make it more professional
 
 [] bloody captchas again on browser use...
+    [] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
+    [] brainstorm
 
 [] grep tool? ripgrep?
 
@@ -59,6 +76,8 @@
 [] ^ same but for codex. prompts, tools, everything
 [] skill hub! moltskills
 
+[] Thinking (306 tokens) <- i don't need this count that prominently displayed... maybe do an icon and generalize for everything
+
 [] encourage subagent use to save context - should realize that it gets fresh huge context! (does it work like that? or forks)
 
 [] should highlight at least
@@ -67,22 +86,13 @@
 
 [] autobackup! at least the database. as for containers - optional, but could set it up automatic. could be specified in hottest recipes too
 
-[] add tools inside container (maintain docker/Dockerfile)
-    base: bash, git, curl, wget, jq, rg (ripgrep), fd-find, tree, python3
-    node: via mise or nvm (needed for playwright cli, bun also an option)
-    playwright: npm install -g @playwright/mcp && npx playwright install --with-deps chromium
-      - CLI ships with @playwright/mcp: playwright-cli open/snapshot/click/fill/screenshot/close
-      - 4-10x fewer tokens than MCP (27K vs 114K per session)
-      - needs --shm-size=256m docker flag for Chromium (safer than --ipc=host)
-      - NO alpine (needs glibc)
-    alternative: vercel agent-browser (Rust+Node, ~200 tokens/snapshot, 93% less context)
-    codex-universal has: bun, git, curl, wget, jq, rg, python3, go, ruby, java, swift, php — but NO node/npm, NO browsers (25.8GB)
-    skills: playwright-cli install --skills
-
 [] if i just reload backend gracefully (because developing a feature), and this stops the runs, it should just pick them right up, right? unless flag is passed (and should indicate this in any case, that a session was abruptly stopped)
 
 HottestLang
     https://x.com/karpathy/status/1617979122625712128 (Jan 25, 2023): The hottest new programming language is English
+    [] Hottest Standard Library! + external "libraries" of skills
+    [] why programming language is useful? loops. ifs. instruction pointer (cur step). allows to branch off and recurse. keeps track of stack / current variables on this level. allows to do map and reduce (scatter-gather). could be in time while waiting for work/more rows in the table (yield)
+    [] you could even encode a whole saas like this maybe!? if UI is also driven by Hottest spec and generated. but definitely use standard components like notion-like tables for executing rows - opinionated, don't make agents come up with most of them
     [] spin up three *parallel* agents and use it to test the website submission form - parallel executions
     [] i can ask something to an ephemeral, mostly read only session - it shouldn't count as locking (it should know there's a writer already i guess)
     [] allow to wrap tool calls into e.g. "md-cleaner/html-cleaner" that will clean the returned markdown, to help the agent with the context size (maybe even take the relevance in description field?). but how to properly manage such ephemeral agents?
@@ -98,8 +108,14 @@ HottestLang
     test on
         [] security-testing recipe: spawn workers that figure out new tests/fuzzes, then run it and see
         [] remember that article "ai wrote a c compiler" try to replicate
+        [] "try different fonts of the Taurus h1 and screenshot and show me" - tests parallel agents, screenshotting and not stepping on each other's toes etc
+        [] karpathy evolution notes - write in hottest. maybe generalize even
+        [] see in apple notes
+        [] well basically all your projects _vibe
 
 [] dashboard! that agents can operate on. notion-like! factorio-like!
+
+[] button to temporarily disable some agents
 
 [] if you miss the deadline because server restarted, do you wait for a new tick or try to catch up by triggering
 
@@ -160,6 +176,13 @@ later
 
 [] security/prompt injections!
 
+
+[] track run time? actually computable on the fly if needed
+
+[] kb/wiki/proper memory!
+[] compactify step, for now
+
+[] why even different routes? -> "The full image pipeline now works for both paths: inject (sending images to a running agent) and start/continue (sending images when starting or continuing a run from idle)."
 
 maybe
 [] ephemeral containers? instead of dangling. but what about persistence. container mgmt questions

@@ -7,7 +7,7 @@
  */
 
 import 'dotenv/config';
-import type { ParentMessage, ChildMessage, TriggerType, LogLevel } from './types.js';
+import type { ParentMessage, ChildMessage, TriggerType, LogLevel, IpcImage } from './types.js';
 import Agent from '../db/models/Agent.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
@@ -61,7 +61,8 @@ const abortController = new AbortController();
 
 // ── Message injection queue ──
 
-const injectQueue: string[] = [];
+type InjectedMessage = { text: string; images?: { base64: string; mediaType: string }[] };
+const injectQueue: InjectedMessage[] = [];
 
 // ── Tool registration ──
 
@@ -197,7 +198,7 @@ function expandSystemPrompt(prompt: string): string {
 
 // ── Main run function ──
 
-async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean): Promise<void> {
+async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[]): Promise<void> {
   // 0. Load agent and run from DB
   const agent = await Agent.findByPk(agentId);
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
@@ -229,6 +230,20 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const chatml = new ChatML();
   chatml.setSystem(expandSystemPrompt(agent.system_prompt));
 
+  // Helper: build user content from text + optional images
+  function buildUserContent(text: string, imgs?: IpcImage[]): string | ContentBlock[] {
+    if (imgs && imgs.length > 0) {
+      return [
+        { type: 'text' as const, text },
+        ...imgs.map(img => ({
+          type: 'image' as const,
+          source: { type: 'base64' as const, media_type: img.mediaType, data: img.base64 },
+        })),
+      ];
+    }
+    return text;
+  }
+
   if (resume) {
     // Restore conversation from this run's persisted messages
     const history = await loadRunHistory(runId);
@@ -245,33 +260,37 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     const last = msgs[msgs.length - 1];
 
     if (input) {
+      const content = buildUserContent(input, images);
+
       if (last?.role === 'user' && Array.isArray(last.content)) {
-        // Last is user with content blocks (e.g. tool_results) — append text
-        (last.content as ContentBlock[]).push({ type: 'text', text: input });
+        // Last is user with content blocks (e.g. tool_results) — append
+        const blocks = typeof content === 'string'
+          ? [{ type: 'text' as const, text: content }]
+          : content;
+        (last.content as ContentBlock[]).push(...blocks);
       } else if (last?.role === 'user' && typeof last.content === 'string') {
-        last.content += `\n\n${input}`;
+        if (typeof content === 'string') {
+          last.content += `\n\n${content}`;
+        } else {
+          // Convert string to blocks so we can add images
+          last.content = [{ type: 'text' as const, text: last.content + `\n\n${input}` }, ...content.slice(1)];
+        }
       } else {
-        chatml.addUser(input);
+        chatml.addUser(content);
       }
-      await persistMessage(run, 'user', input);
+      await persistMessage(run, 'user', content);
     } else if (!last || last.role === 'assistant') {
-      // Need a user message for the API — prompt to continue
       const contMsg = 'Continue from where you left off.';
       chatml.addUser(contMsg);
       await persistMessage(run, 'user', contMsg);
     }
-    // If last is user (e.g. patched tool_results), no extra message needed
 
     log('info', 'run.resumed', `Loaded ${history.length} messages, resuming run`);
   } else {
     // Fresh run
-    chatml.addUser(buildInputMessage(trigger, input));
-
-    const initialMessages = chatml.getMessages();
-    const initialUserMsg = initialMessages[initialMessages.length - 1];
-    if (initialUserMsg?.role === 'user') {
-      await persistMessage(run, 'user', initialUserMsg.content);
-    }
+    const content = buildUserContent(buildInputMessage(trigger, input), images);
+    chatml.addUser(content);
+    await persistMessage(run, 'user', content);
   }
 
   // 6. Run agent loop
@@ -384,7 +403,7 @@ process.on('message', async (msg: ParentMessage) => {
   switch (msg.type) {
     case 'start':
       try {
-        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume);
+        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images);
       } catch (err: any) {
         send({ type: 'error', error: err.message, stack: err.stack });
       }
@@ -405,7 +424,7 @@ process.on('message', async (msg: ParentMessage) => {
       break;
 
     case 'inject':
-      injectQueue.push(msg.message);
+      injectQueue.push({ text: msg.message, images: msg.images });
       log('info', 'agent.inject', `Message queued for next turn: ${msg.message}`);
       break;
 

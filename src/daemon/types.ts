@@ -6,11 +6,13 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // ─── IPC: Parent → Child ───
 
+export type IpcImage = { base64: string; mediaType: string };
+
 export type ParentMessage =
-  | { type: 'start'; agentId: string; runId: string; trigger: TriggerType; input?: string; resume?: boolean }
+  | { type: 'start'; agentId: string; runId: string; trigger: TriggerType; input?: string; resume?: boolean; images?: IpcImage[] }
   | { type: 'stop'; reason: string }
   | { type: 'resume'; message?: string }
-  | { type: 'inject'; message: string }
+  | { type: 'inject'; message: string; images?: IpcImage[] }
   | { type: 'signal'; name: string; payload: unknown };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───

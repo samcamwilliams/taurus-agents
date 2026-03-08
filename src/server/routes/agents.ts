@@ -139,7 +139,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
       try {
         if (body.run_id) {
           // Continue an existing run
-          await daemon.continueRun(params.id, body.run_id, body.input);
+          await daemon.continueRun(params.id, body.run_id, body.input, body.images);
           json(res, { runId: body.run_id });
         } else {
           // Start a new run
@@ -147,6 +147,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
             params.id,
             body.trigger ?? 'manual',
             body.input,
+            body.images,
           );
           json(res, { runId }, 201);
         }
@@ -178,7 +179,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
       const body = await parseBody(req);
       if (!body.message) return error(res, 'message is required');
       try {
-        await daemon.injectMessage(params.id, body.message);
+        await daemon.injectMessage(params.id, body.message, body.images);
         json(res, { ok: true });
       } catch (err: any) {
         error(res, err.message);

@@ -231,7 +231,7 @@ export class Daemon {
 
   // ── Run Management ──
 
-  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string): Promise<string> {
+  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string, images?: { base64: string; mediaType: string }[]): Promise<string> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
     if (managed.process) throw new Error(`Agent "${managed.agent.name}" is already running`);
@@ -246,14 +246,14 @@ export class Daemon {
     });
 
     await this.forkWorker(agentId, run.id, {
-      type: 'start', agentId, runId: run.id, trigger, input,
+      type: 'start', agentId, runId: run.id, trigger, input, images,
     });
 
     this.logger('info', `Agent "${managed.agent.name}" run started (run: ${run.id})`);
     return run.id;
   }
 
-  async continueRun(agentId: string, runId: string, input?: string): Promise<void> {
+  async continueRun(agentId: string, runId: string, input?: string, images?: { base64: string; mediaType: string }[]): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
     if (managed.process) throw new Error(`Agent "${managed.agent.name}" is already running`);
@@ -264,7 +264,7 @@ export class Daemon {
     await this.docker.ensureContainer(managed.agent);
 
     await this.forkWorker(agentId, runId, {
-      type: 'start', agentId, runId, trigger: 'manual', input, resume: true,
+      type: 'start', agentId, runId, trigger: 'manual', input, images, resume: true,
     });
 
     this.logger('info', `Agent "${managed.agent.name}" run continued (run: ${runId})`);
@@ -350,7 +350,7 @@ export class Daemon {
     }
   }
 
-  async injectMessage(agentId: string, message: string): Promise<void> {
+  async injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[]): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed?.process) throw new Error('Agent is not running');
 
@@ -360,7 +360,7 @@ export class Daemon {
       return;
     }
 
-    const msg: ParentMessage = { type: 'inject', message };
+    const msg: ParentMessage = { type: 'inject', message, images };
     managed.process.send(msg);
   }
 
