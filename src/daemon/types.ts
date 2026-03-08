@@ -1,18 +1,18 @@
-// ─── Thread Enums ───
+// ─── Agent Enums ───
 
-export type ThreadType = 'observer' | 'actor';
-export type ThreadStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
+export type AgentType = 'observer' | 'actor';
+export type AgentStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
 export type TriggerType = 'schedule' | 'manual' | `signal:${string}`;
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-// ─── Thread Config (DB → memory → IPC) ───
+// ─── Agent Config (DB → memory → IPC) ───
 
-export interface ThreadConfig {
+export interface AgentConfig {
   id: string;
   folderId: string;
   name: string;
-  type: ThreadType;
-  status: ThreadStatus;
+  type: AgentType;
+  status: AgentStatus;
   cwd: string;
   model: string;
   systemPrompt: string;
@@ -21,7 +21,7 @@ export interface ThreadConfig {
   maxTurns: number;
   timeoutMs: number;
   metadata: Record<string, unknown>;
-  /** Docker container name. Derived from thread ID: taurus-thread-{id} */
+  /** Docker container name. Derived from agent ID: taurus-agent-{id} */
   containerId: string;
   /** Docker image to use for the container */
   dockerImage: string;
@@ -30,7 +30,7 @@ export interface ThreadConfig {
 // ─── IPC: Parent → Child ───
 
 export type ParentMessage =
-  | { type: 'start'; config: ThreadConfig; sessionId: string; trigger: TriggerType; input?: string; history?: Array<{ role: string; content: any }> }
+  | { type: 'start'; config: AgentConfig; sessionId: string; trigger: TriggerType; input?: string; history?: Array<{ role: string; content: any }> }
   | { type: 'stop'; reason: string }
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string }
@@ -41,7 +41,7 @@ export type ParentMessage =
 export type ChildMessage =
   | { type: 'ready' }
   | { type: 'log'; level: LogLevel; event: string; message: string; data?: unknown }
-  | { type: 'status'; status: ThreadStatus }
+  | { type: 'status'; status: AgentStatus }
   | { type: 'paused'; reason: string }
   | { type: 'message_persist'; sessionId: string; role: string; content: any;
       stopReason?: string; inputTokens?: number; outputTokens?: number }

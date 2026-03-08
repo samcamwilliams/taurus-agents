@@ -4,7 +4,7 @@ import { Database } from '../index.js';
 
 const sequelize = Database.init();
 
-class Session extends Model {
+class Run extends Model {
   declare id: string;
   declare name: string | null;
   declare cwd: string;
@@ -21,12 +21,12 @@ class Session extends Model {
 
   // ─── Static methods ───
 
-  static async findLast(): Promise<Session | null> {
-    return Session.findOne({ order: [['created_at', 'DESC']] });
+  static async findLast(): Promise<Run | null> {
+    return Run.findOne({ order: [['created_at', 'DESC']] });
   }
 
-  static async createNew(cwd: string, model: string = 'claude-sonnet-4-20250514'): Promise<Session> {
-    return Session.create({ cwd, model });
+  static async createNew(cwd: string, model: string = 'claude-sonnet-4-20250514'): Promise<Run> {
+    return Run.create({ cwd, model });
   }
 
   // ─── Instance methods ───
@@ -50,7 +50,7 @@ class Session extends Model {
       output_tokens: opts?.outputTokens ?? 0,
     });
 
-    // Update session token totals
+    // Update run token totals
     if (opts?.inputTokens || opts?.outputTokens) {
       this.totalInputTokens += opts?.inputTokens ?? 0;
       this.totalOutputTokens += opts?.outputTokens ?? 0;
@@ -69,7 +69,7 @@ class Session extends Model {
       totalInputTokens: this.totalInputTokens,
       totalOutputTokens: this.totalOutputTokens,
       totalCostUsd: this.totalCostUsd,
-      threadId: this.thread_id,
+      agentId: this.thread_id,
       trigger: this.trigger,
       runSummary: this.run_summary,
       runError: this.run_error,
@@ -79,7 +79,7 @@ class Session extends Model {
   }
 }
 
-Session.init(
+Run.init(
   {
     id: {
       type: DataTypes.UUID,
@@ -136,10 +136,10 @@ Session.init(
   },
   {
     sequelize,
-    tableName: 'Sessions',
+    tableName: 'Sessions', // keep existing table name
     timestamps: true,
     underscored: true,
   }
 );
 
-export default Session;
+export default Run;

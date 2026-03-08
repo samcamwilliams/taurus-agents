@@ -1,6 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import { Database } from '../index.js';
-import { ROOT_FOLDER_ID } from '../../threads/types.js';
+import { ROOT_FOLDER_ID } from '../../daemon/types.js';
 
 const sequelize = Database.init();
 

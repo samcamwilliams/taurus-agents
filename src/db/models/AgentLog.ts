@@ -1,11 +1,11 @@
 import { DataTypes, Model } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
-import type { LogLevel } from '../../threads/types.js';
+import type { LogLevel } from '../../daemon/types.js';
 
 const sequelize = Database.init();
 
-class ThreadLog extends Model {
+class AgentLog extends Model {
   declare id: string;
   declare thread_id: string;
   declare session_id: string | null;
@@ -18,8 +18,8 @@ class ThreadLog extends Model {
   toApi() {
     return {
       id: this.id,
-      threadId: this.thread_id,
-      sessionId: this.session_id,
+      agentId: this.thread_id,
+      runId: this.session_id,
       level: this.level,
       event: this.event,
       message: this.message,
@@ -29,7 +29,7 @@ class ThreadLog extends Model {
   }
 }
 
-ThreadLog.init(
+AgentLog.init(
   {
     id: {
       type: DataTypes.UUID,
@@ -64,11 +64,11 @@ ThreadLog.init(
   },
   {
     sequelize,
-    tableName: 'ThreadLogs',
+    tableName: 'ThreadLogs', // keep existing table name
     timestamps: true,
     underscored: true,
-    updatedAt: false, // logs are immutable
+    updatedAt: false,
   }
 );
 
-export default ThreadLog;
+export default AgentLog;

@@ -1,17 +1,17 @@
 import { DataTypes, Model } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
-import { ROOT_FOLDER_ID } from '../../threads/types.js';
-import type { ThreadConfig, ThreadType, ThreadStatus } from '../../threads/types.js';
+import { ROOT_FOLDER_ID } from '../../daemon/types.js';
+import type { AgentConfig, AgentType, AgentStatus } from '../../daemon/types.js';
 
 const sequelize = Database.init();
 
-class Thread extends Model {
+class Agent extends Model {
   declare id: string;
   declare folder_id: string;
   declare name: string;
-  declare type: ThreadType;
-  declare status: ThreadStatus;
+  declare type: AgentType;
+  declare status: AgentStatus;
   declare cwd: string;
   declare model: string;
   declare system_prompt: string;
@@ -24,8 +24,8 @@ class Thread extends Model {
   declare created_at: Date;
   declare updated_at: Date;
 
-  toConfig(): ThreadConfig {
-    const containerId = `taurus-thread-${this.id}`;
+  toConfig(): AgentConfig {
+    const containerId = `taurus-agent-${this.id}`;
     return {
       id: this.id,
       folderId: this.folder_id,
@@ -54,7 +54,7 @@ class Thread extends Model {
   }
 }
 
-Thread.init(
+Agent.init(
   {
     id: {
       type: DataTypes.UUID,
@@ -124,10 +124,10 @@ Thread.init(
   },
   {
     sequelize,
-    tableName: 'Threads',
+    tableName: 'Threads', // keep existing table name
     timestamps: true,
     underscored: true,
   }
 );
 
-export default Thread;
+export default Agent;

@@ -1,5 +1,5 @@
 /**
- * ThreadManager — runs in the parent/daemon process.
+ * Daemon — runs in the parent process.
  *
  * Owns the child process map. Spawns/stops workers via fork().
  * Routes IPC messages. Persists all data to DB. Broadcasts SSE.
@@ -11,28 +11,28 @@ import { fileURLToPath } from 'node:url';
 import { v4 as uuidv4 } from 'uuid';
 import type { ServerResponse } from 'node:http';
 import type {
-  ThreadConfig, ThreadStatus, TriggerType, ChildMessage, ParentMessage, LogLevel,
+  AgentConfig, AgentStatus, TriggerType, ChildMessage, ParentMessage, LogLevel,
 } from './types.js';
 import { ROOT_FOLDER_ID } from './types.js';
-import Thread from '../db/models/Thread.js';
-import ThreadLog from '../db/models/ThreadLog.js';
+import Agent from '../db/models/Agent.js';
+import AgentLog from '../db/models/AgentLog.js';
 import Folder from '../db/models/Folder.js';
-import Session from '../db/models/Session.js';
+import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const WORKER_PATH = path.join(__dirname, 'thread-worker.ts');
+const WORKER_PATH = path.join(__dirname, 'agent-worker.ts');
 
-interface ManagedThread {
-  config: ThreadConfig;
+interface ManagedAgent {
+  config: AgentConfig;
   process: ChildProcess | null;
-  currentSessionId: string | null;
+  currentRunId: string | null;
 }
 
-export class ThreadManager {
-  private threads = new Map<string, ManagedThread>();
-  /** Per-thread SSE clients. Key '*' = global subscribers. */
+export class Daemon {
+  private agents = new Map<string, ManagedAgent>();
+  /** Per-agent SSE clients. */
   private sseClients = new Map<string, Set<ServerResponse>>();
   private logger: (level: LogLevel, msg: string) => void;
 
@@ -50,28 +50,28 @@ export class ThreadManager {
     // Seed root folder
     await Folder.seedRoot();
 
-    // Load all threads from DB
-    const threads = await Thread.findAll();
-    for (const thread of threads) {
-      const config = thread.toConfig();
+    // Load all agents from DB
+    const agents = await Agent.findAll();
+    for (const agent of agents) {
+      const config = agent.toConfig();
       // Reset any that were "running" when daemon died
       if (config.status === 'running' || config.status === 'paused') {
-        await thread.update({ status: 'idle' });
+        await agent.update({ status: 'idle' });
         config.status = 'idle';
       }
-      this.threads.set(config.id, { config, process: null, currentSessionId: null });
+      this.agents.set(config.id, { config, process: null, currentRunId: null });
     }
 
-    this.logger('info', `ThreadManager initialized. ${this.threads.size} thread(s) loaded.`);
+    this.logger('info', `Daemon initialized. ${this.agents.size} agent(s) loaded.`);
 
-    // TODO: set up cron jobs for scheduled threads
+    // TODO: set up cron jobs for scheduled agents
   }
 
   async shutdown(): Promise<void> {
     this.logger('info', 'Graceful shutdown starting...');
 
     const stopPromises: Promise<void>[] = [];
-    for (const [id, managed] of this.threads) {
+    for (const [id, managed] of this.agents) {
       if (managed.process) {
         stopPromises.push(this.stopRun(id, 'daemon shutdown'));
       }
@@ -79,15 +79,15 @@ export class ThreadManager {
 
     await Promise.allSettled(stopPromises);
 
-    // Update all threads to idle
-    for (const [, managed] of this.threads) {
+    // Update all agents to idle
+    for (const [, managed] of this.agents) {
       if (managed.config.status !== 'disabled') {
-        await Thread.update({ status: 'idle' }, { where: { id: managed.config.id } });
+        await Agent.update({ status: 'idle' }, { where: { id: managed.config.id } });
       }
     }
 
     // Stop all Docker containers
-    for (const [, managed] of this.threads) {
+    for (const [, managed] of this.agents) {
       await this.stopContainer(managed.config.containerId);
     }
 
@@ -104,16 +104,16 @@ export class ThreadManager {
 
   forceShutdown(): void {
     this.logger('warn', 'Force shutdown — killing all children.');
-    for (const [, managed] of this.threads) {
+    for (const [, managed] of this.agents) {
       if (managed.process && !managed.process.killed) {
         managed.process.kill('SIGKILL');
       }
     }
   }
 
-  // ── Thread CRUD ──
+  // ── Agent CRUD ──
 
-  async createThread(input: {
+  async createAgent(input: {
     name: string;
     type: 'observer' | 'actor';
     systemPrompt: string;
@@ -126,8 +126,8 @@ export class ThreadManager {
     timeoutMs?: number;
     metadata?: Record<string, unknown>;
     dockerImage?: string;
-  }): Promise<ThreadConfig> {
-    const thread = await Thread.create({
+  }): Promise<AgentConfig> {
+    const agent = await Agent.create({
       name: input.name,
       type: input.type,
       system_prompt: input.systemPrompt,
@@ -142,14 +142,14 @@ export class ThreadManager {
       docker_image: input.dockerImage ?? 'ubuntu:22.04',
     });
 
-    const config = thread.toConfig();
-    this.threads.set(config.id, { config, process: null, currentSessionId: null });
-    this.logger('info', `Thread created: "${config.name}" (${config.id})`);
+    const config = agent.toConfig();
+    this.agents.set(config.id, { config, process: null, currentRunId: null });
+    this.logger('info', `Agent created: "${config.name}" (${config.id})`);
 
     return config;
   }
 
-  async updateThread(id: string, updates: Partial<{
+  async updateAgent(id: string, updates: Partial<{
     name: string;
     type: 'observer' | 'actor';
     systemPrompt: string;
@@ -161,10 +161,10 @@ export class ThreadManager {
     maxTurns: number;
     timeoutMs: number;
     metadata: Record<string, unknown>;
-    status: ThreadStatus;
-  }>): Promise<ThreadConfig> {
-    const thread = await Thread.findByPk(id);
-    if (!thread) throw new Error(`Thread not found: ${id}`);
+    status: AgentStatus;
+  }>): Promise<AgentConfig> {
+    const agent = await Agent.findByPk(id);
+    if (!agent) throw new Error(`Agent not found: ${id}`);
 
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
@@ -180,19 +180,19 @@ export class ThreadManager {
     if (updates.metadata !== undefined) dbUpdates.metadata = JSON.stringify(updates.metadata);
     if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-    await thread.update(dbUpdates);
-    const config = thread.toConfig();
+    await agent.update(dbUpdates);
+    const config = agent.toConfig();
 
-    const managed = this.threads.get(id);
+    const managed = this.agents.get(id);
     if (managed) managed.config = config;
 
     return config;
   }
 
-  async deleteThread(id: string): Promise<void> {
-    const managed = this.threads.get(id);
+  async deleteAgent(id: string): Promise<void> {
+    const managed = this.agents.get(id);
     if (managed?.process) {
-      await this.stopRun(id, 'thread deleted');
+      await this.stopRun(id, 'agent deleted');
     }
 
     // Remove Docker container and volume
@@ -200,19 +200,19 @@ export class ThreadManager {
       await this.removeContainer(managed.config);
     }
 
-    await ThreadLog.destroy({ where: { thread_id: id } });
-    await Thread.destroy({ where: { id } });
-    this.threads.delete(id);
+    await AgentLog.destroy({ where: { thread_id: id } });
+    await Agent.destroy({ where: { id } });
+    this.agents.delete(id);
 
-    this.logger('info', `Thread deleted: ${id}`);
+    this.logger('info', `Agent deleted: ${id}`);
   }
 
-  async getThread(id: string): Promise<ThreadConfig | null> {
-    return this.threads.get(id)?.config ?? null;
+  async getAgent(id: string): Promise<AgentConfig | null> {
+    return this.agents.get(id)?.config ?? null;
   }
 
-  async listThreads(folderId?: string): Promise<ThreadConfig[]> {
-    const all = [...this.threads.values()].map(m => m.config);
+  async listAgents(folderId?: string): Promise<AgentConfig[]> {
+    const all = [...this.agents.values()].map(m => m.config);
     if (folderId) return all.filter(c => c.folderId === folderId);
     return all;
   }
@@ -238,9 +238,9 @@ export class ThreadManager {
     const folder = await Folder.findByPk(id);
     if (!folder) throw new Error(`Folder not found: ${id}`);
 
-    // Move children threads to parent folder
+    // Move children agents to parent folder
     const parentId = folder.parent_id ?? ROOT_FOLDER_ID;
-    await Thread.update({ folder_id: parentId }, { where: { folder_id: id } });
+    await Agent.update({ folder_id: parentId }, { where: { folder_id: id } });
     await Folder.update({ parent_id: parentId }, { where: { parent_id: id } });
     await folder.destroy();
   }
@@ -269,7 +269,7 @@ export class ThreadManager {
     }
   }
 
-  async ensureContainer(config: ThreadConfig): Promise<void> {
+  async ensureContainer(config: AgentConfig): Promise<void> {
     const { containerId, dockerImage } = config;
 
     if (this.isContainerRunning(containerId)) return;
@@ -299,7 +299,7 @@ export class ThreadManager {
 
     this.dockerExec(`start ${containerId}`);
 
-    // Copy scaffold into /workspace so the thread has files to work with
+    // Copy scaffold into /workspace so the agent has files to work with
     const scaffoldDir = path.join(__dirname, '..', '..', 'scaffold');
     try {
       this.dockerExec(`cp ${scaffoldDir}/. ${containerId}:/workspace/`);
@@ -322,7 +322,7 @@ export class ThreadManager {
     }
   }
 
-  async removeContainer(config: ThreadConfig): Promise<void> {
+  async removeContainer(config: AgentConfig): Promise<void> {
     const { containerId } = config;
     try {
       this.dockerExec(`rm -f ${containerId}`);
@@ -335,26 +335,26 @@ export class ThreadManager {
 
   // ── Run Management ──
 
-  async startRun(threadId: string, trigger: TriggerType = 'manual', input?: string, continueSession?: boolean): Promise<string> {
-    const managed = this.threads.get(threadId);
-    if (!managed) throw new Error(`Thread not found: ${threadId}`);
-    if (managed.process) throw new Error(`Thread "${managed.config.name}" is already running`);
+  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string, continueRun?: boolean): Promise<string> {
+    const managed = this.agents.get(agentId);
+    if (!managed) throw new Error(`Agent not found: ${agentId}`);
+    if (managed.process) throw new Error(`Agent "${managed.config.name}" is already running`);
 
     // Ensure Docker container is running
     await this.ensureContainer(managed.config);
 
-    // Load history from previous session if continuing
+    // Load history from previous run if continuing
     let history: Array<{ role: string; content: any }> | undefined;
-    let sessionId: string;
+    let runId: string;
 
-    if (continueSession) {
-      const prevSession = await Session.findOne({
-        where: { thread_id: threadId },
+    if (continueRun) {
+      const prevRun = await Run.findOne({
+        where: { thread_id: agentId },
         order: [['created_at', 'DESC']],
       });
-      if (prevSession) {
+      if (prevRun) {
         const messages = await Message.findAll({
-          where: { session_id: prevSession.id },
+          where: { session_id: prevRun.id },
           order: [['created_at', 'ASC']],
         });
         if (messages.length > 0) {
@@ -367,14 +367,14 @@ export class ThreadManager {
       }
     }
 
-    // Create session for this run
-    const session = await Session.create({
+    // Create run record
+    const run = await Run.create({
       cwd: managed.config.cwd,
       model: managed.config.model,
-      thread_id: threadId,
+      thread_id: agentId,
       trigger,
     });
-    sessionId = session.id;
+    runId = run.id;
 
     // Fork the worker
     const child = fork(WORKER_PATH, [], {
@@ -384,27 +384,26 @@ export class ThreadManager {
     });
 
     managed.process = child;
-    managed.currentSessionId = sessionId;
+    managed.currentRunId = runId;
 
     // Set up IPC handler
     child.on('message', (msg: ChildMessage) => {
-      this.handleChildMessage(threadId, sessionId, msg);
+      this.handleChildMessage(agentId, runId, msg);
     });
 
     child.on('exit', (code) => {
-      this.handleChildExit(threadId, code);
+      this.handleChildExit(agentId, code);
     });
 
     child.on('error', (err) => {
-      this.logger('error', `Thread "${managed.config.name}" process error: ${err.message}`);
+      this.logger('error', `Agent "${managed.config.name}" process error: ${err.message}`);
     });
 
     // Wait for 'ready' then send 'start'
-    // The child sends 'ready' immediately on load
     const startMsg: ParentMessage = {
       type: 'start',
       config: managed.config,
-      sessionId,
+      sessionId: runId,
       trigger,
       input,
       history,
@@ -426,14 +425,14 @@ export class ThreadManager {
     child.send(startMsg);
 
     // Update status
-    await this.updateThreadStatus(threadId, 'running');
-    this.logger('info', `Thread "${managed.config.name}" run started (session: ${sessionId})`);
+    await this.updateAgentStatus(agentId, 'running');
+    this.logger('info', `Agent "${managed.config.name}" run started (run: ${runId})`);
 
-    return sessionId;
+    return runId;
   }
 
-  async stopRun(threadId: string, reason: string = 'user requested'): Promise<void> {
-    const managed = this.threads.get(threadId);
+  async stopRun(agentId: string, reason: string = 'user requested'): Promise<void> {
+    const managed = this.agents.get(agentId);
     if (!managed?.process) return;
 
     const stopMsg: ParentMessage = { type: 'stop', reason };
@@ -455,24 +454,24 @@ export class ThreadManager {
     });
   }
 
-  async resumeThread(threadId: string, message?: string): Promise<void> {
-    const managed = this.threads.get(threadId);
-    if (!managed?.process) throw new Error('Thread is not running');
-    if (managed.config.status !== 'paused') throw new Error('Thread is not paused');
+  async resumeAgent(agentId: string, message?: string): Promise<void> {
+    const managed = this.agents.get(agentId);
+    if (!managed?.process) throw new Error('Agent is not running');
+    if (managed.config.status !== 'paused') throw new Error('Agent is not paused');
 
     const msg: ParentMessage = { type: 'resume', message };
     managed.process.send(msg);
-    await this.updateThreadStatus(threadId, 'running');
+    await this.updateAgentStatus(agentId, 'running');
   }
 
-  async injectMessage(threadId: string, message: string): Promise<void> {
-    const managed = this.threads.get(threadId);
-    if (!managed?.process) throw new Error('Thread is not running');
+  async injectMessage(agentId: string, message: string): Promise<void> {
+    const managed = this.agents.get(agentId);
+    if (!managed?.process) throw new Error('Agent is not running');
 
     // If paused, resume with the message instead
     if (managed.config.status === 'paused') {
       managed.process.send({ type: 'resume', message } as ParentMessage);
-      await this.updateThreadStatus(threadId, 'running');
+      await this.updateAgentStatus(agentId, 'running');
       return;
     }
 
@@ -482,8 +481,8 @@ export class ThreadManager {
 
   // ── IPC Handling ──
 
-  private async handleChildMessage(threadId: string, sessionId: string, msg: ChildMessage): Promise<void> {
-    const managed = this.threads.get(threadId);
+  private async handleChildMessage(agentId: string, runId: string, msg: ChildMessage): Promise<void> {
+    const managed = this.agents.get(agentId);
     if (!managed) return;
 
     switch (msg.type) {
@@ -494,9 +493,9 @@ export class ThreadManager {
       case 'log': {
         // Streaming text tokens: forward to SSE for live display, but don't persist
         if (msg.event === 'llm.text') {
-          this.broadcastSSE(threadId, {
+          this.broadcastSSE(agentId, {
             type: 'llm_text',
-            threadId,
+            agentId,
             text: msg.message,
           });
           break;
@@ -504,9 +503,9 @@ export class ThreadManager {
 
         // Persist to DB (skip debug level to reduce volume)
         if (msg.level !== 'debug') {
-          await ThreadLog.create({
-            thread_id: threadId,
-            session_id: sessionId,
+          await AgentLog.create({
+            thread_id: agentId,
+            session_id: runId,
             level: msg.level,
             event: msg.event,
             message: msg.message,
@@ -521,10 +520,10 @@ export class ThreadManager {
 
         // Broadcast to SSE clients (skip debug)
         if (msg.level === 'debug') break;
-        this.broadcastSSE(threadId, {
+        this.broadcastSSE(agentId, {
           type: 'log',
-          threadId,
-          sessionId,
+          agentId,
+          runId,
           level: msg.level,
           event: msg.event,
           message: msg.message,
@@ -535,24 +534,24 @@ export class ThreadManager {
       }
 
       case 'status':
-        await this.updateThreadStatus(threadId, msg.status);
+        await this.updateAgentStatus(agentId, msg.status);
         break;
 
       case 'paused':
-        await this.updateThreadStatus(threadId, 'paused');
+        await this.updateAgentStatus(agentId, 'paused');
         this.logger('info', `[${managed.config.name}] Paused: ${msg.reason}`);
-        this.broadcastSSE(threadId, {
-          type: 'thread_paused',
-          threadId,
+        this.broadcastSSE(agentId, {
+          type: 'agent_paused',
+          agentId,
           reason: msg.reason,
           timestamp: new Date().toISOString(),
         });
         break;
 
       case 'message_persist': {
-        const session = await Session.findByPk(msg.sessionId);
-        if (session) {
-          await session.addMessage(msg.role, msg.content, {
+        const run = await Run.findByPk(msg.sessionId);
+        if (run) {
+          await run.addMessage(msg.role, msg.content, {
             stopReason: msg.stopReason,
             inputTokens: msg.inputTokens,
             outputTokens: msg.outputTokens,
@@ -566,26 +565,26 @@ export class ThreadManager {
         break;
 
       case 'signal_emit':
-        // TODO: route to other threads
+        // TODO: route to other agents
         this.logger('info', `[${managed.config.name}] Signal emitted: ${msg.name}`);
         break;
 
       case 'run_complete': {
-        const session = await Session.findByPk(msg.sessionId);
-        if (session) {
-          await session.update({
+        const run = await Run.findByPk(msg.sessionId);
+        if (run) {
+          await run.update({
             run_summary: msg.summary,
             run_error: msg.error ?? null,
-            total_input_tokens: session.totalInputTokens + msg.tokens.input,
-            total_output_tokens: session.totalOutputTokens + msg.tokens.output,
+            total_input_tokens: run.totalInputTokens + msg.tokens.input,
+            total_output_tokens: run.totalOutputTokens + msg.tokens.output,
           });
         }
 
         this.logger('info', `[${managed.config.name}] Run complete. Tokens: ${msg.tokens.input}in/${msg.tokens.output}out`);
 
-        // Persist run summary as a ThreadLog so it shows up on reload
-        await ThreadLog.create({
-          thread_id: threadId,
+        // Persist run summary as an AgentLog so it shows up on reload
+        await AgentLog.create({
+          thread_id: agentId,
           session_id: msg.sessionId,
           level: msg.error ? 'error' : 'info',
           event: 'run.complete',
@@ -593,10 +592,10 @@ export class ThreadManager {
           data: JSON.stringify({ tokens: msg.tokens, error: msg.error }),
         });
 
-        this.broadcastSSE(threadId, {
+        this.broadcastSSE(agentId, {
           type: 'run_complete',
-          threadId,
-          sessionId: msg.sessionId,
+          agentId,
+          runId: msg.sessionId,
           summary: msg.summary,
           error: msg.error,
           tokens: msg.tokens,
@@ -607,18 +606,18 @@ export class ThreadManager {
 
       case 'error':
         this.logger('error', `[${managed.config.name}] Error: ${msg.error}`);
-        await this.updateThreadStatus(threadId, 'error');
+        await this.updateAgentStatus(agentId, 'error');
 
-        if (managed.currentSessionId) {
-          const session = await Session.findByPk(managed.currentSessionId);
-          if (session) {
-            await session.update({ run_error: msg.error });
+        if (managed.currentRunId) {
+          const run = await Run.findByPk(managed.currentRunId);
+          if (run) {
+            await run.update({ run_error: msg.error });
           }
         }
 
-        this.broadcastSSE(threadId, {
-          type: 'thread_error',
-          threadId,
+        this.broadcastSSE(agentId, {
+          type: 'agent_error',
+          agentId,
           error: msg.error,
           timestamp: new Date().toISOString(),
         });
@@ -626,19 +625,19 @@ export class ThreadManager {
     }
   }
 
-  private handleChildExit(threadId: string, code: number | null): void {
-    const managed = this.threads.get(threadId);
+  private handleChildExit(agentId: string, code: number | null): void {
+    const managed = this.agents.get(agentId);
     if (!managed) return;
 
     managed.process = null;
-    managed.currentSessionId = null;
+    managed.currentRunId = null;
 
     if (managed.config.status === 'running') {
       // Unexpected exit
       managed.config.status = code === 0 ? 'idle' : 'error';
-      Thread.update(
+      Agent.update(
         { status: managed.config.status },
-        { where: { id: threadId } },
+        { where: { id: agentId } },
       ).catch(() => {}); // fire and forget
     }
 
@@ -647,16 +646,16 @@ export class ThreadManager {
     }
   }
 
-  private async updateThreadStatus(threadId: string, status: ThreadStatus): Promise<void> {
-    const managed = this.threads.get(threadId);
+  private async updateAgentStatus(agentId: string, status: AgentStatus): Promise<void> {
+    const managed = this.agents.get(agentId);
     if (!managed) return;
 
     managed.config.status = status;
-    await Thread.update({ status }, { where: { id: threadId } });
+    await Agent.update({ status }, { where: { id: agentId } });
 
-    this.broadcastSSE(threadId, {
-      type: 'thread_status',
-      threadId,
+    this.broadcastSSE(agentId, {
+      type: 'agent_status',
+      agentId,
       status,
       timestamp: new Date().toISOString(),
     });
@@ -665,10 +664,10 @@ export class ThreadManager {
   // ── SSE ──
 
   /**
-   * Subscribe to SSE events for a specific thread.
+   * Subscribe to SSE events for a specific agent.
    * Also sends recent log history on connect.
    */
-  async addSSEClient(threadId: string, res: ServerResponse): Promise<void> {
+  async addSSEClient(agentId: string, res: ServerResponse): Promise<void> {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -676,53 +675,52 @@ export class ThreadManager {
       'Access-Control-Allow-Origin': '*',
     });
 
-    if (!this.sseClients.has(threadId)) {
-      this.sseClients.set(threadId, new Set());
+    if (!this.sseClients.has(agentId)) {
+      this.sseClients.set(agentId, new Set());
     }
-    this.sseClients.get(threadId)!.add(res);
+    this.sseClients.get(agentId)!.add(res);
 
     res.on('close', () => {
-      const clients = this.sseClients.get(threadId);
+      const clients = this.sseClients.get(agentId);
       if (clients) {
         clients.delete(res);
-        if (clients.size === 0) this.sseClients.delete(threadId);
+        if (clients.size === 0) this.sseClients.delete(agentId);
       }
     });
 
-    // Send thread state
-    const config = this.threads.get(threadId)?.config;
+    // Send agent state
+    const config = this.agents.get(agentId)?.config;
     if (config) {
-      res.write(`data: ${JSON.stringify({ type: 'init', thread: config })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'init', agent: config })}\n\n`);
     }
 
     // Send recent log history
-    const logs = await this.getThreadLogs(threadId, 100);
+    const logs = await this.getAgentLogs(agentId, 100);
     res.write(`data: ${JSON.stringify({ type: 'history', logs })}\n\n`);
 
-    // Send messages from the most recent session so conversation survives reload
-    const latestSession = await Session.findOne({
-      where: { thread_id: threadId },
+    // Send messages from the most recent run so conversation survives reload
+    const latestRun = await Run.findOne({
+      where: { thread_id: agentId },
       order: [['created_at', 'DESC']],
     });
-    if (latestSession) {
+    if (latestRun) {
       const messages = await Message.findAll({
-        where: { session_id: latestSession.id },
+        where: { session_id: latestRun.id },
         order: [['created_at', 'ASC']],
       });
       if (messages.length > 0) {
         res.write(`data: ${JSON.stringify({
           type: 'messages',
-          sessionId: latestSession.id,
+          runId: latestRun.id,
           messages: messages.map(m => m.toApi()),
         })}\n\n`);
       }
     }
   }
 
-  private broadcastSSE(threadId: string, data: any): void {
+  private broadcastSSE(agentId: string, data: any): void {
     const payload = `data: ${JSON.stringify(data)}\n\n`;
-    // Send to thread-specific subscribers
-    const clients = this.sseClients.get(threadId);
+    const clients = this.sseClients.get(agentId);
     if (clients) {
       for (const client of clients) {
         client.write(payload);
@@ -732,18 +730,18 @@ export class ThreadManager {
 
   // ── Queries (for HTTP API) ──
 
-  async getThreadRuns(threadId: string, limit: number = 20): Promise<any[]> {
-    const sessions = await Session.findAll({
-      where: { thread_id: threadId },
+  async getAgentRuns(agentId: string, limit: number = 20): Promise<any[]> {
+    const runs = await Run.findAll({
+      where: { thread_id: agentId },
       order: [['created_at', 'DESC']],
       limit,
     });
-    return sessions.map(s => s.toApi());
+    return runs.map(r => r.toApi());
   }
 
-  async getThreadLogs(threadId: string, limit: number = 100): Promise<any[]> {
-    const logs = await ThreadLog.findAll({
-      where: { thread_id: threadId },
+  async getAgentLogs(agentId: string, limit: number = 100): Promise<any[]> {
+    const logs = await AgentLog.findAll({
+      where: { thread_id: agentId },
       order: [['created_at', 'DESC']],
       limit,
     });

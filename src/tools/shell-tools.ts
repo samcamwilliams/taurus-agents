@@ -10,7 +10,7 @@
 
 import type { ToolResult, ToolContext } from '../core/types.js';
 import { Tool } from './base.js';
-import type { PersistentShell } from '../threads/persistent-shell.js';
+import type { PersistentShell } from '../daemon/persistent-shell.js';
 
 export class ShellReadTool extends Tool {
   readonly name = 'Read';

@@ -1,13 +1,13 @@
 /**
- * thread-worker.ts — Universal child process entry point.
+ * agent-worker.ts — Universal child process entry point.
  *
- * Spawned via child_process.fork() by ThreadManager.
- * Receives ThreadConfig via IPC, runs the agent loop, sends events back.
+ * Spawned via child_process.fork() by Daemon.
+ * Receives AgentConfig via IPC, runs the agent loop, sends events back.
  * All DB writes go through parent via IPC messages.
  */
 
 import 'dotenv/config';
-import type { ParentMessage, ChildMessage, ThreadConfig, TriggerType, LogLevel } from './types.js';
+import type { ParentMessage, ChildMessage, AgentConfig, TriggerType, LogLevel } from './types.js';
 import { agentLoop } from '../agents/agent-loop.js';
 import { ChatML } from '../core/chatml.js';
 import { InferenceService } from '../inference/service.js';
@@ -72,7 +72,7 @@ function registerTools(registry: ToolRegistry, toolNames: string[], shell: Persi
     }
   }
 
-  // Always register Pause even if not in the list — threads need it
+  // Always register Pause even if not in the list — agents need it
   if (!toolNames.includes('Pause')) {
     registry.register(new PauseTool(sendPause, waitForResume));
   }
@@ -97,8 +97,8 @@ function buildInputMessage(trigger: TriggerType, input?: string): string {
 
 // ── Main run function ──
 
-async function runThread(config: ThreadConfig, sessionId: string, trigger: TriggerType, input?: string, history?: Array<{ role: string; content: any }>): Promise<void> {
-  log('info', 'run.started', `Thread "${config.name}" started (trigger: ${trigger})`);
+async function runAgent(config: AgentConfig, runId: string, trigger: TriggerType, input?: string, history?: Array<{ role: string; content: any }>): Promise<void> {
+  log('info', 'run.started', `Agent "${config.name}" started (trigger: ${trigger})`);
   send({ type: 'status', status: 'running' });
 
   // 1. Initialize inference
@@ -124,7 +124,7 @@ async function runThread(config: ThreadConfig, sessionId: string, trigger: Trigg
   chatml.setSystem(config.systemPrompt);
 
   if (history && history.length > 0) {
-    // Continuing a previous session — replay prior messages
+    // Continuing a previous run — replay prior messages
     // Trim trailing incomplete tool calls: if last assistant message has tool_use
     // blocks without matching tool_result in a following user message, drop it
     const trimmed = [...history];
@@ -155,7 +155,7 @@ async function runThread(config: ThreadConfig, sessionId: string, trigger: Trigg
     // Add the continuation prompt (or injected input)
     const contMsg = input || 'Continue from where you left off.';
     chatml.addUser(contMsg);
-    log('info', 'run.continued', `Replayed ${trimmed.length} messages from previous session (${history.length} total)`);
+    log('info', 'run.continued', `Replayed ${trimmed.length} messages from previous run (${history.length} total)`);
   } else {
     chatml.addUser(buildInputMessage(trigger, input));
   }
@@ -165,10 +165,10 @@ async function runThread(config: ThreadConfig, sessionId: string, trigger: Trigg
     const requestApproval = async (toolName: string, _input: any): Promise<boolean> => {
       // Observers can't use mutation tools
       if (config.type === 'observer') {
-        log('warn', 'tool.denied', `Observer thread cannot use mutation tool: ${toolName}`);
+        log('warn', 'tool.denied', `Observer agent cannot use mutation tool: ${toolName}`);
         return false;
       }
-      // Actors auto-approve for now (threads are autonomous)
+      // Actors auto-approve for now (agents are autonomous)
       return true;
     };
 
@@ -192,7 +192,7 @@ async function runThread(config: ThreadConfig, sessionId: string, trigger: Trigg
           if (event.event.type === 'message_complete') {
             send({
               type: 'message_persist',
-              sessionId,
+              sessionId: runId,
               role: 'assistant',
               content: event.event.message.content,
               stopReason: event.event.stopReason,
@@ -250,7 +250,7 @@ async function runThread(config: ThreadConfig, sessionId: string, trigger: Trigg
   const usage = inference.getUsage();
   send({
     type: 'run_complete',
-    sessionId,
+    sessionId: runId,
     summary,
     tokens: {
       input: usage.inputTokens,
@@ -266,7 +266,7 @@ process.on('message', async (msg: ParentMessage) => {
   switch (msg.type) {
     case 'start':
       try {
-        await runThread(msg.config, msg.sessionId, msg.trigger, msg.input, msg.history);
+        await runAgent(msg.config, msg.sessionId, msg.trigger, msg.input, msg.history);
       } catch (err: any) {
         send({ type: 'error', error: err.message, stack: err.stack });
       }
@@ -275,7 +275,7 @@ process.on('message', async (msg: ParentMessage) => {
       break;
 
     case 'stop':
-      log('info', 'thread.stopping', `Stopping: ${msg.reason}`);
+      log('info', 'agent.stopping', `Stopping: ${msg.reason}`);
       abortController.abort();
       // Give agent loop time to notice the signal
       setTimeout(() => process.exit(0), 5000);
@@ -290,11 +290,11 @@ process.on('message', async (msg: ParentMessage) => {
 
     case 'inject':
       injectQueue.push(msg.message);
-      log('info', 'thread.inject', `Message queued for next turn: ${msg.message}`);
+      log('info', 'agent.inject', `Message queued for next turn: ${msg.message}`);
       break;
 
     case 'signal':
-      log('info', 'thread.signal', `Signal received: ${msg.name}`, msg.payload);
+      log('info', 'agent.signal', `Signal received: ${msg.name}`, msg.payload);
       break;
   }
 });
