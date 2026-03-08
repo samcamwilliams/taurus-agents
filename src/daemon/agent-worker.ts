@@ -176,6 +176,22 @@ function patchIncompleteToolCalls(messages: ChatMessage[]): void {
   }
 }
 
+// ── System prompt template expansion ──
+
+function expandSystemPrompt(prompt: string): string {
+  const now = new Date();
+  const replacements: Record<string, string> = {
+    'datetime': now.toISOString(),
+    'date': now.toISOString().split('T')[0],
+    'time': now.toTimeString().split(' ')[0],
+    'year': String(now.getFullYear()),
+    'timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+  return prompt.replace(/\{\{(\w+)\}\}/gi, (match, key) => {
+    return replacements[key.toLowerCase()] ?? match;
+  });
+}
+
 // ── Main run function ──
 
 async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean): Promise<void> {
@@ -208,7 +224,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 
   // 4. Build ChatML
   const chatml = new ChatML();
-  chatml.setSystem(agent.system_prompt);
+  chatml.setSystem(expandSystemPrompt(agent.system_prompt));
 
   if (resume) {
     // Restore conversation from this run's persisted messages

@@ -2,7 +2,7 @@
   "name": "taurus-agents",
   "version": "0.1.0",
   "type": "module",
-  "description": "A generalized multi-agent coding assistant",
+  "description": "A generalized multi-agent orchestration framework",
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx src/index.ts",

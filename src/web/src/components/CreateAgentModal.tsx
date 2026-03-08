@@ -9,7 +9,7 @@ interface CreateAgentModalProps {
 export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'observer' | 'actor'>('observer');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState('You are a helpful agent. Today\'s date is {{date}}.');
   const [tools, setTools] = useState('Read, Glob, Grep');
   const [cwd, setCwd] = useState('');
   const [model, setModel] = useState('');
