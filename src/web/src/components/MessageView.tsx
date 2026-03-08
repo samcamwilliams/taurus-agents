@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { MessageRecord } from '../types';
+import { Markdown } from './Markdown';
 
 function ContentBlock({ block }: { block: any }) {
   if (block.type === 'text') {
-    return <div className="msg-text">{block.text}</div>;
+    return <Markdown>{block.text}</Markdown>;
   }
   if (block.type === 'tool_use') {
     return (
@@ -35,7 +36,7 @@ function ContentBlock({ block }: { block: any }) {
 
 function MessageContent({ content }: { content: unknown }) {
   if (typeof content === 'string') {
-    return <div className="msg-text">{content}</div>;
+    return <Markdown>{content}</Markdown>;
   }
   if (Array.isArray(content)) {
     return (
@@ -111,7 +112,7 @@ export function MessageView({ messages, streamingText }: MessageViewProps) {
             </span>
           </div>
           <div className="message__body">
-            <div className="msg-text">{streamingText}</div>
+            <Markdown>{streamingText}</Markdown>
           </div>
         </div>
       )}

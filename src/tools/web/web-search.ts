@@ -17,7 +17,7 @@ export class WebSearchTool extends Tool {
       },
       count: {
         type: 'number',
-        description: 'Number of results to return (1–10, default 5).',
+        description: 'Number of results to return (1–20, default 10).',
       },
     },
     required: ['query'],
@@ -29,7 +29,7 @@ export class WebSearchTool extends Tool {
 
   async execute(input: { query: string; count?: number }, _context: ToolContext): Promise<ToolResult> {
     const start = Date.now();
-    const count = Math.min(Math.max(input.count ?? 5, 1), 10);
+    const count = Math.min(Math.max(input.count ?? 10, 1), 20);
 
     try {
       const results = await this.provider.search(input.query, { count });

@@ -1,19 +1,15 @@
-I notice sometimes the Edit tool errors out and you have to re-read again. Is this relevant to Taurus too? I've never seen such failure mode here
+[] markdown
+[] show thinking summaries
+
+[] track mtime and error out on edit without reading first
 
 "Execute your task" where can i change prompt templates??
 
-[...] streaming again
-
-[] web search and fetch tools
-
-[] markdown
 [] secure markdown!
 
 // TODO: route to other agents
 
-[] rebuild backend too! --watch [] hmm but won't it reload many times while writes are being written
-
-[] show thinking summaries
+[] ! CRON
 
 > Good news: sync({ alter: true }) means new columns auto-add
 we should really stop doing that and use migrations instead
@@ -21,8 +17,6 @@ we should really stop doing that and use migrations instead
 [] why end_turn terminology?
 
 [] context length management (proper! brainstorm)
-
-[] docker should pause when the run is over
 
 [] prevent second ./taurus from running and interfering
 [] split types.ts so they're owned by their files
@@ -38,6 +32,7 @@ we should really stop doing that and use migrations instead
 [] maybe take containerization options out of the thread table itself?
 
 
+
 later
 
 [] connect e2b/computer use
@@ -45,3 +40,5 @@ later
 [] moltbook-like thingy?
 
 [] If it bothers you, you could switch to better-sqlite3 (pure JS bindings, no node-gyp) someday, but that's a different API (synchronous) and would need Sequelize dialect changes.
+
+[] rebuild backend too! --watch [] hmm but won't it reload many times while writes are being written

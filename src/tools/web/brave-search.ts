@@ -29,11 +29,24 @@ export class BraveSearchProvider implements SearchProvider {
     const data = await response.json() as BraveSearchResponse;
 
     return (data.web?.results ?? []).map(r => ({
-      title: r.title,
+      title: decodeHtml(r.title),
       url: r.url,
-      snippet: r.description,
+      snippet: decodeHtml(r.description),
     }));
   }
+}
+
+/** Strip HTML tags and decode HTML entities (&#x27; &amp; etc.) */
+function decodeHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')                                  // strip tags like <strong>
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
 }
 
 // Minimal type definitions for the Brave Search API response
