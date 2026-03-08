@@ -5,7 +5,8 @@
         [] also have a task/agent that sweeps through all security issues and works on them and auto-tests!
 [] screenshot captured but can't use
 [] browser tool featureset: Yes, you should definitely expand it! A few approaches:
-[] browser useragent
+[x] browser useragent
+[] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
 
 
 [] pdfs! see how codex does it etc. but also deepseek pdf (skill/agent?)

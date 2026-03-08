@@ -17,6 +17,7 @@ import { execSync } from 'child_process';
 
 const STATE_FILE = '/tmp/.browser-cli.json';
 const CDP_PORT = 9222;
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 // ── State persistence ──
 
@@ -45,7 +46,7 @@ async function ensureBrowser() {
     try {
       const browser = await chromium.connectOverCDP(state.cdpUrl, { timeout: 3000 });
       const contexts = browser.contexts();
-      const ctx = contexts[0] || await browser.newContext({ viewport: { width: 1280, height: 720 } });
+      const ctx = contexts[0] || await browser.newContext({ viewport: { width: 1280, height: 720 }, userAgent: USER_AGENT });
       const pages = ctx.pages();
       const page = pages[0] || await ctx.newPage();
       return { browser, page };
@@ -65,6 +66,7 @@ async function ensureBrowser() {
   // Launch Chromium with remote debugging
   execSync(
     `${chromePath} --headless --no-sandbox --disable-gpu --disable-dev-shm-usage ` +
+    `--user-agent='${USER_AGENT}' ` +
     `--remote-debugging-port=${CDP_PORT} --remote-debugging-address=127.0.0.1 &`,
     { shell: '/bin/bash', stdio: 'ignore' }
   );
@@ -80,7 +82,7 @@ async function ensureBrowser() {
   }
 
   const browser = await chromium.connectOverCDP(cdpUrl);
-  const ctx = browser.contexts()[0] || await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const ctx = browser.contexts()[0] || await browser.newContext({ viewport: { width: 1280, height: 720 }, userAgent: USER_AGENT });
   const page = ctx.pages()[0] || await ctx.newPage();
 
   saveState({ cdpUrl });
