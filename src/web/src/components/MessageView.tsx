@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { MessageRecord } from '../types';
 
 function ContentBlock({ block }: { block: any }) {
@@ -53,12 +54,33 @@ interface MessageViewProps {
 }
 
 export function MessageView({ messages }: MessageViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wasNearBottom = useRef(true);
+
+  // Track scroll position before render
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // "Near bottom" = within 150px of the end
+    const isNear = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNear) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
+
+  // On scroll, record whether we're near the bottom
+  function handleScroll() {
+    const el = containerRef.current;
+    if (!el) return;
+    wasNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+  }
+
   if (messages.length === 0) {
     return <div className="empty-state">No messages in this run</div>;
   }
 
   return (
-    <div className="message-list">
+    <div className="message-list" ref={containerRef} onScroll={handleScroll}>
       {messages.map(msg => (
         <div key={msg.id} className={`message message--${msg.role}`}>
           <div className="message__header">

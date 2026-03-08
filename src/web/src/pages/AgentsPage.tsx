@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Agent, Run, MessageRecord } from '../types';
 import { api } from '../api';
@@ -18,6 +18,12 @@ export function AgentsPage() {
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Refs so SSE callbacks see latest values without re-subscribing
+  const agentIdRef = useRef(agentId);
+  const runIdRef = useRef(runId);
+  useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
+  useEffect(() => { runIdRef.current = runId; }, [runId]);
+
   // ── Load agents ──
 
   const loadAgents = useCallback(async () => {
@@ -27,7 +33,7 @@ export function AgentsPage() {
 
   useEffect(() => {
     loadAgents();
-    const interval = setInterval(loadAgents, 10_000);
+    const interval = setInterval(loadAgents, 30_000);
     return () => clearInterval(interval);
   }, [loadAgents]);
 
@@ -59,6 +65,58 @@ export function AgentsPage() {
       navigate(`/agents/${agentId}/runs/${runs[0].id}`, { replace: true });
     }
   }, [agentId, runs, runId, navigate]);
+
+  // ── SSE: live updates when an agent is selected ──
+
+  useEffect(() => {
+    if (!agentId) return;
+
+    const es = new EventSource(`/api/agents/${agentId}/stream`);
+
+    es.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        switch (data.type) {
+          case 'agent_status':
+            // Update this agent's status in the list
+            setAgents(prev => prev.map(a =>
+              a.id === data.agentId ? { ...a, status: data.status } : a,
+            ));
+            break;
+
+          case 'run_complete':
+            // Refresh runs list and current messages
+            api.listRuns(agentIdRef.current!).then(setRuns);
+            if (runIdRef.current) {
+              api.getRunMessages(agentIdRef.current!, runIdRef.current).then(setMessages);
+            }
+            loadAgents();
+            break;
+
+          case 'agent_paused':
+            setAgents(prev => prev.map(a =>
+              a.id === data.agentId ? { ...a, status: 'paused' as const } : a,
+            ));
+            break;
+
+          case 'agent_error':
+            setAgents(prev => prev.map(a =>
+              a.id === data.agentId ? { ...a, status: 'error' as const } : a,
+            ));
+            break;
+
+          case 'log':
+            // On tool execution logs, refresh messages for the active run
+            if (data.event === 'tool.executed' && runIdRef.current) {
+              api.getRunMessages(agentIdRef.current!, runIdRef.current).then(setMessages);
+            }
+            break;
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    return () => es.close();
+  }, [agentId, loadAgents]);
 
   // ── Actions ──
 
