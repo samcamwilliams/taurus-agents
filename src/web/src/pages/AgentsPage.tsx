@@ -27,6 +27,9 @@ export function AgentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('runs');
 
+  // Remember last selected run per agent so switching back restores it
+  const lastRunByAgent = useRef<Record<string, string>>({});
+
   // Refs so SSE callbacks see latest values without re-subscribing
   const agentIdRef = useRef(agentId);
   const runIdRef = useRef(runId);
@@ -34,7 +37,10 @@ export function AgentsPage() {
   const streamingTextRef = useRef('');
   const streamingThinkingRef = useRef('');
   useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
-  useEffect(() => { runIdRef.current = runId; }, [runId]);
+  useEffect(() => {
+    runIdRef.current = runId;
+    if (agentId && runId) lastRunByAgent.current[agentId] = runId;
+  }, [agentId, runId]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // ── Load agents ──
@@ -71,11 +77,13 @@ export function AgentsPage() {
     api.getRunMessages(agentId, runId).then(setMessages);
   }, [agentId, runId]);
 
-  // ── Auto-select latest run when agent changes ──
+  // ── Auto-select run when agent changes (restore last or pick latest) ──
 
   useEffect(() => {
     if (agentId && runs.length > 0 && !runId && activeTab === 'runs') {
-      navigate(`/agents/${agentId}/runs/${runs[0].id}`, { replace: true });
+      const remembered = lastRunByAgent.current[agentId];
+      const targetId = remembered && runs.some(r => r.id === remembered) ? remembered : runs[0].id;
+      navigate(`/agents/${agentId}/runs/${targetId}`, { replace: true });
     }
   }, [agentId, runs, runId, navigate, activeTab]);
 

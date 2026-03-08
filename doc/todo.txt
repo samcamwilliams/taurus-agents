@@ -45,7 +45,7 @@ Hottest
 
 [] context length management (proper! brainstorm)
 
-[] on switching agents, run highlighted within is lost
+[...] on switching agents, run highlighted within is lost
 
 [] different font sizes? monospace and main text
 
