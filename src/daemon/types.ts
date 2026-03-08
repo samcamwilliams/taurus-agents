@@ -8,7 +8,7 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 // ─── IPC: Parent → Child ───
 
 export type ParentMessage =
-  | { type: 'start'; agentId: string; runId: string; trigger: TriggerType; input?: string; continueRun?: boolean }
+  | { type: 'start'; agentId: string; runId: string; trigger: TriggerType; input?: string; resume?: boolean }
   | { type: 'stop'; reason: string }
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string }

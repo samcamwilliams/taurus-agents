@@ -185,23 +185,48 @@ export class Daemon {
 
   // ── Run Management ──
 
-  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string, continueRun?: boolean): Promise<string> {
+  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string): Promise<string> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
     if (managed.process) throw new Error(`Agent "${managed.agent.name}" is already running`);
 
     await this.docker.ensureContainer(managed.agent);
 
-    // Create run record (daemon owns runId for process tracking)
     const run = await Run.create({
       cwd: managed.agent.cwd,
       model: managed.agent.model,
       agent_id: agentId,
       trigger,
     });
-    const runId = run.id;
 
-    // Fork the worker
+    await this.forkWorker(agentId, run.id, {
+      type: 'start', agentId, runId: run.id, trigger, input,
+    });
+
+    this.logger('info', `Agent "${managed.agent.name}" run started (run: ${run.id})`);
+    return run.id;
+  }
+
+  async continueRun(agentId: string, runId: string, input?: string): Promise<void> {
+    const managed = this.agents.get(agentId);
+    if (!managed) throw new Error(`Agent not found: ${agentId}`);
+    if (managed.process) throw new Error(`Agent "${managed.agent.name}" is already running`);
+
+    const run = await Run.findByPk(runId);
+    if (!run) throw new Error(`Run not found: ${runId}`);
+
+    await this.docker.ensureContainer(managed.agent);
+
+    await this.forkWorker(agentId, runId, {
+      type: 'start', agentId, runId, trigger: 'manual', input, resume: true,
+    });
+
+    this.logger('info', `Agent "${managed.agent.name}" run continued (run: ${runId})`);
+  }
+
+  private async forkWorker(agentId: string, runId: string, startMsg: ParentMessage): Promise<void> {
+    const managed = this.agents.get(agentId)!;
+
     const child = fork(WORKER_PATH, [], {
       execArgv: ['--import', 'tsx'],
       serialization: 'advanced',
@@ -223,16 +248,6 @@ export class Daemon {
       this.logger('error', `Agent "${managed.agent.name}" process error: ${err.message}`);
     });
 
-    // Wait for 'ready' then send 'start'
-    const startMsg: ParentMessage = {
-      type: 'start',
-      agentId,
-      runId,
-      trigger,
-      input,
-      continueRun,
-    };
-
     await new Promise<void>((resolve) => {
       const onMessage = (msg: ChildMessage) => {
         if (msg.type === 'ready') {
@@ -245,11 +260,7 @@ export class Daemon {
     });
 
     child.send(startMsg);
-
     await this.updateAgentStatus(agentId, 'running');
-    this.logger('info', `Agent "${managed.agent.name}" run started (run: ${runId})`);
-
-    return runId;
   }
 
   async stopRun(agentId: string, reason: string = 'user requested'): Promise<void> {

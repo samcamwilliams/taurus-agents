@@ -12,6 +12,7 @@ import Agent from '../db/models/Agent.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 import AgentLog from '../db/models/AgentLog.js';
+import type { ChatMessage, ContentBlock } from '../core/types.js';
 import { agentLoop } from '../agents/agent-loop.js';
 import { ChatML } from '../core/chatml.js';
 import { InferenceService } from '../inference/service.js';
@@ -109,27 +110,65 @@ async function persistMessage(run: Run, role: string, content: any, opts?: {
   await run.addMessage(role, content, opts);
 }
 
-// ── Load history from previous run ──
+// ── Load run history from DB ──
 
-async function loadHistory(agentId: string): Promise<Array<{ role: string; content: any }> | undefined> {
-  const prevRun = await Run.findOne({
-    where: { agent_id: agentId },
-    order: [['created_at', 'DESC']],
-  });
-  if (!prevRun) return undefined;
-
+async function loadRunHistory(runId: string): Promise<ChatMessage[]> {
   const messages = await Message.findAll({
-    where: { run_id: prevRun.id },
+    where: { run_id: runId },
     order: [['created_at', 'ASC']],
   });
-  if (messages.length === 0) return undefined;
+  return messages.map(m => m.toChatMLMessage());
+}
 
-  return messages.map(m => ({ role: m.role, content: m.content }));
+/**
+ * If a run was stopped mid-tool-execution, the last assistant message may have
+ * tool_use blocks without corresponding tool_results. Patch those so the
+ * conversation is valid for the API.
+ */
+function patchIncompleteToolCalls(messages: ChatMessage[]): void {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant' || typeof msg.content === 'string') continue;
+
+    const toolUses = msg.content.filter(b => b.type === 'tool_use');
+    if (toolUses.length === 0) continue;
+
+    const neededIds = new Set(toolUses.map((b: any) => b.id as string));
+
+    // Check if the next message has some/all tool_results
+    const next = messages[i + 1];
+    if (next?.role === 'user' && Array.isArray(next.content)) {
+      for (const block of next.content) {
+        if (block.type === 'tool_result') neededIds.delete((block as any).tool_use_id);
+      }
+      // Append missing results to existing user message
+      for (const id of neededIds) {
+        (next.content as ContentBlock[]).push({
+          type: 'tool_result',
+          tool_use_id: id,
+          content: 'Tool execution was interrupted when the run was stopped.',
+          is_error: true,
+        });
+      }
+    } else if (neededIds.size > 0) {
+      // No following user message — insert one
+      messages.splice(i + 1, 0, {
+        role: 'user',
+        content: [...neededIds].map(id => ({
+          type: 'tool_result' as const,
+          tool_use_id: id,
+          content: 'Tool execution was interrupted when the run was stopped.',
+          is_error: true,
+        })),
+      });
+    }
+    break; // Only fix the last occurrence
+  }
 }
 
 // ── Main run function ──
 
-async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, continueRun?: boolean): Promise<void> {
+async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean): Promise<void> {
   // 0. Load agent and run from DB
   const agent = await Agent.findByPk(agentId);
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
@@ -161,43 +200,49 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const chatml = new ChatML();
   chatml.setSystem(agent.system_prompt);
 
-  if (continueRun) {
-    const history = await loadHistory(agentId);
-    if (history && history.length > 0) {
-      // Trim trailing incomplete tool calls
-      const trimmed = [...history];
-      while (trimmed.length > 0) {
-        const last = trimmed[trimmed.length - 1];
-        if (last.role === 'assistant' && Array.isArray(last.content)) {
-          const hasToolUse = last.content.some((b: any) => b.type === 'tool_use');
-          if (hasToolUse) { trimmed.pop(); continue; }
-        }
-        break;
-      }
-      while (trimmed.length > 0 && trimmed[trimmed.length - 1].role === 'user') {
-        trimmed.pop();
-      }
-
-      for (const msg of trimmed) {
+  if (resume) {
+    // Restore conversation from this run's persisted messages
+    const history = await loadRunHistory(runId);
+    if (history.length > 0) {
+      patchIncompleteToolCalls(history);
+      for (const msg of history) {
         if (msg.role === 'user') chatml.addUser(msg.content);
-        else if (msg.role === 'assistant') chatml.addAssistant(msg.content);
+        else chatml.addAssistant(msg.content);
       }
-
-      const contMsg = input || 'Continue from where you left off.';
-      chatml.addUser(contMsg);
-      log('info', 'run.continued', `Replayed ${trimmed.length} messages from previous run (${history.length} total)`);
-    } else {
-      chatml.addUser(buildInputMessage(trigger, input));
     }
-  } else {
-    chatml.addUser(buildInputMessage(trigger, input));
-  }
 
-  // 5. Persist the initial user message
-  const initialMessages = chatml.getMessages();
-  const initialUserMsg = initialMessages[initialMessages.length - 1];
-  if (initialUserMsg?.role === 'user') {
-    await persistMessage(run, 'user', initialUserMsg.content);
+    // Add new input if provided, respecting message alternation
+    const msgs = chatml.getMessages();
+    const last = msgs[msgs.length - 1];
+
+    if (input) {
+      if (last?.role === 'user' && Array.isArray(last.content)) {
+        // Last is user with content blocks (e.g. tool_results) — append text
+        (last.content as ContentBlock[]).push({ type: 'text', text: input });
+      } else if (last?.role === 'user' && typeof last.content === 'string') {
+        last.content += `\n\n${input}`;
+      } else {
+        chatml.addUser(input);
+      }
+      await persistMessage(run, 'user', input);
+    } else if (!last || last.role === 'assistant') {
+      // Need a user message for the API — prompt to continue
+      const contMsg = 'Continue from where you left off.';
+      chatml.addUser(contMsg);
+      await persistMessage(run, 'user', contMsg);
+    }
+    // If last is user (e.g. patched tool_results), no extra message needed
+
+    log('info', 'run.resumed', `Loaded ${history.length} messages, resuming run`);
+  } else {
+    // Fresh run
+    chatml.addUser(buildInputMessage(trigger, input));
+
+    const initialMessages = chatml.getMessages();
+    const initialUserMsg = initialMessages[initialMessages.length - 1];
+    if (initialUserMsg?.role === 'user') {
+      await persistMessage(run, 'user', initialUserMsg.content);
+    }
   }
 
   // 6. Run agent loop
@@ -322,7 +367,7 @@ process.on('message', async (msg: ParentMessage) => {
   switch (msg.type) {
     case 'start':
       try {
-        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.continueRun);
+        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume);
       } catch (err: any) {
         send({ type: 'error', error: err.message, stack: err.stack });
       }

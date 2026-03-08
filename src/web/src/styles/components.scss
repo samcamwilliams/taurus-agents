@@ -170,10 +170,11 @@
   padding: 8px 16px;
   border-top: 1px solid $border;
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   background: $bg2;
 
-  input {
+  textarea {
     flex: 1;
     background: $bg;
     border: 1px solid $border;
@@ -183,6 +184,10 @@
     font-family: inherit;
     font-size: 13px;
     outline: none;
+    resize: none;
+    line-height: 1.4;
+    min-height: 32px;
+    max-height: 200px;
 
     &:focus { border-color: $accent; }
   }

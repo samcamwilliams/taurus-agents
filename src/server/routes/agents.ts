@@ -66,13 +66,19 @@ export function agentRoutes(daemon: Daemon): Route[] {
     route('POST', '/api/agents/:id/run', async (req, res, params) => {
       const body = await parseBody(req);
       try {
-        const runId = await daemon.startRun(
-          params.id,
-          body.trigger ?? 'manual',
-          body.input,
-          body.continue_run ?? false,
-        );
-        json(res, { runId }, 201);
+        if (body.run_id) {
+          // Continue an existing run
+          await daemon.continueRun(params.id, body.run_id, body.input);
+          json(res, { runId: body.run_id });
+        } else {
+          // Start a new run
+          const runId = await daemon.startRun(
+            params.id,
+            body.trigger ?? 'manual',
+            body.input,
+          );
+          json(res, { runId }, 201);
+        }
       } catch (err: any) {
         error(res, err.message);
       }

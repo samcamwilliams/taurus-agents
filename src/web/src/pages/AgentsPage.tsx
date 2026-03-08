@@ -133,12 +133,13 @@ export function AgentsPage() {
   }
 
   async function handleContinueRun() {
-    if (!agentId) return;
-    const result = await api.startRun(agentId, { continue_run: true });
+    if (!agentId || runs.length === 0) return;
+    const latestRunId = runs[0].id;
+    await api.startRun(agentId, { run_id: latestRunId });
     await loadAgents();
     const updatedRuns = await api.listRuns(agentId);
     setRuns(updatedRuns);
-    navigate(`/agents/${agentId}/runs/${result.runId}`);
+    navigate(`/agents/${agentId}/runs/${latestRunId}`);
   }
 
   async function handleStopRun() {
@@ -157,13 +158,29 @@ export function AgentsPage() {
     await loadAgents();
   }
 
-  async function handleInject(message: string) {
+  async function handleSend(message: string) {
     if (!agentId) return;
+
     if (selectedAgent?.status === 'paused') {
       await handleResume(message);
       return;
     }
-    await api.injectMessage(agentId, message);
+
+    if (selectedAgent?.status === 'running') {
+      await api.injectMessage(agentId, message);
+      return;
+    }
+
+    // Idle — continue latest run with this message, or start fresh if no runs exist
+    const latestRunId = runs[0]?.id;
+    const result = await api.startRun(agentId, {
+      input: message,
+      ...(latestRunId ? { run_id: latestRunId } : {}),
+    });
+    await loadAgents();
+    const updatedRuns = await api.listRuns(agentId);
+    setRuns(updatedRuns);
+    navigate(`/agents/${agentId}/runs/${result.runId}`);
   }
 
   async function handleDelete() {
@@ -268,9 +285,7 @@ export function AgentsPage() {
                   <div className="empty-state">Select a run to view messages</div>
                 )}
 
-                {(isRunning || isPaused) && (
-                  <InputBar onSend={handleInject} />
-                )}
+                <InputBar onSend={handleSend} />
               </div>
             </div>
           </>

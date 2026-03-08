@@ -31,7 +31,7 @@ export const api = {
     return request(`/api/agents/${id}`, { method: 'DELETE' });
   },
 
-  startRun(agentId: string, opts?: { trigger?: string; input?: string; continue_run?: boolean }): Promise<{ runId: string }> {
+  startRun(agentId: string, opts?: { trigger?: string; input?: string; run_id?: string }): Promise<{ runId: string }> {
     return request(`/api/agents/${agentId}/run`, {
       method: 'POST',
       body: { trigger: 'manual', ...opts },
