@@ -2,7 +2,8 @@
 
 [] "Execute your task" where can i change prompt templates??
     [] Resumed. Human message: Why did you use the pause tool? (from Pause)
-
+    [] tool descriptions
+    [] system prompts
 
 [] ! CRON
 
@@ -16,8 +17,6 @@
 [] chatml: token count and HUD managing/partial compactify/collapse/uncollapse
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
-
-[] toolu_01 kinda useless
 
 [] do we need assistant/user markings?
 

@@ -60,7 +60,7 @@ function ContentBlockView({ block }: { block: any }) {
     return (
       <div className={`msg-tool-result ${isError ? 'error' : ''}`}>
         <div className="msg-tool-result__header">
-          Result{block.tool_use_id ? ` (${block.tool_use_id.slice(0, 8)}...)` : ''}
+          Result
           {isError && <span className="msg-tool-result__error"> ERROR</span>}
         </div>
         <pre className="msg-tool-result__content">
