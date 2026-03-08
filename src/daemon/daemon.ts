@@ -402,6 +402,9 @@ export class Daemon {
     if (code !== 0 && code !== null) {
       this.logger('warn', `[${managed.agent.name}] Process exited with code ${code}`);
     }
+
+    // Pause container to free resources — will unpause on next run
+    this.docker.pauseContainer(managed.agent.container_id).catch(() => {});
   }
 
   private async updateAgentStatus(agentId: string, status: AgentStatus): Promise<void> {

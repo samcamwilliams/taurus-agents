@@ -51,8 +51,12 @@ export class DockerService {
     if (await this.isContainerRunning(container_id)) return;
 
     if (await this.containerExists(container_id)) {
-      await this.docker('start', container_id);
-      this.logger('info', `Container started: ${container_id}`);
+      // May be paused or stopped — unpause first, then start if needed
+      await this.unpauseContainer(container_id);
+      if (!(await this.isContainerRunning(container_id))) {
+        await this.docker('start', container_id);
+        this.logger('info', `Container started: ${container_id}`);
+      }
       return;
     }
 
@@ -83,6 +87,27 @@ export class DockerService {
     }
 
     this.logger('info', `Container created and started: ${container_id} (image: ${docker_image})`);
+  }
+
+  async pauseContainer(container_id: string): Promise<void> {
+    try {
+      await this.docker('pause', container_id);
+      this.logger('info', `Container paused: ${container_id}`);
+    } catch (err: any) {
+      this.logger('warn', `Failed to pause container ${container_id}: ${err.message}`);
+    }
+  }
+
+  async unpauseContainer(container_id: string): Promise<void> {
+    try {
+      const status = await this.docker('inspect', '--format', '{{.State.Status}}', container_id);
+      if (status === 'paused') {
+        await this.docker('unpause', container_id);
+        this.logger('info', `Container unpaused: ${container_id}`);
+      }
+    } catch (err: any) {
+      this.logger('warn', `Failed to unpause container ${container_id}: ${err.message}`);
+    }
   }
 
   async stopContainer(container_id: string): Promise<void> {
