@@ -17,6 +17,7 @@ import type {
 import { ROOT_FOLDER_ID } from './types.js';
 import { DockerService } from './docker.js';
 import { SSEBroadcaster } from './sse.js';
+import { Op } from 'sequelize';
 import Agent from '../db/models/Agent.js';
 import AgentLog from '../db/models/AgentLog.js';
 import Folder from '../db/models/Folder.js';
@@ -472,10 +473,14 @@ export class Daemon {
     return runs.map(r => r.toApi());
   }
 
-  async getRunMessages(runId: string): Promise<any[]> {
+  async getRunMessages(runId: string, afterSeq?: number): Promise<any[]> {
+    const where: any = { run_id: runId };
+    if (afterSeq != null) {
+      where.seq = { [Op.gt]: afterSeq };
+    }
     const messages = await Message.findAll({
-      where: { run_id: runId },
-      order: [['created_at', 'ASC']],
+      where,
+      order: [['seq', 'ASC']],
     });
     return messages.map(m => m.toApi());
   }

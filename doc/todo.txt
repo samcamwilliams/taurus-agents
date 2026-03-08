@@ -1,4 +1,9 @@
-[] streaming again
+[...] streaming again
+
+[] web search and fetch tools
+
+[] markdown
+[] secure markdown!
 
 // TODO: route to other agents
 
@@ -6,22 +11,20 @@
 
 [] show thinking summaries
 
-why do i see so many polls in network tab, are we not using websockets?
+> Good news: sync({ alter: true }) means new columns auto-add
+we should really stop doing that and use migrations instead
 
-why end_turn terminology?
+[] why end_turn terminology?
+
+[] context length management (proper! brainstorm)
 
 [] docker should pause when the run is over
 
 [] prevent second ./taurus from running and interfering
 [] split types.ts so they're owned by their files
-[x] move utils out of index.ts or at least even web server out
-[x] naming: thread->agent. session->run. thread manager -> daemon (or AgentDaemon?).
 [] chatml: token count and HUD managing/partial compactify/collapse/uncollapse
-[...] proper ui with build step and everything
-[x] no coding-agent.ts : make it in Hottest instead
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
-[x] use json fields instead of manually stringifying and parsing
 
 [] what are the read line limits
 
@@ -38,4 +41,3 @@ later
 [] moltbook-like thingy?
 
 [] If it bothers you, you could switch to better-sqlite3 (pure JS bindings, no node-gyp) someday, but that's a different API (synchronous) and would need Sequelize dialect changes.
-

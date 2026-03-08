@@ -51,20 +51,21 @@ function MessageContent({ content }: { content: unknown }) {
 
 interface MessageViewProps {
   messages: MessageRecord[];
+  streamingText?: string;
 }
 
-export function MessageView({ messages }: MessageViewProps) {
+export function MessageView({ messages, streamingText }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wasNearBottom = useRef(true);
 
-  // After new messages render, scroll to bottom if we were already near it
+  // After new messages or streaming text render, scroll to bottom if we were already near it
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     if (wasNearBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, streamingText]);
 
   // On scroll, record whether we're near the bottom
   function handleScroll() {
@@ -82,20 +83,38 @@ export function MessageView({ messages }: MessageViewProps) {
 
   return (
     <div className="message-list" ref={containerRef} onScroll={handleScroll}>
-      {messages.map(msg => (
-        <div key={msg.id} className={`message message--${msg.role}`}>
+      {messages.map(msg => {
+        const isOptimistic = msg.id.startsWith('_optimistic_');
+        return (
+        <div key={msg.id} className={`message message--${msg.role}${isOptimistic ? ' message--optimistic' : ''}`}>
           <div className="message__header">
             <span className="message__role">{msg.role}</span>
             <span className="message__meta">
-              {msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
-              {new Date(msg.created_at).toLocaleTimeString()}
+              {isOptimistic
+                ? <span className="message__pill message__pill--sending">sending</span>
+                : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
+              {!isOptimistic && new Date(msg.created_at).toLocaleTimeString()}
             </span>
           </div>
           <div className="message__body">
             <MessageContent content={msg.content} />
           </div>
         </div>
-      ))}
+        );
+      })}
+      {streamingText && (
+        <div className="message message--assistant message--streaming">
+          <div className="message__header">
+            <span className="message__role">assistant</span>
+            <span className="message__meta">
+              <span className="message__pill message__pill--streaming">streaming</span>
+            </span>
+          </div>
+          <div className="message__body">
+            <div className="msg-text">{streamingText}</div>
+          </div>
+        </div>
+      )}
       {totalIn > 0 && (
         <div className="message-list__footer">
           {totalIn.toLocaleString()} input / {totalOut.toLocaleString()} output tokens

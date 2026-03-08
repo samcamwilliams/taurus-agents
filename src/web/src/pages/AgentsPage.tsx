@@ -16,13 +16,17 @@ export function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [streamingText, setStreamingText] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Refs so SSE callbacks see latest values without re-subscribing
   const agentIdRef = useRef(agentId);
   const runIdRef = useRef(runId);
+  const messagesRef = useRef(messages);
+  const streamingTextRef = useRef('');
   useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
   useEffect(() => { runIdRef.current = runId; }, [runId]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // ── Load agents ──
 
@@ -66,10 +70,57 @@ export function AgentsPage() {
     }
   }, [agentId, runs, runId, navigate]);
 
+  // ── Optimistic user message helper ──
+
+  function appendOptimisticUserMessage(text: string) {
+    const optimistic: MessageRecord = {
+      id: `_optimistic_${Date.now()}`,
+      run_id: runIdRef.current ?? '',
+      seq: Infinity, // sorts last, ignored by maxSeq calc
+      role: 'user',
+      content: text,
+      stop_reason: null,
+      input_tokens: 0,
+      output_tokens: 0,
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimistic]);
+  }
+
+  // ── Incremental message fetch helper ──
+
+  const fetchNewMessages = useCallback(async () => {
+    const aid = agentIdRef.current;
+    const rid = runIdRef.current;
+    if (!aid || !rid) return;
+
+    const currentMsgs = messagesRef.current;
+    // Ignore optimistic messages (seq=Infinity) for the max calculation
+    const realMsgs = currentMsgs.filter(m => !m.id.startsWith('_optimistic_'));
+    const maxSeq = realMsgs.length > 0
+      ? Math.max(...realMsgs.map(m => m.seq))
+      : undefined;
+
+    const newMsgs = await api.getRunMessages(aid, rid, maxSeq);
+    if (newMsgs.length > 0) {
+      setMessages(prev => {
+        // Drop optimistic messages — real ones are arriving
+        const settled = prev.filter(m => !m.id.startsWith('_optimistic_'));
+        const existingIds = new Set(settled.map(m => m.id));
+        const unique = newMsgs.filter(m => !existingIds.has(m.id));
+        return unique.length > 0 ? [...settled, ...unique] : settled;
+      });
+    }
+  }, []);
+
   // ── SSE: live updates when an agent is selected ──
 
   useEffect(() => {
     if (!agentId) return;
+
+    // Reset streaming text when agent changes
+    streamingTextRef.current = '';
+    setStreamingText('');
 
     const es = new EventSource(`/api/agents/${agentId}/stream`);
 
@@ -78,18 +129,17 @@ export function AgentsPage() {
         const data = JSON.parse(evt.data);
         switch (data.type) {
           case 'agent_status':
-            // Update this agent's status in the list
             setAgents(prev => prev.map(a =>
               a.id === data.agentId ? { ...a, status: data.status } : a,
             ));
             break;
 
           case 'run_complete':
-            // Refresh runs list and current messages
+            // Clear streaming text, fetch final messages, refresh runs
+            streamingTextRef.current = '';
+            setStreamingText('');
+            fetchNewMessages();
             api.listRuns(agentIdRef.current!).then(setRuns);
-            if (runIdRef.current) {
-              api.getRunMessages(agentIdRef.current!, runIdRef.current).then(setMessages);
-            }
             loadAgents();
             break;
 
@@ -105,10 +155,20 @@ export function AgentsPage() {
             ));
             break;
 
+          case 'llm_text':
+            // Accumulate streaming text chunks
+            if (typeof data.text === 'string') {
+              streamingTextRef.current += data.text;
+              setStreamingText(streamingTextRef.current);
+            }
+            break;
+
           case 'log':
-            // On tool execution logs, refresh messages for the active run
-            if (data.event === 'tool.executed' && runIdRef.current) {
-              api.getRunMessages(agentIdRef.current!, runIdRef.current).then(setMessages);
+            if (data.event === 'message.saved') {
+              // A message was persisted — fetch new messages incrementally and clear streaming
+              streamingTextRef.current = '';
+              setStreamingText('');
+              fetchNewMessages();
             }
             break;
         }
@@ -116,7 +176,7 @@ export function AgentsPage() {
     };
 
     return () => es.close();
-  }, [agentId, loadAgents]);
+  }, [agentId, loadAgents, fetchNewMessages]);
 
   // ── Actions ──
 
@@ -161,46 +221,32 @@ export function AgentsPage() {
   async function handleSend(message: string) {
     if (!agentId) return;
 
-    console.log('[handleSend]', {
-      status: selectedAgent?.status,
-      runsCount: runs.length,
-      latestRunId: runs[0]?.id,
-      currentRunId: runId,
-    });
+    // Show the message instantly
+    appendOptimisticUserMessage(message);
 
     if (selectedAgent?.status === 'paused') {
-      console.log('[handleSend] → resume');
       await handleResume(message);
       return;
     }
 
     if (selectedAgent?.status === 'running') {
       try {
-        console.log('[handleSend] → inject');
         await api.injectMessage(agentId, message);
         return;
-      } catch (err) {
-        console.log('[handleSend] inject failed, falling through:', err);
+      } catch {
+        // Agent may have just stopped — fall through to start/continue
       }
     }
 
     // Idle — continue latest run with this message, or start fresh if no runs exist
     const latestRunId = runs[0]?.id;
-    const body = {
+    const result = await api.startRun(agentId, {
       input: message,
       ...(latestRunId ? { run_id: latestRunId } : {}),
-    };
-    console.log('[handleSend] → startRun', body);
-    const result = await api.startRun(agentId, body);
-    console.log('[handleSend] startRun result:', result);
+    });
     await loadAgents();
     const updatedRuns = await api.listRuns(agentId);
     setRuns(updatedRuns);
-    // If continuing the same run, re-fetch messages since runId won't change
-    if (result.runId === runId) {
-      const msgs = await api.getRunMessages(agentId, runId);
-      setMessages(msgs);
-    }
     navigate(`/agents/${agentId}/runs/${result.runId}`);
   }
 
@@ -301,7 +347,7 @@ export function AgentsPage() {
               {/* Messages */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {selectedRun ? (
-                  <MessageView messages={messages} />
+                  <MessageView messages={messages} streamingText={streamingText} />
                 ) : (
                   <div className="empty-state">Select a run to view messages</div>
                 )}

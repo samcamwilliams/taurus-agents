@@ -326,6 +326,27 @@
       color: $purple;
       font-weight: 500;
     }
+
+    &--streaming {
+      background: rgba($accent, 0.15);
+      color: $accent;
+      font-weight: 500;
+      animation: pulse-streaming 1.5s ease-in-out infinite;
+    }
+
+    &--sending {
+      background: rgba($text2, 0.15);
+      color: $text2;
+      font-style: italic;
+    }
+  }
+
+  &--streaming {
+    border-left: 2px solid $accent;
+  }
+
+  &--optimistic {
+    opacity: 0.6;
   }
 
   &__body {
@@ -407,6 +428,11 @@
   border-radius: 4px;
   overflow-x: auto;
   margin: 4px 0;
+}
+
+@keyframes pulse-streaming {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 // ── Empty State ──

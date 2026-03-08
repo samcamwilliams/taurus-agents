@@ -64,7 +64,8 @@ export const api = {
     return request(`/api/agents/${agentId}/runs`);
   },
 
-  getRunMessages(agentId: string, runId: string): Promise<MessageRecord[]> {
-    return request(`/api/agents/${agentId}/runs/${runId}/messages`);
+  getRunMessages(agentId: string, runId: string, afterSeq?: number): Promise<MessageRecord[]> {
+    const qs = afterSeq != null ? `?after=${afterSeq}` : '';
+    return request(`/api/agents/${agentId}/runs/${runId}/messages${qs}`);
   },
 };

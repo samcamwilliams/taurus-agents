@@ -8,6 +8,7 @@ const sequelize = Database.init();
 class Message extends Model {
   declare id: string;
   declare run_id: string;
+  declare seq: number;
   declare role: string;
   declare content: any;
   declare stop_reason: string | null;
@@ -23,8 +24,8 @@ class Message extends Model {
   }
 
   toApi() {
-    const { id, run_id, role, content, stop_reason, input_tokens, output_tokens, created_at } = this;
-    return { id, run_id, role, content, stop_reason, input_tokens, output_tokens, created_at };
+    const { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, created_at } = this;
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, created_at };
   }
 }
 
@@ -42,6 +43,11 @@ Message.init(
     role: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    seq: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
     content: {
       type: DataTypes.JSON,

@@ -38,6 +38,7 @@ export interface Run {
 export interface MessageRecord {
   id: string;
   run_id: string;
+  seq: number;
   role: 'user' | 'assistant';
   content: unknown;
   stop_reason: string | null;

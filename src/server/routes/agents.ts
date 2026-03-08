@@ -65,16 +65,13 @@ export function agentRoutes(daemon: Daemon): Route[] {
     // ── Run Management ──
     route('POST', '/api/agents/:id/run', async (req, res, params) => {
       const body = await parseBody(req);
-      console.log('[POST /run] body:', JSON.stringify(body));
       try {
         if (body.run_id) {
           // Continue an existing run
-          console.log('[POST /run] → continueRun', params.id, body.run_id);
           await daemon.continueRun(params.id, body.run_id, body.input);
           json(res, { runId: body.run_id });
         } else {
           // Start a new run
-          console.log('[POST /run] → startRun (new)');
           const runId = await daemon.startRun(
             params.id,
             body.trigger ?? 'manual',
@@ -132,8 +129,11 @@ export function agentRoutes(daemon: Daemon): Route[] {
       json(res, runs);
     }),
 
-    route('GET', '/api/agents/:id/runs/:runId/messages', async (_req, res, params) => {
-      const messages = await daemon.getRunMessages(params.runId);
+    route('GET', '/api/agents/:id/runs/:runId/messages', async (req, res, params) => {
+      const url = new URL(req.url!, `http://localhost`);
+      const afterStr = url.searchParams.get('after');
+      const afterSeq = afterStr ? parseInt(afterStr, 10) : undefined;
+      const messages = await daemon.getRunMessages(params.runId, afterSeq);
       json(res, messages);
     }),
   ];

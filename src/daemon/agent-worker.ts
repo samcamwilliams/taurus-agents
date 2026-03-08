@@ -286,6 +286,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
               inputTokens: event.event.usage.inputTokens,
               outputTokens: event.event.usage.outputTokens,
             });
+            log('info', 'message.saved', 'assistant');
           }
           break;
 
@@ -307,6 +308,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 
         case 'user_message':
           await persistMessage(run, 'user', event.message.content);
+          log('info', 'message.saved', 'user');
           break;
 
         case 'max_turns_reached':
