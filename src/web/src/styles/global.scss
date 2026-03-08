@@ -1,0 +1,45 @@
+@use 'variables' as *;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-sans;
+  background: $bg;
+  color: $text;
+  font-size: 14px;
+}
+
+// ── Buttons ──
+
+.btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid $border;
+  background: $bg3;
+  color: $text;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: border-color 0.1s;
+
+  &:hover { border-color: $text2; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  &.primary {
+    background: $btn-primary-bg;
+    border-color: $btn-primary-hover;
+    color: #fff;
+    &:hover { background: $btn-primary-hover; }
+  }
+
+  &.danger {
+    background: $btn-danger-bg;
+    border-color: $btn-danger-hover;
+    color: #fff;
+    &:hover { background: $btn-danger-hover; }
+  }
+}

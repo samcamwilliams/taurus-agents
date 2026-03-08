@@ -6,6 +6,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "dev:web": "vite --config src/web/vite.config.ts",
+    "build:web": "vite build --config src/web/vite.config.ts",
     "start": "node --loader tsx src/index.ts",
     "daemon": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
@@ -17,6 +19,9 @@
     "@vscode/ripgrep": "^1.15.9",
     "dotenv": "^17.3.1",
     "fast-glob": "^3.3.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.1",
     "sequelize": "^6.37.5",
     "sequelize-auto-migrations": "github:pointnetwork/sequelize-auto-migrations#all-the-changes",
     "sequelize-cli": "^6.6.5",
@@ -26,8 +31,13 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.4",
+    "sass": "^1.97.3",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vite": "^7.3.1"
   }
 }

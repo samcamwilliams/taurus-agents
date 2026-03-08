@@ -11,6 +11,23 @@ import { healthRoutes } from './routes/health.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js':   'application/javascript',
+  '.css':  'text/css',
+  '.json': 'application/json',
+  '.svg':  'image/svg+xml',
+  '.png':  'image/png',
+  '.ico':  'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+function getMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  return MIME_TYPES[ext] ?? 'application/octet-stream';
+}
+
 export function createServer(daemon: Daemon, port: number): http.Server {
   const routes: Route[] = [
     ...folderRoutes(),
@@ -45,17 +62,37 @@ export function createServer(daemon: Daemon, port: number): http.Server {
       }
     }
 
-    // Serve web UI for non-API paths
-    if (req.method === 'GET' && (url.pathname === '/' || !url.pathname.startsWith('/api/'))) {
-      const htmlPath = path.join(__dirname, '..', 'web', 'index.html');
+    // Serve static files from Vite build output
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+      const webDist = path.join(__dirname, '..', 'web', 'dist');
+      const filePath = path.join(webDist, url.pathname === '/' ? 'index.html' : url.pathname);
+
+      // Prevent directory traversal
+      if (!filePath.startsWith(webDist)) {
+        error(res, 'Forbidden', 403);
+        return;
+      }
+
       try {
-        const html = fs.readFileSync(htmlPath, 'utf-8');
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+          const content = fs.readFileSync(filePath);
+          res.writeHead(200, { 'Content-Type': getMimeType(filePath) });
+          res.end(content);
+          return;
+        }
+      } catch {}
+
+      // SPA fallback — serve index.html for all unmatched routes
+      try {
+        const indexPath = path.join(webDist, 'index.html');
+        const html = fs.readFileSync(indexPath, 'utf-8');
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(html);
+        return;
       } catch {
-        error(res, 'Not found', 404);
+        error(res, 'Not found — run `npm run build:web` first', 404);
+        return;
       }
-      return;
     }
 
     error(res, 'Not found', 404);

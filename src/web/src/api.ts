@@ -1,0 +1,58 @@
+import type { Agent } from './types';
+
+async function request<T>(path: string, opts: RequestInit & { body?: unknown } = {}): Promise<T> {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return res.json();
+}
+
+export const api = {
+  listAgents(folder_id?: string): Promise<Agent[]> {
+    const qs = folder_id ? `?folder_id=${folder_id}` : '';
+    return request(`/api/agents${qs}`);
+  },
+
+  createAgent(data: {
+    name: string;
+    type: string;
+    system_prompt: string;
+    tools: string[];
+    cwd?: string;
+    model?: string;
+    docker_image?: string;
+  }): Promise<Agent & { error?: string }> {
+    return request('/api/agents', { method: 'POST', body: data });
+  },
+
+  deleteAgent(id: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${id}`, { method: 'DELETE' });
+  },
+
+  startRun(agentId: string, opts?: { trigger?: string; input?: string; continue_run?: boolean }): Promise<{ runId: string }> {
+    return request(`/api/agents/${agentId}/run`, {
+      method: 'POST',
+      body: { trigger: 'manual', ...opts },
+    });
+  },
+
+  stopRun(agentId: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${agentId}/run`, { method: 'DELETE' });
+  },
+
+  resumeAgent(agentId: string, message?: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${agentId}/resume`, {
+      method: 'POST',
+      body: { message },
+    });
+  },
+
+  injectMessage(agentId: string, message: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${agentId}/inject`, {
+      method: 'POST',
+      body: { message },
+    });
+  },
+};
