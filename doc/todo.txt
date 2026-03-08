@@ -1,5 +1,7 @@
 // TODO: route to other agents
 
+why end_turn terminology?
+
 [] docker should pause when the run is over
 
 [] prevent second ./taurus from running and interfering

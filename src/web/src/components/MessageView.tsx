@@ -77,6 +77,9 @@ export function MessageView({ messages }: MessageViewProps) {
     return <div className="empty-state">No messages in this run</div>;
   }
 
+  const totalIn = messages.reduce((s, m) => s + m.input_tokens, 0);
+  const totalOut = messages.reduce((s, m) => s + m.output_tokens, 0);
+
   return (
     <div className="message-list" ref={containerRef} onScroll={handleScroll}>
       {messages.map(msg => (
@@ -84,10 +87,8 @@ export function MessageView({ messages }: MessageViewProps) {
           <div className="message__header">
             <span className="message__role">{msg.role}</span>
             <span className="message__meta">
+              {msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
               {new Date(msg.created_at).toLocaleTimeString()}
-              {msg.input_tokens > 0 && ` | ${msg.input_tokens}in`}
-              {msg.output_tokens > 0 && ` / ${msg.output_tokens}out`}
-              {msg.stop_reason && ` | ${msg.stop_reason}`}
             </span>
           </div>
           <div className="message__body">
@@ -95,6 +96,11 @@ export function MessageView({ messages }: MessageViewProps) {
           </div>
         </div>
       ))}
+      {totalIn > 0 && (
+        <div className="message-list__footer">
+          {totalIn.toLocaleString()} input / {totalOut.toLocaleString()} output tokens
+        </div>
+      )}
     </div>
   );
 }

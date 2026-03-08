@@ -244,9 +244,6 @@ export function AgentsPage() {
                     >
                       <div className="run-item__trigger">{run.trigger ?? 'manual'}</div>
                       <div className="run-item__time">{new Date(run.created_at).toLocaleString()}</div>
-                      <div className="run-item__tokens">
-                        {run.total_input_tokens}in / {run.total_output_tokens}out
-                      </div>
                       {run.run_error && <div className="run-item__error">{run.run_error}</div>}
                       {run.run_summary && !run.run_error && (
                         <div className="run-item__summary" title={run.run_summary}>
