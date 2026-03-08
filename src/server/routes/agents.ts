@@ -1,6 +1,76 @@
+import type http from 'node:http';
 import type { Daemon } from '../../daemon/daemon.js';
 import { json, error, parseBody, route, type Route } from '../helpers.js';
 import { DEFAULT_TOOLS } from '../../core/defaults.js';
+
+/**
+ * Shared handler for POST /api/ask and POST /api/agents/:id/ask.
+ * Sends a message, blocks until the run completes, returns the result.
+ */
+async function handleAsk(
+  daemon: Daemon,
+  agentId: string,
+  body: any,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  const message = body.message;
+  if (!message) return error(res, 'message is required');
+
+  const forceNew = body.new === true;
+  const full = body.full === true;
+  const timeoutMs = body.timeout ?? 300_000;
+
+  // Disable socket timeout for long-running requests
+  req.socket.setTimeout(0);
+
+  const agent = await daemon.getAgent(agentId);
+  if (!agent) return error(res, 'Agent not found', 404);
+
+  if (agent.status === 'running') {
+    return error(res, `Agent "${agent.name}" is already running`);
+  }
+
+  try {
+    // Register waiter BEFORE starting — prevents race with fast completions
+    const completionPromise = daemon.awaitRunCompletion(agentId, timeoutMs);
+
+    let runId: string;
+
+    if (agent.status === 'paused') {
+      runId = daemon.getCurrentRunId(agentId) ?? '';
+      await daemon.resumeAgent(agentId, message);
+    } else if (forceNew) {
+      runId = await daemon.startRun(agentId, 'manual', message);
+    } else {
+      // Continue last run, or start new if none exists
+      const runs = await daemon.getAgentRuns(agentId, 1);
+      if (runs.length > 0) {
+        runId = runs[0].id;
+        await daemon.continueRun(agentId, runId, message);
+      } else {
+        runId = await daemon.startRun(agentId, 'manual', message);
+      }
+    }
+
+    const result = await completionPromise;
+
+    if (result.error) {
+      const payload: any = { error: result.error, run_id: runId };
+      if (result.summary) payload.response = result.summary;
+      return json(res, payload, 500);
+    }
+
+    if (full) {
+      const messages = await daemon.getRunMessages(runId);
+      json(res, { response: result.summary, run_id: runId, tokens: result.tokens, messages });
+    } else {
+      json(res, { response: result.summary, run_id: runId, tokens: result.tokens });
+    }
+  } catch (err: any) {
+    error(res, err.message);
+  }
+}
 
 export function agentRoutes(daemon: Daemon): Route[] {
   return [
@@ -137,6 +207,26 @@ export function agentRoutes(daemon: Daemon): Route[] {
       const afterSeq = afterStr ? parseInt(afterStr, 10) : undefined;
       const messages = await daemon.getRunMessages(params.runId, afterSeq);
       json(res, messages);
+    }),
+
+    // ── Blocking ask ──
+
+    // By name: POST /api/ask { agent: "war updates", message: "..." }
+    route('POST', '/api/ask', async (req, res) => {
+      const body = await parseBody(req);
+      if (!body.agent) return error(res, 'agent (name) is required');
+      const agent = daemon.findAgentByName(body.agent);
+      if (!agent) {
+        const all = await daemon.listAgents();
+        return error(res, `Agent not found: "${body.agent}". Available: ${all.map(a => a.name).join(', ')}`, 404);
+      }
+      await handleAsk(daemon, agent.id, body, req, res);
+    }),
+
+    // By ID: POST /api/agents/:id/ask { message: "..." }
+    route('POST', '/api/agents/:id/ask', async (req, res, params) => {
+      const body = await parseBody(req);
+      await handleAsk(daemon, params.id, body, req, res);
     }),
   ];
 }

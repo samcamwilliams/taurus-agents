@@ -19,6 +19,23 @@
 [] let the agent see its runs. and then you could use like odd/even tasks in Hottest, or any metadata attached if needed
     let it see the schedule period
 
+[] allow to spawn subtasks just like CC. same container! (so, detether from name=id)
+[] any auth in api? csrf?
+
+[] add tools inside container
+    playwright cli: npm install -g @playwright/cli ; npx playwright install chromium ; playwright-cli install --skills (github.com/playwright/claude/skills/playwright.dev/library.md)
+    other skills
+
+[] if i just reload backend gracefully (because developing a feature), and this stops the runs, it should just pick them right up, right? unless flag is passed (and should indicate this in any case, that a session was abruptly stopped)
+
+Hottest
+    [] spin up three *parallel* agents and use it to test the website submission form - parallel executions
+    [] i can ask something to an ephemeral, mostly read only session - it shouldn't count as locking (it should know there's a writer already i guess)
+
+[] dashboard! that agents can operate on. notion-like! factorio-like!
+
+[] if you miss the deadline because server restarted, do you wait for a new tick or try to catch up by triggering
+
 [] add jina when you get 403
 Let me get more details from the Al Arabiya report:
 Tool: WebFetch
@@ -28,6 +45,9 @@ user
 Result ERROR
 Error: HTTP 403 Forbidden
 
+[] grok to search on x and look if something is fake or not
+[] perplexity search? more search tools?
+[] deep research runs?
 
 [] context length management (proper! brainstorm)
 
@@ -36,7 +56,8 @@ Error: HTTP 403 Forbidden
 [] different font sizes? monospace and main text
 
 [] prevent second ./taurus from running and interfering
-[] chatml: token count and HUD managing/partial compactify/collapse/uncollapse
+[] chatml: token count and HUD managing/partial compactify/
+    collapse/uncollapse
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
 

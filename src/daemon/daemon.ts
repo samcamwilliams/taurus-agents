@@ -35,8 +35,14 @@ interface ManagedAgent {
   currentRunId: string | null;
 }
 
+interface CompletionWaiter {
+  resolve: (result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }) => void;
+  timer: NodeJS.Timeout;
+}
+
 export class Daemon {
   private agents = new Map<string, ManagedAgent>();
+  private completionWaiters = new Map<string, CompletionWaiter[]>();
   private logger: (level: LogLevel, msg: string) => void;
   readonly docker: DockerService;
   readonly sse: SSEBroadcaster;
@@ -358,6 +364,48 @@ export class Daemon {
     managed.process.send(msg);
   }
 
+  // ── Blocking ask (for /api/ask) ──
+
+  getCurrentRunId(agentId: string): string | null {
+    return this.agents.get(agentId)?.currentRunId ?? null;
+  }
+
+  findAgentByName(name: string): Agent | null {
+    for (const managed of this.agents.values()) {
+      if (managed.agent.name === name) return managed.agent;
+    }
+    return null;
+  }
+
+  awaitRunCompletion(agentId: string, timeoutMs: number = 300_000): Promise<{ summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const list = this.completionWaiters.get(agentId);
+        if (list) {
+          const idx = list.findIndex(w => w.resolve === resolve);
+          if (idx !== -1) list.splice(idx, 1);
+          if (list.length === 0) this.completionWaiters.delete(agentId);
+        }
+        reject(new Error('Timeout waiting for run completion'));
+      }, timeoutMs);
+
+      const waiters = this.completionWaiters.get(agentId) ?? [];
+      waiters.push({ resolve, timer });
+      this.completionWaiters.set(agentId, waiters);
+    });
+  }
+
+  private notifyRunCompletion(agentId: string, result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }): void {
+    const waiters = this.completionWaiters.get(agentId);
+    if (waiters) {
+      for (const { resolve, timer } of waiters) {
+        clearTimeout(timer);
+        resolve(result);
+      }
+      this.completionWaiters.delete(agentId);
+    }
+  }
+
   // ── IPC Handling (coordination + SSE only) ──
 
   private async handleChildMessage(agentId: string, runId: string, msg: ChildMessage): Promise<void> {
@@ -425,6 +473,7 @@ export class Daemon {
         this.logger('info', `[${managed.agent.name}] Run complete. Tokens: ${msg.tokens.input}in/${msg.tokens.output}out`);
         await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed');
         this.scheduler.onRunComplete(agentId);
+        this.notifyRunCompletion(agentId, { summary: msg.summary, error: msg.error, tokens: msg.tokens });
 
         this.sse.broadcast(agentId, {
           type: 'run_complete',
@@ -446,6 +495,7 @@ export class Daemon {
         this.logger('error', `[${managed.agent.name}] Error: ${msg.error}`);
         await this.updateRunStatus(agentId, runId, 'error');
         await this.updateAgentStatus(agentId, 'error');
+        this.notifyRunCompletion(agentId, { summary: '', error: msg.error });
 
         this.sse.broadcast(agentId, {
           type: 'agent_error',
@@ -474,6 +524,12 @@ export class Daemon {
     if (runId && code !== 0) {
       this.updateRunStatus(agentId, runId, code === null ? 'stopped' : 'error').catch(() => {});
     }
+
+    // Notify any blocking /api/ask waiters (in case child died without run_complete)
+    this.notifyRunCompletion(agentId, {
+      summary: '',
+      error: code === 0 ? undefined : `Process exited with code ${code}`,
+    });
 
     // Pause container to free resources — will unpause on next run
     this.docker.pauseContainer(managed.agent.container_id).catch(() => {});
