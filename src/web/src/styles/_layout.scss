@@ -13,10 +13,21 @@
   flex-direction: column;
 }
 
+// ── Spin Animation ──
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.spin { animation: spin 1s linear infinite; }
+
 // ── Status Badge ──
 
 .status-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 11px;
@@ -27,6 +38,19 @@
   &.paused   { background: $status-paused-bg; color: $yellow; }
   &.error    { background: $status-error-bg; color: $red; }
   &.disabled { background: $bg3; color: $text2; opacity: 0.5; }
+}
+
+// ── Run Status Icon ──
+
+.run-status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  &--running   { color: $accent; }
+  &--completed { color: $green; }
+  &--error     { color: $red; }
+  &--stopped   { color: $text2; }
 }
 
 // ── Sidebar ──
@@ -235,6 +259,12 @@
     border-left: 2px solid $accent;
   }
 
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   &__trigger {
     font-size: 11px;
     color: $text2;
@@ -242,9 +272,9 @@
   }
 
   &__time {
-    font-size: 12px;
-    color: $text;
-    margin: 2px 0;
+    font-size: 11px;
+    color: $text2;
+    margin-left: auto;
   }
 
   &__summary {

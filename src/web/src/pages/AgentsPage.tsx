@@ -9,6 +9,7 @@ import { InputBar } from '../components/InputBar';
 import { CreateAgentModal } from '../components/CreateAgentModal';
 import { AgentSettings } from '../components/AgentSettings';
 import { Countdown } from '../components/Countdown';
+import { RunStatusIcon } from '../components/RunStatusIcon';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'settings';
@@ -146,6 +147,12 @@ export function AgentsPage() {
           case 'agent_status':
             setAgents(prev => prev.map(a =>
               a.id === data.agentId ? { ...a, status: data.status } : a,
+            ));
+            break;
+
+          case 'run_status':
+            setRuns(prev => prev.map(r =>
+              r.id === data.runId ? { ...r, status: data.status } : r,
             ));
             break;
 
@@ -378,8 +385,11 @@ export function AgentsPage() {
                         className={`run-item ${run.id === runId ? 'active' : ''}`}
                         onClick={() => handleSelectRun(run.id)}
                       >
-                        <div className="run-item__trigger">{run.trigger ?? 'manual'}</div>
-                        <div className="run-item__time">{new Date(run.created_at).toLocaleString()}</div>
+                        <div className="run-item__header">
+                          <RunStatusIcon run={run} />
+                          <span className="run-item__trigger">{run.trigger ?? 'manual'}</span>
+                          <span className="run-item__time">{new Date(run.created_at).toLocaleString()}</span>
+                        </div>
                         {run.run_error && <div className="run-item__error">{run.run_error}</div>}
                         {run.run_summary && !run.run_error && (
                           <div className="run-item__summary" title={run.run_summary}>

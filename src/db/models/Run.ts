@@ -5,9 +5,12 @@ import { DEFAULT_MODEL } from '../../core/defaults.js';
 
 const sequelize = Database.init();
 
+export type RunStatus = 'running' | 'completed' | 'error' | 'stopped';
+
 class Run extends Model {
   declare id: string;
   declare name: string | null;
+  declare status: RunStatus;
   declare cwd: string;
   declare model: string;
   declare total_input_tokens: number;
@@ -45,8 +48,8 @@ class Run extends Model {
   }
 
   toApi() {
-    const { id, name, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at } = this;
-    return { id, name, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at };
+    const { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at } = this;
+    return { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at };
   }
 }
 
@@ -60,6 +63,11 @@ Run.init(
     name: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'running',
     },
     cwd: {
       type: DataTypes.STRING,

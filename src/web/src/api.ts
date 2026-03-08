@@ -29,6 +29,8 @@ export const api = {
     docker_image?: string;
     schedule?: string;
     schedule_overlap?: string;
+    max_turns?: number;
+    timeout_ms?: number;
   }): Promise<Agent & { error?: string }> {
     return request('/api/agents', { method: 'POST', body: data });
   },
@@ -89,7 +91,7 @@ export const api = {
 
   listTools(): Promise<{
     tools: { name: string; group: string; description: string }[];
-    defaults: { model: string; docker_image: string; tools: string[] };
+    defaults: { model: string; docker_image: string; tools: string[]; max_turns: number; timeout_ms: number };
   }> {
     return request('/api/tools');
   },

@@ -18,6 +18,8 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
       docker_image: data.docker_image || undefined,
       schedule: data.schedule || undefined,
       schedule_overlap: data.schedule_overlap,
+      max_turns: data.max_turns,
+      timeout_ms: data.timeout_ms,
     });
 
     if (result.error) {

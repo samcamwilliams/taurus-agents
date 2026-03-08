@@ -13,6 +13,8 @@ export interface AgentFormData {
   docker_image: string;
   schedule: string;
   schedule_overlap: 'skip' | 'queue' | 'kill';
+  max_turns: number;
+  timeout_ms: number;
 }
 
 interface AgentFormProps {
@@ -33,7 +35,9 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
   const [dockerImage, setDockerImage] = useState(initial?.docker_image ?? '');
   const [schedule, setSchedule] = useState(initial?.schedule ?? '');
   const [scheduleOverlap, setScheduleOverlap] = useState<'skip' | 'queue' | 'kill'>(initial?.schedule_overlap ?? 'skip');
-  const [defaults, setDefaults] = useState<{ model: string; docker_image: string } | null>(null);
+  const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : '');
+  const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
+  const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number } | null>(null);
 
   useEffect(() => {
     api.listTools().then(res => {
@@ -50,6 +54,9 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
       return;
     }
 
+    const resolvedMaxTurns = maxTurns !== '' ? parseInt(maxTurns, 10) : (defaults?.max_turns ?? 0);
+    const resolvedTimeoutS = timeoutMs !== '' ? parseFloat(timeoutMs) : ((defaults?.timeout_ms ?? 300_000) / 1000);
+
     onSubmit({
       name,
       type,
@@ -60,6 +67,8 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
       docker_image: dockerImage || '',
       schedule: schedule || '',
       schedule_overlap: scheduleOverlap,
+      max_turns: resolvedMaxTurns,
+      timeout_ms: resolvedTimeoutS * 1000,
     });
   }
 
@@ -88,6 +97,25 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
 
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
+
+      <label>Max Turns</label>
+      <input
+        type="number"
+        min="0"
+        value={maxTurns}
+        onChange={e => setMaxTurns(e.target.value)}
+        placeholder={defaults ? String(defaults.max_turns) : '0'}
+      />
+      <div className="field-hint">0 = unlimited</div>
+
+      <label>Timeout (seconds)</label>
+      <input
+        type="number"
+        min="0"
+        value={timeoutMs}
+        onChange={e => setTimeoutMs(e.target.value)}
+        placeholder={defaults ? String(defaults.timeout_ms / 1000) : '300'}
+      />
 
       <label>Schedule (optional)</label>
       <input

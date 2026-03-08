@@ -21,9 +21,12 @@ export interface Agent {
   updated_at: string;
 }
 
+export type RunStatus = 'running' | 'completed' | 'error' | 'stopped';
+
 export interface Run {
   id: string;
   name: string | null;
+  status: RunStatus;
   cwd: string;
   model: string;
   total_input_tokens: number;

@@ -66,6 +66,13 @@ export class Daemon {
       this.agents.set(agent.id, { agent, process: null, currentRunId: null });
     }
 
+    // Mark orphaned runs (still 'running' in DB) as stopped — no process survived restart
+    const orphanedRuns = await Run.findAll({ where: { status: 'running' } });
+    if (orphanedRuns.length > 0) {
+      await Run.update({ status: 'stopped' }, { where: { status: 'running' } });
+      this.logger('warn', `Marked ${orphanedRuns.length} orphaned run(s) as stopped`);
+    }
+
     // Register scheduled agents
     for (const agent of agents) {
       if (agent.schedule) {
@@ -297,12 +304,14 @@ export class Daemon {
 
     child.send(startMsg);
     await this.updateAgentStatus(agentId, 'running');
+    await this.updateRunStatus(agentId, runId, 'running');
   }
 
   async stopRun(agentId: string, reason: string = 'user requested'): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed?.process) return;
 
+    const runId = managed.currentRunId;
     const stopMsg: ParentMessage = { type: 'stop', reason };
     managed.process.send(stopMsg);
 
@@ -319,6 +328,10 @@ export class Daemon {
         resolve();
       });
     });
+
+    if (runId) {
+      await this.updateRunStatus(agentId, runId, 'stopped');
+    }
   }
 
   async resumeAgent(agentId: string, message?: string): Promise<void> {
@@ -408,6 +421,7 @@ export class Daemon {
 
       case 'run_complete':
         this.logger('info', `[${managed.agent.name}] Run complete. Tokens: ${msg.tokens.input}in/${msg.tokens.output}out`);
+        await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed');
         this.scheduler.onRunComplete(agentId);
 
         this.sse.broadcast(agentId, {
@@ -428,6 +442,7 @@ export class Daemon {
 
       case 'error':
         this.logger('error', `[${managed.agent.name}] Error: ${msg.error}`);
+        await this.updateRunStatus(agentId, runId, 'error');
         await this.updateAgentStatus(agentId, 'error');
 
         this.sse.broadcast(agentId, {
@@ -444,6 +459,7 @@ export class Daemon {
     const managed = this.agents.get(agentId);
     if (!managed) return;
 
+    const runId = managed.currentRunId;
     managed.process = null;
     managed.currentRunId = null;
 
@@ -452,12 +468,24 @@ export class Daemon {
       this.updateAgentStatus(agentId, newStatus).catch(() => {});
     }
 
-    if (code !== 0 && code !== null) {
-      this.logger('warn', `[${managed.agent.name}] Process exited with code ${code}`);
+    // Mark run as stopped/error if it wasn't already finalized
+    if (runId && code !== 0) {
+      this.updateRunStatus(agentId, runId, code === null ? 'stopped' : 'error').catch(() => {});
     }
 
     // Pause container to free resources — will unpause on next run
     this.docker.pauseContainer(managed.agent.container_id).catch(() => {});
+  }
+
+  private async updateRunStatus(agentId: string, runId: string, status: 'running' | 'completed' | 'error' | 'stopped'): Promise<void> {
+    await Run.update({ status }, { where: { id: runId } });
+    this.sse.broadcast(agentId, {
+      type: 'run_status',
+      agentId,
+      runId,
+      status,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   private async updateAgentStatus(agentId: string, status: AgentStatus): Promise<void> {

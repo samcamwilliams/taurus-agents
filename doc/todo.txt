@@ -4,6 +4,7 @@
     [] Resumed. Human message: Why did you use the pause tool? (from Pause)
     [] tool descriptions
     [] system prompts
+    [] You have been triggered by your scheduled run. Current time: 2026-03-08T10:25:00.515Z. Execute your task
 
 [] ! CRON
 
@@ -18,6 +19,12 @@
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
 
+[] when you restart after e.g. all shutdown, does it need the agent to look at the session and try to recover? 
+    [] oh wow it auto-resumes and then everything errors out!
+        http://localhost:7777/agents/73665a54-a2db-4e28-9943-8968fa8d081a/runs/c35c55e3-8b44-44be-9528-785b380ab87a
+
+
+also small thing, but when next scheduled run triggers, i don't see it in the ui on the list until i reload the page
 
 [] create subagents as needed
 [] brainstorm Hottest
@@ -38,7 +45,7 @@
 [] why end_turn terminology?
 
 
-
+[] if something frustrating allow it to stop and call
 
 
 
