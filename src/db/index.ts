@@ -1,4 +1,5 @@
 import { Sequelize } from 'sequelize';
+import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -27,7 +28,7 @@ export class Database {
   static async sync() {
     const sequelize = Database.init();
     await sequelize.query('PRAGMA journal_mode=WAL');
-    await sequelize.sync({ alter: true });
+    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
   }
 
   static async close() {
