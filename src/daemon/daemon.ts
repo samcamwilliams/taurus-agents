@@ -373,6 +373,7 @@ export class Daemon {
           this.sse.broadcast(agentId, {
             type: 'llm_thinking',
             agentId,
+            runId,
             text: msg.message,
           });
           break;
@@ -382,6 +383,7 @@ export class Daemon {
           this.sse.broadcast(agentId, {
             type: 'llm_text',
             agentId,
+            runId,
             text: msg.message,
           });
           break;

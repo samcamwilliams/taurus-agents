@@ -151,9 +151,17 @@ export function AgentsPage() {
             break;
 
           case 'run_status':
-            setRuns(prev => prev.map(r =>
-              r.id === data.runId ? { ...r, status: data.status } : r,
-            ));
+            setRuns(prev => {
+              const exists = prev.some(r => r.id === data.runId);
+              if (!exists) {
+                // New run (e.g. from scheduler) — refresh the full list
+                api.listRuns(agentIdRef.current!).then(setRuns);
+                return prev;
+              }
+              return prev.map(r =>
+                r.id === data.runId ? { ...r, status: data.status } : r,
+              );
+            });
             break;
 
           case 'run_complete':
@@ -180,22 +188,21 @@ export function AgentsPage() {
             break;
 
           case 'llm_thinking':
-            if (typeof data.text === 'string') {
+            if (typeof data.text === 'string' && data.runId === runIdRef.current) {
               streamingThinkingRef.current += data.text;
               setStreamingThinking(streamingThinkingRef.current);
             }
             break;
 
           case 'llm_text':
-            // Accumulate streaming text chunks
-            if (typeof data.text === 'string') {
+            if (typeof data.text === 'string' && data.runId === runIdRef.current) {
               streamingTextRef.current += data.text;
               setStreamingText(streamingTextRef.current);
             }
             break;
 
           case 'log':
-            if (data.event === 'message.saved') {
+            if (data.event === 'message.saved' && data.runId === runIdRef.current) {
               // A message was persisted — fetch new messages incrementally and clear streaming
               streamingTextRef.current = '';
               streamingThinkingRef.current = '';

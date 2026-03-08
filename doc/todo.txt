@@ -6,7 +6,28 @@
     [] system prompts
     [] You have been triggered by your scheduled run. Current time: 2026-03-08T10:25:00.515Z. Execute your task
 
-[] ! CRON
+[] tighten agent/run status state machine
+    - agent status and run status are two independent columns updated at different points
+    - can go out of sync (e.g. stopRun sets run=stopped but agent waits for handleChildExit)
+    - run_complete doesn't set agent status (relies on child exit code=0 → idle)
+    - consider: make agent status derived from runs, or at least update both atomically
+    - investigate: first scheduled run stopped with "API stop request" nobody sent
+
+[] show/visualize kb, view/edit/download/upload files
+[] console - log into the container and run commands
+
+[] let the agent see its runs. and then you could use like odd/even tasks in Hottest, or any metadata attached if needed
+    let it see the schedule period
+
+[] add jina when you get 403
+Let me get more details from the Al Arabiya report:
+Tool: WebFetch
+url	https://english.alarabiya.net/News/saudi-arabia/2026/03/07/arab-league-to-hold-emergency-meeting-over-iranian-attacks
+user
+3:05:32 PM
+Result ERROR
+Error: HTTP 403 Forbidden
+
 
 [] context length management (proper! brainstorm)
 
