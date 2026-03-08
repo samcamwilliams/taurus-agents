@@ -18,7 +18,7 @@ import { ROOT_FOLDER_ID } from './types.js';
 import { DockerService } from './docker.js';
 import { SSEBroadcaster } from './sse.js';
 import { Scheduler } from './scheduler.js';
-import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE } from '../core/defaults.js';
+import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT_MS } from '../core/defaults.js';
 import { Op } from 'sequelize';
 import Agent from '../db/models/Agent.js';
 import AgentLog from '../db/models/AgentLog.js';
@@ -138,8 +138,8 @@ export class Daemon {
       model: input.model ?? DEFAULT_MODEL,
       schedule: input.schedule ?? null,
       schedule_overlap: input.schedule_overlap ?? 'skip',
-      max_turns: input.max_turns ?? 20,
-      timeout_ms: input.timeout_ms ?? 300_000,
+      max_turns: input.max_turns ?? DEFAULT_MAX_TURNS,
+      timeout_ms: input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
       metadata: input.metadata ?? null,
       docker_image: input.docker_image ?? DEFAULT_DOCKER_IMAGE,
     });

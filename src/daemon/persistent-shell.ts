@@ -98,8 +98,10 @@ export class PersistentShell {
         const pending = this.pending.get(sentinelId);
         if (pending) {
           this.pending.delete(sentinelId);
+          // Strip any sentinel that may have leaked into stdout
+          const cleanStdout = pending.stdout.replace(/\n?TAURUS_SENTINEL_[0-9a-f-]+_EXIT_\d+$/m, '').replace(/\n+$/, '');
           resolve({
-            stdout: pending.stdout + '\n[Process killed: timeout exceeded]',
+            stdout: cleanStdout + '\n[Process killed: timeout exceeded]',
             exitCode: 124, // standard timeout exit code
             durationMs: Date.now() - pending.startTime,
           });
@@ -115,7 +117,9 @@ export class PersistentShell {
       });
 
       // Send command with sentinel. Merge stderr via 2>&1.
-      const wrappedCmd = `{ ${command}; } 2>&1; echo "TAURUS_SENTINEL_${sentinelId}_EXIT_$?"\n`;
+      // Save exit code first, then echo a blank line to ensure sentinel starts on its own line
+      // (in case command output doesn't end with a newline).
+      const wrappedCmd = `{ ${command}; } 2>&1; _e=$?; echo; echo "TAURUS_SENTINEL_${sentinelId}_EXIT_$_e"\n`;
       this.proc!.stdin!.write(wrappedCmd);
     });
   }
@@ -170,7 +174,7 @@ export class PersistentShell {
         clearTimeout(pending.timer);
         this.pending.delete(sentinelId);
         pending.resolve({
-          stdout: pending.stdout,
+          stdout: pending.stdout.replace(/\n+$/, ''),
           exitCode: parseInt(exitCodeStr, 10),
           durationMs: Date.now() - pending.startTime,
         });

@@ -33,7 +33,7 @@ export interface AgentLoopParams {
  * Yields AgentEvents that the UI (or any consumer) can render.
  */
 export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentEvent> {
-  const { chatml, inference, tools, allowedTools, cwd, requestApproval, maxTurns = 50, signal, model, getInjectedMessages } = params;
+  const { chatml, inference, tools, allowedTools, cwd, requestApproval, maxTurns = 0, signal, model, getInjectedMessages } = params;
   let turns = 0;
 
   while (true) {
@@ -42,7 +42,7 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
       return;
     }
 
-    if (turns >= maxTurns) {
+    if (maxTurns > 0 && turns >= maxTurns) {
       yield { type: 'max_turns_reached' };
       break;
     }

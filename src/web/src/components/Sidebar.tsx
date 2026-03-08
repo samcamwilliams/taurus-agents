@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Agent } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { Countdown } from './Countdown';
 
 interface SidebarProps {
   agents: Agent[];
@@ -31,9 +32,9 @@ export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
             <div className="agent-item__meta">
               {agent.type} &middot; {agent.tools.join(', ')}
             </div>
-            {agent.schedule && agent.next_run && (
+            {agent.schedule && agent.next_run && agent.status !== 'running' && (
               <div className="agent-item__meta">
-                Next: {new Date(agent.next_run).toLocaleString()}
+                Next: <Countdown targetDate={agent.next_run} />
               </div>
             )}
           </div>

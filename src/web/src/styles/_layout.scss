@@ -115,6 +115,18 @@
   }
 }
 
+// ── Countdown ──
+
+.countdown {
+  font-size: 11px;
+  font-family: $font-mono;
+  color: $accent;
+  background: rgba($accent, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
 // ── Tabs ──
 
 .tab-bar {

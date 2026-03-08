@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import { AgentForm, type AgentFormData } from './AgentForm';
+import { Countdown } from './Countdown';
 import type { Agent } from '../types';
 
 interface AgentSettingsProps {
@@ -62,7 +63,11 @@ export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
         {agent.schedule && (
           <>
             <Row label="Overlap Policy" value={agent.schedule_overlap} />
-            <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'} />
+            <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'}>
+              {agent.next_run && agent.status !== 'running' && (
+                <> <Countdown targetDate={agent.next_run} /></>
+              )}
+            </Row>
           </>
         )}
         <Row label="Max Turns" value={String(agent.max_turns)} />
@@ -73,11 +78,11 @@ export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
   );
 }
 
-function Row({ label, value, mono, pre }: { label: string; value: string; mono?: boolean; pre?: boolean }) {
+function Row({ label, value, mono, pre, children }: { label: string; value: string; mono?: boolean; pre?: boolean; children?: React.ReactNode }) {
   return (
     <div className="agent-settings__row">
       <div className="agent-settings__label">{label}</div>
-      <div className={`agent-settings__value${mono ? ' mono' : ''}${pre ? ' pre' : ''}`}>{value}</div>
+      <div className={`agent-settings__value${mono ? ' mono' : ''}${pre ? ' pre' : ''}`}>{value}{children}</div>
     </div>
   );
 }

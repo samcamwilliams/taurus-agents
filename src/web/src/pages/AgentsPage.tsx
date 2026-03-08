@@ -8,6 +8,7 @@ import { MessageView } from '../components/MessageView';
 import { InputBar } from '../components/InputBar';
 import { CreateAgentModal } from '../components/CreateAgentModal';
 import { AgentSettings } from '../components/AgentSettings';
+import { Countdown } from '../components/Countdown';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'settings';
@@ -332,9 +333,9 @@ export function AgentsPage() {
                 <h2>{selectedAgent.name}</h2>
                 <StatusBadge status={selectedAgent.status} />
                 <span className="panel-header__meta">{selectedAgent.type} | {selectedAgent.model}</span>
-                {selectedAgent.schedule && selectedAgent.next_run && (
+                {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
                   <span className="panel-header__meta">
-                    Next: {new Date(selectedAgent.next_run).toLocaleString()}
+                    Next: <Countdown targetDate={selectedAgent.next_run} />
                   </span>
                 )}
               </div>

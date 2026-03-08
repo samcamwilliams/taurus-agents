@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
 import { ROOT_FOLDER_ID } from '../../daemon/types.js';
 import type { AgentType, AgentStatus } from '../../daemon/types.js';
-import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE } from '../../core/defaults.js';
+import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT_MS } from '../../core/defaults.js';
 
 const sequelize = Database.init();
 
@@ -92,12 +92,12 @@ Agent.init(
     max_turns: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 20,
+      defaultValue: DEFAULT_MAX_TURNS,
     },
     timeout_ms: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 300_000,
+      defaultValue: DEFAULT_TIMEOUT_MS,
     },
     metadata: {
       type: DataTypes.JSON,
