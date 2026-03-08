@@ -37,11 +37,15 @@ async function main() {
     console.log(`  Ctrl+C to stop\n`);
   });
 
-  // Graceful shutdown
+  // Graceful shutdown — debounce to avoid double-fire from terminal signal propagation
   let shutdownCount = 0;
   let shutdownInProgress = false;
+  let lastSignalTime = 0;
 
   async function handleShutdown() {
+    const now = Date.now();
+    if (now - lastSignalTime < 500) return; // debounce
+    lastSignalTime = now;
     shutdownCount++;
 
     if (shutdownCount === 1 && !shutdownInProgress) {
@@ -56,12 +60,10 @@ async function main() {
         console.error('Shutdown error:', err);
         process.exit(1);
       }
-    } else if (shutdownCount === 2) {
+    } else if (shutdownCount >= 2) {
       console.log('\nForce shutdown — killing all children...');
       daemon.forceShutdown();
       setTimeout(() => process.exit(1), 2000);
-    } else {
-      process.exit(1);
     }
   }
 

@@ -400,6 +400,11 @@ process.on('message', async (msg: ParentMessage) => {
 
 // ── Process lifecycle ──
 
+// Ignore SIGINT — the parent daemon manages our lifecycle via IPC 'stop' messages.
+// Without this, Ctrl+C in the terminal kills children directly (same process group),
+// racing with the parent's graceful shutdown.
+process.on('SIGINT', () => {});
+
 process.on('disconnect', () => {
   abortController.abort();
   process.exit(1);
