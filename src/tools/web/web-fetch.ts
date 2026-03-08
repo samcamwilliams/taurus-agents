@@ -5,8 +5,8 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import { isUrlSafe } from './url-safety.js';
 
-const MAX_RESPONSE_BYTES = 1_000_000;  // 1 MB
-const MAX_OUTPUT_CHARS = 50_000;
+const MAX_RESPONSE_BYTES = 5_000_000;  // 5 MB — raw HTML is bloated with scripts/CSS; extraction shrinks it dramatically
+const MAX_OUTPUT_CHARS = 50_000;       // truncation on the extracted output, the real safety net
 const FETCH_TIMEOUT_MS = 15_000;
 const USER_AGENT = 'Taurus-Agents/0.1 (WebFetch)';
 
@@ -62,25 +62,33 @@ export class WebFetchTool extends Tool {
       }
 
       const contentType = response.headers.get('content-type') || '';
-      const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
 
-      if (contentLength > MAX_RESPONSE_BYTES) {
-        return {
-          output: `Error: Response too large (${contentLength} bytes, max ${MAX_RESPONSE_BYTES})`,
-          isError: true,
-          durationMs: Date.now() - start,
-        };
+      // Read body up to the limit — don't reject upfront based on Content-Length
+      // since we'll extract readable content (typically 1-5% of raw HTML size)
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+      const streamReader = response.body?.getReader();
+      if (!streamReader) {
+        return { output: 'Error: No response body', isError: true, durationMs: Date.now() - start };
       }
-
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > MAX_RESPONSE_BYTES) {
-        return {
-          output: `Error: Response too large (${buffer.byteLength} bytes, max ${MAX_RESPONSE_BYTES})`,
-          isError: true,
-          durationMs: Date.now() - start,
-        };
+      while (true) {
+        const { done, value } = await streamReader.read();
+        if (done) break;
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_RESPONSE_BYTES) {
+          streamReader.cancel();
+          break; // use what we have so far rather than failing
+        }
+        chunks.push(value);
       }
-
+      const buffer = new Uint8Array(Math.min(totalBytes, MAX_RESPONSE_BYTES));
+      let offset = 0;
+      for (const chunk of chunks) {
+        const len = Math.min(chunk.byteLength, buffer.byteLength - offset);
+        buffer.set(chunk.subarray(0, len), offset);
+        offset += len;
+        if (offset >= buffer.byteLength) break;
+      }
       const body = new TextDecoder().decode(buffer);
 
       // JSON — pretty-print
