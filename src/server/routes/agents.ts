@@ -122,5 +122,10 @@ export function agentRoutes(daemon: Daemon): Route[] {
       const runs = await daemon.getAgentRuns(params.id);
       json(res, runs);
     }),
+
+    route('GET', '/api/agents/:id/runs/:runId/messages', async (_req, res, params) => {
+      const messages = await daemon.getRunMessages(params.runId);
+      json(res, messages);
+    }),
   ];
 }

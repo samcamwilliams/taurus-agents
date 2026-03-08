@@ -202,8 +202,16 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 
   // 6. Run agent loop
   try {
+    const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'Pause']);
+
+    // Filter tools sent to the LLM — observers never see mutation tools
+    const visibleTools = agent.type === 'observer'
+      ? toolNames.filter(t => READ_ONLY_TOOLS.has(t))
+      : toolNames;
+
+    // Runtime safety net — deny even if the LLM hallucinates a tool
     const requestApproval = async (toolName: string, _input: any): Promise<boolean> => {
-      if (agent.type === 'observer') {
+      if (agent.type === 'observer' && !READ_ONLY_TOOLS.has(toolName)) {
         log('warn', 'tool.denied', `Observer agent cannot use mutation tool: ${toolName}`);
         return false;
       }
@@ -214,7 +222,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
       chatml,
       inference,
       tools,
-      allowedTools: toolNames,
+      allowedTools: visibleTools,
       cwd: '/workspace',
       requestApproval,
       maxTurns: agent.max_turns,

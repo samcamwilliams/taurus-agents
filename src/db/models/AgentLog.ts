@@ -58,7 +58,7 @@ AgentLog.init(
     sequelize,
     tableName: 'AgentLogs',
     timestamps: true,
-    underscored: true,
+    createdAt: 'created_at',
     updatedAt: false,
   }
 );

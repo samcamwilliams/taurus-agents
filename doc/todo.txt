@@ -1,5 +1,6 @@
 // TODO: route to other agents
 
+[] docker should pause when the run is over
 
 [] prevent second ./taurus from running and interfering
 [] split types.ts so they're owned by their files
@@ -11,6 +12,8 @@
 [] clean up agent-loop.ts and base-agent.ts
 [] check thread mgr again
 [x] use json fields instead of manually stringifying and parsing
+
+[] what are the read line limits
 
 [] events: agent to agent comms (use inbox/outbox?)
 [] telegram/whatsapp connection

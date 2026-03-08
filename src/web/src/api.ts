@@ -1,4 +1,4 @@
-import type { Agent } from './types';
+import type { Agent, Run, MessageRecord } from './types';
 
 async function request<T>(path: string, opts: RequestInit & { body?: unknown } = {}): Promise<T> {
   const res = await fetch(path, {
@@ -54,5 +54,13 @@ export const api = {
       method: 'POST',
       body: { message },
     });
+  },
+
+  listRuns(agentId: string): Promise<Run[]> {
+    return request(`/api/agents/${agentId}/runs`);
+  },
+
+  getRunMessages(agentId: string, runId: string): Promise<MessageRecord[]> {
+    return request(`/api/agents/${agentId}/runs/${runId}/messages`);
   },
 };

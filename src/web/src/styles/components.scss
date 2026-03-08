@@ -188,6 +188,201 @@
   }
 }
 
+// ── Runs List ──
+
+.runs-panel {
+  width: 260px;
+  border-right: 1px solid $border;
+  display: flex;
+  flex-direction: column;
+  background: $bg2;
+  flex-shrink: 0;
+
+  &__header {
+    padding: 10px 12px;
+    border-bottom: 1px solid $border;
+    font-size: 12px;
+    font-weight: 600;
+    color: $text2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+  }
+}
+
+.run-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid $border;
+  transition: background 0.1s;
+
+  &:hover { background: $bg3; }
+  &.active {
+    background: $bg3;
+    border-left: 2px solid $accent;
+  }
+
+  &__trigger {
+    font-size: 11px;
+    color: $text2;
+    text-transform: uppercase;
+  }
+
+  &__time {
+    font-size: 12px;
+    color: $text;
+    margin: 2px 0;
+  }
+
+  &__tokens {
+    font-size: 11px;
+    color: $text2;
+    font-family: $font-mono;
+  }
+
+  &__summary {
+    font-size: 11px;
+    color: $text2;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__error {
+    font-size: 11px;
+    color: $red;
+    margin-top: 2px;
+  }
+}
+
+// ── Message View ──
+
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.message {
+  padding: 8px 16px;
+  border-bottom: 1px solid $border;
+
+  &--user {
+    background: $bg;
+  }
+
+  &--assistant {
+    background: $bg2;
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  &__role {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: $accent;
+
+    .message--user & { color: $green; }
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: $text2;
+    font-family: $font-mono;
+  }
+
+  &__body {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+.msg-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg-tool-use {
+  margin: 4px 0;
+  border: 1px solid $border;
+  border-radius: 4px;
+  overflow: hidden;
+
+  &__header {
+    padding: 4px 8px;
+    background: $bg3;
+    font-size: 12px;
+    font-weight: 500;
+    color: $purple;
+  }
+
+  &__input {
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: $font-mono;
+    background: $bg;
+    margin: 0;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+.msg-tool-result {
+  margin: 4px 0;
+  border: 1px solid $border;
+  border-radius: 4px;
+  overflow: hidden;
+
+  &.error { border-color: $red; }
+
+  &__header {
+    padding: 4px 8px;
+    background: $bg3;
+    font-size: 12px;
+    color: $text2;
+  }
+
+  &__error {
+    color: $red;
+    font-weight: 600;
+  }
+
+  &__content {
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: $font-mono;
+    background: $bg;
+    margin: 0;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+.msg-raw {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: $font-mono;
+  background: $bg;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+
 // ── Empty State ──
 
 .empty-state {

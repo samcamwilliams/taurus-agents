@@ -10,7 +10,7 @@ export interface AgentLoopParams {
   allowedTools: string[];
   cwd: string;
 
-  /** Called when a mutation tool needs user approval. Return true to allow. */
+  /** Called for every tool invocation. Enforces agent-type policy and interactive approval. */
   requestApproval: (toolName: string, input: any) => Promise<boolean>;
 
   /** Maximum inference round-trips before stopping. */
@@ -102,16 +102,12 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
         return;
       }
 
-      const tool = tools.get(toolUse.name);
-
-      // Check approval for mutation tools
-      if (tool?.requiresApproval) {
-        const approved = await requestApproval(toolUse.name, toolUse.input);
-        if (!approved) {
-          chatml.addToolResult(toolUse.id, 'User denied this action.', true);
-          yield { type: 'tool_denied', name: toolUse.name };
-          continue;
-        }
+      // Always run through approval — enforces agent-type policy on every tool
+      const approved = await requestApproval(toolUse.name, toolUse.input);
+      if (!approved) {
+        chatml.addToolResult(toolUse.id, 'Tool denied by policy.', true);
+        yield { type: 'tool_denied', name: toolUse.name };
+        continue;
       }
 
       yield { type: 'tool_start', name: toolUse.name, input: toolUse.input };

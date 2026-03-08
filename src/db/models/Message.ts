@@ -66,7 +66,7 @@ Message.init(
     sequelize,
     tableName: 'Messages',
     timestamps: true,
-    underscored: true,
+    createdAt: 'created_at',
     updatedAt: false,
   }
 );

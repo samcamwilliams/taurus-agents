@@ -27,8 +27,8 @@ class Folder extends Model {
       id: this.id,
       name: this.name,
       parentId: this.parent_id,
-      createdAt: this.created_at,
-      updatedAt: this.updated_at,
+      created_at: this.created_at,
+      updated_at: this.updated_at,
     };
   }
 }
@@ -52,7 +52,8 @@ Folder.init(
     sequelize,
     tableName: 'Folders',
     timestamps: true,
-    underscored: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
   }
 );
 

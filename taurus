@@ -13,6 +13,21 @@ case "${1:-}" in
     npx vite build --config src/web/vite.config.ts
     exec npx tsx src/index.ts "${@:2}"
     ;;
+  seed)
+    # Create a test agent via the API
+    PORT="${2:-7777}"
+    NAME="test$(curl -s "http://localhost:$PORT/api/agents" | grep -o '"name":"test[0-9]*"' | wc -l | tr -d ' ')"
+    NAME="test$(($(curl -s "http://localhost:$PORT/api/agents" | grep -o '"name":"test[0-9]*"' | wc -l) + 1))"
+    curl -s -X POST "http://localhost:$PORT/api/agents" \
+      -H 'Content-Type: application/json' \
+      -d "{
+        \"name\": \"$NAME\",
+        \"type\": \"actor\",
+        \"system_prompt\": \"Look around the environment. List files, read a few interesting ones, and report back what you see. Be concise.\",
+        \"tools\": [\"Read\", \"Glob\", \"Grep\", \"Bash\"],
+        \"cwd\": \"$(pwd)\"
+      }" | python3 -m json.tool 2>/dev/null || echo "Failed — is the daemon running?"
+    ;;
   *)
     exec npx tsx src/index.ts "$@"
     ;;

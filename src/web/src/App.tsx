@@ -6,6 +6,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<AgentsPage />} />
       <Route path="/agents/:agentId" element={<AgentsPage />} />
+      <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

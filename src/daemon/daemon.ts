@@ -462,6 +462,14 @@ export class Daemon {
     return runs.map(r => r.toApi());
   }
 
+  async getRunMessages(runId: string): Promise<any[]> {
+    const messages = await Message.findAll({
+      where: { run_id: runId },
+      order: [['created_at', 'ASC']],
+    });
+    return messages.map(m => m.toApi());
+  }
+
   async getAgentLogs(agentId: string, limit: number = 100): Promise<any[]> {
     const logs = await AgentLog.findAll({
       where: { agent_id: agentId },
