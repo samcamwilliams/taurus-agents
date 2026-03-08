@@ -68,4 +68,11 @@ export const api = {
     const qs = afterSeq != null ? `?after=${afterSeq}` : '';
     return request(`/api/agents/${agentId}/runs/${runId}/messages${qs}`);
   },
+
+  listTools(): Promise<{
+    tools: { name: string; group: string; description: string }[];
+    defaults: { model: string; docker_image: string; tools: string[] };
+  }> {
+    return request('/api/tools');
+  },
 };

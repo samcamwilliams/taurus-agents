@@ -1,6 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
+import { DEFAULT_MODEL } from '../../core/defaults.js';
 
 const sequelize = Database.init();
 
@@ -67,7 +68,7 @@ Run.init(
     model: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'claude-sonnet-4-20250514',
+      defaultValue: DEFAULT_MODEL,
     },
     total_input_tokens: {
       type: DataTypes.INTEGER,

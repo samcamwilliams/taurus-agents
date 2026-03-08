@@ -1,3 +1,7 @@
+I notice sometimes the Edit tool errors out and you have to re-read again. Is this relevant to Taurus too? I've never seen such failure mode here
+
+"Execute your task" where can i change prompt templates??
+
 [...] streaming again
 
 [] web search and fetch tools

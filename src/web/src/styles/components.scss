@@ -504,3 +504,54 @@
     margin-top: 8px;
   }
 }
+
+.tool-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  &__group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__group-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: $text2;
+    width: 48px;
+    flex-shrink: 0;
+  }
+
+  &__pills {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  &__pill {
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid $border;
+    background: transparent;
+    color: $text2;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: $accent;
+      color: $text;
+    }
+
+    &.active {
+      background: rgba($accent, 0.15);
+      border-color: $accent;
+      color: $accent;
+    }
+  }
+}

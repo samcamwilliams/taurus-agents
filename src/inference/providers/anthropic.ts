@@ -1,8 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
-
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+import { DEFAULT_MODEL } from '../../core/defaults.js';
 
 export class AnthropicProvider extends InferenceProvider {
   readonly name = 'anthropic';

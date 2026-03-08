@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
 import { ROOT_FOLDER_ID } from '../../daemon/types.js';
 import type { AgentType, AgentStatus } from '../../daemon/types.js';
+import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE } from '../../core/defaults.js';
 
 const sequelize = Database.init();
 
@@ -67,7 +68,7 @@ Agent.init(
     model: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'claude-sonnet-4-20250514',
+      defaultValue: DEFAULT_MODEL,
     },
     system_prompt: {
       type: DataTypes.TEXT,
@@ -99,7 +100,7 @@ Agent.init(
     docker_image: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'ubuntu:22.04',
+      defaultValue: DEFAULT_DOCKER_IMAGE,
     },
   },
   {

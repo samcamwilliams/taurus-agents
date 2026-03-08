@@ -17,6 +17,7 @@ import type {
 import { ROOT_FOLDER_ID } from './types.js';
 import { DockerService } from './docker.js';
 import { SSEBroadcaster } from './sse.js';
+import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE } from '../core/defaults.js';
 import { Op } from 'sequelize';
 import Agent from '../db/models/Agent.js';
 import AgentLog from '../db/models/AgentLog.js';
@@ -122,12 +123,12 @@ export class Daemon {
       tools: input.tools,
       cwd: input.cwd,
       folder_id: input.folder_id ?? ROOT_FOLDER_ID,
-      model: input.model ?? 'claude-sonnet-4-20250514',
+      model: input.model ?? DEFAULT_MODEL,
       schedule: input.schedule ?? null,
       max_turns: input.max_turns ?? 20,
       timeout_ms: input.timeout_ms ?? 300_000,
       metadata: input.metadata ?? null,
-      docker_image: input.docker_image ?? 'ubuntu:22.04',
+      docker_image: input.docker_image ?? DEFAULT_DOCKER_IMAGE,
     });
 
     this.agents.set(agent.id, { agent, process: null, currentRunId: null });

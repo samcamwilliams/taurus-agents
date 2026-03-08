@@ -1,5 +1,6 @@
 import type { Daemon } from '../../daemon/daemon.js';
 import { json, error, parseBody, route, type Route } from '../helpers.js';
+import { DEFAULT_TOOLS } from '../../core/defaults.js';
 
 export function agentRoutes(daemon: Daemon): Route[] {
   return [
@@ -21,7 +22,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           name: body.name,
           type: body.type,
           system_prompt: body.system_prompt,
-          tools: body.tools ?? ['Read', 'Glob', 'Grep'],
+          tools: body.tools ?? DEFAULT_TOOLS,
           cwd: body.cwd ?? process.cwd(),
           folder_id: body.folder_id,
           model: body.model,

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { ToolPicker } from './ToolPicker';
 
 interface CreateAgentModalProps {
   onClose: () => void;
@@ -10,10 +11,18 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
   const [name, setName] = useState('');
   const [type, setType] = useState<'observer' | 'actor'>('observer');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful agent. Today\'s date is {{date}}.');
-  const [tools, setTools] = useState('Read, Glob, Grep');
+  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
   const [cwd, setCwd] = useState('');
   const [model, setModel] = useState('');
   const [dockerImage, setDockerImage] = useState('');
+  const [defaults, setDefaults] = useState<{ model: string; docker_image: string } | null>(null);
+
+  useEffect(() => {
+    api.listTools().then(res => {
+      setSelectedTools(new Set(res.defaults.tools));
+      setDefaults(res.defaults);
+    }).catch(() => {});
+  }, []);
 
   async function handleCreate() {
     if (!name || !systemPrompt) {
@@ -25,7 +34,7 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
       name,
       type,
       system_prompt: systemPrompt,
-      tools: tools.split(',').map(s => s.trim()).filter(Boolean),
+      tools: [...selectedTools],
       cwd: cwd || undefined,
       model: model || undefined,
       docker_image: dockerImage || undefined,
@@ -56,17 +65,17 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
         <label>System Prompt</label>
         <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="You are a..." />
 
-        <label>Tools (comma-separated)</label>
-        <input type="text" value={tools} onChange={e => setTools(e.target.value)} placeholder="Read, Glob, Grep, Bash" />
+        <label>Tools</label>
+        <ToolPicker selected={selectedTools} onChange={setSelectedTools} />
 
         <label>Working Directory</label>
         <input type="text" value={cwd} onChange={e => setCwd(e.target.value)} placeholder="/path/to/project" />
 
         <label>Model (optional)</label>
-        <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="claude-sonnet-4-20250514" />
+        <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder={defaults?.model ?? ''} />
 
-        <label>Docker Image (optional, default: ubuntu:22.04)</label>
-        <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder="ubuntu:22.04" />
+        <label>Docker Image (optional)</label>
+        <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
 
         <div className="modal__actions">
           <button className="btn" onClick={onClose}>Cancel</button>
