@@ -39,15 +39,6 @@ Hottest
 
 [] hmm no animation that something is happening... that it's sending something
 
-[] add jina when you get 403
-Let me get more details from the Al Arabiya report:
-Tool: WebFetch
-url	https://english.alarabiya.net/News/saudi-arabia/2026/03/07/arab-league-to-hold-emergency-meeting-over-iranian-attacks
-user
-3:05:32 PM
-Result ERROR
-Error: HTTP 403 Forbidden
-
 [] grok to search on x and look if something is fake or not
 [] perplexity search? more search tools?
 [] deep research runs?
