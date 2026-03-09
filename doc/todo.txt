@@ -1,8 +1,14 @@
 [...] browser
-[] screenshot captured but can't use
 [] browser tool featureset: Yes, you should definitely expand it! A few approaches:
 
 [] pdfs! see how codex does it etc. but also deepseek pdf (skill/agent?)
+
+[] claude has its own web search. and so does openai api? could use their backends?
+[] whisper backend. and what about tts?
+
+[] switch to lighter models for tests [] there's even free api on claude on openrouter? no wait maybe that was deepseek?
+[] integrate CC SDK? for some subagents? free inference, basically [] could you pass it the tools instead of using its own?
+[] how to store credentials in a smart way. secrets, basically, like gh. need to investigate. there's also onepass vault skill or something in openclaw
 
 [] add tools inside container (maintain docker/Dockerfile)
     base: bash, git, curl, wget, jq, rg (ripgrep), fd-find, tree, python3
@@ -15,11 +21,6 @@
     alternative: vercel agent-browser (Rust+Node, ~200 tokens/snapshot, 93% less context)
     codex-universal has: bun, git, curl, wget, jq, rg, python3, go, ruby, java, swift, php — but NO node/npm, NO browsers (25.8GB)
     skills: playwright-cli install --skills
-
-[] Screenshot of "httpbin.org" (https://httpbin.org/)
-Viewport: 1280x720, 27438 bytes
-- are bytes needed for the agent? what was the rationale behind it. or only i can see this?
-
 
 [] different placeholders and templates stored somewhere
 
@@ -52,6 +53,7 @@ Viewport: 1280x720, 27438 bytes
     [] tool descriptions
     [] system prompts
     [] You have been triggered by your scheduled run. Current time: 2026-03-08T10:25:00.515Z. Execute your task
+    [] does the syntax of the tools output make sense? maybe compact?
 
 [] tighten agent/run status state machine
     - agent status and run status are two independent columns updated at different points
@@ -61,7 +63,8 @@ Viewport: 1280x720, 27438 bytes
     - investigate: first scheduled run stopped with "API stop request" nobody sent
 
 [] show/visualize kb, view/edit/download/upload files
-[] console - log into the container and run commands
+    [] is vscode embeddable? would be great
+[] add console page - log into the container and run commands as needed
 
 [] let the agent see its runs. and then you could use like odd/even tasks in Hottest, or any metadata attached if needed
     let it see the schedule period
@@ -85,6 +88,7 @@ Viewport: 1280x720, 27438 bytes
 [] Bash tool: "<persisted-output>Output too large (56.5KB). Full output saved to: /......../.claude/projects/User-s......./...
 
 [] autobackup! at least the database. as for containers - optional, but could set it up automatic. could be specified in hottest recipes too
+    could also instruct to use git if needed and backup important state offsite idk
 
 [] if i just reload backend gracefully (because developing a feature), and this stops the runs, it should just pick them right up, right? unless flag is passed (and should indicate this in any case, that a session was abruptly stopped)
 
@@ -112,6 +116,9 @@ HottestLang
         [] karpathy evolution notes - write in hottest. maybe generalize even
         [] see in apple notes
         [] well basically all your projects _vibe
+
+[] sophisticated cron triggers: e.g. by a new email arriving or a calendar event being close, and need to think through whether to remind the user (also self-schedule/self-snooze!)
+    [] in prod could go through supervisor agent, when requesting to run? if by some chance asks to run * * * * * - why. resource mgmt
 
 [] dashboard! that agents can operate on. notion-like! factorio-like!
 

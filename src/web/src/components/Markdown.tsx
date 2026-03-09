@@ -7,7 +7,7 @@ import 'highlight.js/styles/github-dark-dimmed.css';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text);

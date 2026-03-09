@@ -32,6 +32,7 @@ export type AgentEvent =
   | { type: 'tool_denied'; name: string }
   | { type: 'user_message'; message: ChatMessage }
   | { type: 'max_turns_reached' }
+  | { type: 'retry'; attempt: number; maxRetries: number; error: string; delayMs: number }
   | { type: 'done' };
 
 // ─── Token Usage ───

@@ -26,6 +26,18 @@ export interface AgentLoopParams {
   getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
 }
 
+const TRANSIENT_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EPIPE', 'UND_ERR_SOCKET']);
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 529]);
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 2000;
+
+function isTransientError(err: any): boolean {
+  if (TRANSIENT_CODES.has(err?.code)) return true;
+  if (TRANSIENT_STATUSES.has(err?.status)) return true;
+  const msg = err?.message ?? '';
+  return TRANSIENT_CODES.has(msg) || /ECONNRESET|ETIMEDOUT|overloaded/i.test(msg);
+}
+
 /**
  * The core TAOR loop: Think → Act → Observe → Repeat.
  *
@@ -82,18 +94,33 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
       }
     }
 
-    // ── Think: stream inference ──
+    // ── Think: stream inference (with retry for transient errors) ──
     const toolDefs = tools.getToolDefinitions(allowedTools);
     let stopReason = '';
 
-    for await (const event of inference.complete(chatml, toolDefs, model ? { model } : undefined)) {
-      yield { type: 'stream', event };
+    for (let attempt = 0; ; attempt++) {
+      try {
+        for await (const event of inference.complete(chatml, toolDefs, model ? { model } : undefined)) {
+          yield { type: 'stream', event };
 
-      if (event.type === 'message_complete') {
-        stopReason = event.stopReason;
-
-        // Add assistant response to ChatML
-        chatml.addAssistant(event.message.content);
+          if (event.type === 'message_complete') {
+            stopReason = event.stopReason;
+            chatml.addAssistant(event.message.content);
+          }
+        }
+        break; // success
+      } catch (err: any) {
+        if (attempt < MAX_RETRIES && isTransientError(err) && !signal?.aborted) {
+          const delay = BASE_DELAY_MS * 2 ** attempt;
+          yield { type: 'retry', attempt: attempt + 1, maxRetries: MAX_RETRIES, error: err.message, delayMs: delay };
+          await new Promise(r => {
+            const timer = setTimeout(r, delay);
+            signal?.addEventListener('abort', () => { clearTimeout(timer); r(undefined); }, { once: true });
+          });
+          if (signal?.aborted) throw err;
+          continue;
+        }
+        throw err;
       }
     }
 

@@ -345,6 +345,10 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           log('info', 'message.saved', 'user');
           break;
 
+        case 'retry':
+          log('warn', 'inference.retry', `Transient error, retry ${event.attempt}/${event.maxRetries} in ${event.delayMs}ms: ${event.error}`);
+          break;
+
         case 'max_turns_reached':
           log('warn', 'run.max_turns', `Max turns (${agent.max_turns}) reached`);
           break;
