@@ -2,7 +2,7 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
 
-type Action = 'open' | 'snapshot' | 'click' | 'type' | 'select' | 'screenshot' | 'scroll' | 'hover' | 'back' | 'forward' | 'wait' | 'close';
+type Action = 'open' | 'snapshot' | 'click' | 'type' | 'select' | 'screenshot' | 'scroll' | 'hover' | 'back' | 'forward' | 'wait' | 'close' | 'evaluate' | 'press' | 'upload';
 
 const MAX_OUTPUT = 50_000;
 const DEFAULT_TIMEOUT = 30_000;
@@ -23,7 +23,10 @@ export class BrowserTool extends Tool {
     '- "scroll": Scroll the page. Params: `direction` ("up" or "down"), `amount` (pixels, default 300).\n' +
     '- "back"/"forward": Navigate browser history.\n' +
     '- "wait": Wait for a duration. Params: `ms` (default 1000).\n' +
-    '- "close": Close the browser session.\n\n' +
+    '- "close": Close the browser session.\n' +
+    '- "evaluate": Run JavaScript in the page context. Params: `expression` (required). Returns the serialized result.\n' +
+    '- "press": Press a keyboard key or combo. Params: `key` (required, e.g. "Enter", "Escape", "Control+a"), `selector` (optional — focus element first).\n' +
+    '- "upload": Upload files to a file input. Params: `selector` (required), `files` (required — array of absolute paths inside the container).\n\n' +
     'Typical flow: open → snapshot → click/type → snapshot → ...\n' +
     'The browser persists between calls — no need to re-open for each action.';
   readonly requiresApproval = true;
@@ -32,7 +35,7 @@ export class BrowserTool extends Tool {
     properties: {
       action: {
         type: 'string',
-        enum: ['open', 'snapshot', 'click', 'type', 'select', 'screenshot', 'scroll', 'hover', 'back', 'forward', 'wait', 'close'],
+        enum: ['open', 'snapshot', 'click', 'type', 'select', 'screenshot', 'scroll', 'hover', 'back', 'forward', 'wait', 'close', 'evaluate', 'press', 'upload'],
         description: 'The browser action to perform.',
       },
       url: {
@@ -65,6 +68,19 @@ export class BrowserTool extends Tool {
         type: 'number',
         description: 'Wait duration in milliseconds (for "wait" action, default 1000).',
       },
+      expression: {
+        type: 'string',
+        description: 'JavaScript expression to evaluate in the page context (for "evaluate" action). The return value is serialized as JSON.',
+      },
+      key: {
+        type: 'string',
+        description: 'Key or key combo to press (for "press" action). Examples: "Enter", "Escape", "Tab", "Control+a", "Shift+ArrowDown".',
+      },
+      files: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Absolute file paths inside the container to upload (for "upload" action).',
+      },
     },
     required: ['action'],
   };
@@ -85,6 +101,9 @@ export class BrowserTool extends Tool {
     direction?: 'up' | 'down';
     amount?: number;
     ms?: number;
+    expression?: string;
+    key?: string;
+    files?: string[];
   }, _context: ToolContext): Promise<ToolResult> {
     const start = Date.now();
 

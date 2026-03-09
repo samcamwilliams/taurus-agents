@@ -187,6 +187,29 @@ async function handleAction(input) {
         return `Waited ${ms}ms`;
       }
 
+      case 'evaluate': {
+        if (!input.expression) return 'Error: "expression" is required.';
+        const result = await page.evaluate(input.expression);
+        return typeof result === 'string' ? result : JSON.stringify(result, null, 2) ?? 'undefined';
+      }
+
+      case 'press': {
+        if (!input.key) return 'Error: "key" is required.';
+        if (input.selector) {
+          await page.press(input.selector, input.key, { timeout: 5000 });
+        } else {
+          await page.keyboard.press(input.key);
+        }
+        return `Pressed: ${input.key}${input.selector ? ` on ${input.selector}` : ''}`;
+      }
+
+      case 'upload': {
+        if (!input.selector) return 'Error: "selector" is required.';
+        if (!input.files?.length) return 'Error: "files" is required (array of paths).';
+        await page.setInputFiles(input.selector, input.files, { timeout: 5000 });
+        return `Uploaded ${input.files.length} file(s) to ${input.selector}: ${input.files.join(', ')}`;
+      }
+
       default:
         return `Error: Unknown action "${action}"`;
     }

@@ -6,7 +6,6 @@
         [] subagents/tasks!
         that's it, wow. can do it
 
-[...] browser
 [] browser tool featureset: Yes, you should definitely expand it! A few approaches:
 
 [] diffs/tool call areas not showing full paths?
