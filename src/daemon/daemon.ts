@@ -422,6 +422,49 @@ export class Daemon {
     run.process.send(msg);
   }
 
+  // ── Smart message dispatch ──
+
+  /**
+   * Single entry point for sending a message to an agent.
+   * Auto-dispatches based on run state:
+   *   run is running → inject into it
+   *   run is paused  → resume it with message
+   *   run is idle    → continue it with message
+   *   no run_id      → start a new run
+   */
+  async sendMessage(
+    agentId: string,
+    message: string,
+    opts?: { images?: { base64: string; mediaType: string }[]; run_id?: string },
+  ): Promise<string> {
+    const managed = this.agents.get(agentId);
+    if (!managed) throw new Error(`Agent not found: ${agentId}`);
+
+    const images = opts?.images;
+    const runId = opts?.run_id;
+
+    if (!runId) {
+      return this.startRun(agentId, 'manual', message, images);
+    }
+
+    // Check if this run has a live worker
+    const activeRun = managed.runs.get(runId);
+    if (activeRun) {
+      if (activeRun.status === 'running') {
+        await this.injectMessage(agentId, message, images, runId);
+        return runId;
+      }
+      if (activeRun.status === 'paused') {
+        await this.continueRun(agentId, runId, message, images);
+        return runId;
+      }
+    }
+
+    // Idle run — continue it
+    await this.continueRun(agentId, runId, message, images);
+    return runId;
+  }
+
   // ── Blocking ask (for /api/ask) ──
 
   /** Returns any active run's ID for this agent. Prefers running over paused. */

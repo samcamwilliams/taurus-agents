@@ -386,17 +386,8 @@ export function AgentsPage() {
     const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
 
     try {
-      if (selectedAgent?.status === 'running' || selectedAgent?.status === 'paused') {
-        await api.injectMessage(agentId, message, apiImages, runId);
-        return;
-      }
-
       const targetRunId = runId || runs[0]?.id;
-      const result = await api.startRun(agentId, {
-        input: message,
-        images: apiImages,
-        ...(targetRunId ? { run_id: targetRunId } : {}),
-      });
+      const result = await api.sendMessage(agentId, message, apiImages, targetRunId);
       await loadAgents();
       const updatedRuns = await api.listRuns(agentId);
       setRuns(updatedRuns);

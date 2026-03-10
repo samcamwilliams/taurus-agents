@@ -110,6 +110,9 @@ LATER/NOT URGENT
 [] rebuild backend too! --watch [] hmm but won't it reload many times while writes are being written
 [] security/prompt injections!
 [] track run time? actually computable on the fly if needed
+maybe
+[] ephemeral containers? instead of dangling. but what about persistence. container mgmt questions
+[] browser tool: if you want even leaner: Vercel's agent-browser CLI (Rust+Node, ~200 tokens per snapshot), same pattern but more optimized.
 
 HottestLang
     https://x.com/karpathy/status/1617979122625712128 (Jan 25, 2023): The hottest new programming language is English
@@ -144,10 +147,6 @@ HottestLang
 [] if something frustrating allow it to stop and call
     and leave notes and suggestions and just continue!
 
-
-maybe
-[] ephemeral containers? instead of dangling. but what about persistence. container mgmt questions
-[] browser tool: if you want even leaner: Vercel's agent-browser CLI (Rust+Node, ~200 tokens per snapshot), same pattern but more optimized.
 
 [] naming! taurus ai taken? or at least need SEO! well good, agents can do that
 

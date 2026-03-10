@@ -189,12 +189,15 @@ export function agentRoutes(daemon: Daemon): Route[] {
       }
     }),
 
-    route('POST', '/api/agents/:id/inject', async (req, res, params) => {
+    route('POST', '/api/agents/:id/message', async (req, res, params) => {
       const body = await parseBody(req);
       if (!body.message) return error(res, 'message is required');
       try {
-        await daemon.injectMessage(params.id, body.message, body.images, body.run_id);
-        json(res, { ok: true });
+        const runId = await daemon.sendMessage(params.id, body.message, {
+          images: body.images,
+          run_id: body.run_id,
+        });
+        json(res, { runId });
       } catch (err: any) {
         error(res, err.message);
       }

@@ -70,8 +70,8 @@ export const api = {
     return request(`/api/agents/${agentId}/runs/${runId}`, { method: 'DELETE' });
   },
 
-  injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<{ ok: boolean }> {
-    return request(`/api/agents/${agentId}/inject`, {
+  sendMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<{ runId: string }> {
+    return request(`/api/agents/${agentId}/message`, {
       method: 'POST',
       body: { message, images, run_id: runId },
     });
