@@ -17,10 +17,14 @@ import './db/models/AgentLog.js';
 
 import { Daemon } from './daemon/daemon.js';
 import { createServer } from './server/server.js';
+import { acquireLock, releaseLock } from './daemon/lockfile.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);
 
 async function main() {
+  // Prevent multiple instances from running
+  acquireLock(PORT);
+
   await Database.sync();
 
   const daemon = new Daemon();
@@ -57,14 +61,17 @@ async function main() {
         await daemon.shutdown();
         server.close();
         await Database.close();
+        releaseLock();
         process.exit(0);
       } catch (err) {
         console.error('Shutdown error:', err);
+        releaseLock();
         process.exit(1);
       }
     } else if (shutdownCount >= 2) {
       console.log('\nForce shutdown — killing all children...');
       daemon.forceShutdown();
+      releaseLock();
       setTimeout(() => process.exit(1), 2000);
     }
   }
@@ -75,5 +82,6 @@ async function main() {
 
 main().catch((err) => {
   console.error('Fatal error:', err);
+  releaseLock();
   process.exit(1);
 });

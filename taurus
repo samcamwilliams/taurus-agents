@@ -28,6 +28,28 @@ case "${1:-}" in
         \"cwd\": \"$(pwd)\"
       }" | python3 -m json.tool 2>/dev/null || echo "Failed — is the daemon running?"
     ;;
+  status)
+    # Check if Taurus is running
+    LOCKFILE="data/taurus.lock"
+    if [ -f "$LOCKFILE" ]; then
+      PID=$(grep -o '"pid":[0-9]*' "$LOCKFILE" | cut -d: -f2)
+      PORT=$(grep -o '"port":[0-9]*' "$LOCKFILE" | cut -d: -f2)
+      STARTED=$(grep -o '"startedAt":"[^"]*"' "$LOCKFILE" | cut -d'"' -f4)
+      if kill -0 "$PID" 2>/dev/null; then
+        echo "Taurus is running"
+        echo "  PID: $PID"
+        echo "  Port: $PORT"
+        echo "  Started: $STARTED"
+        exit 0
+      else
+        echo "Stale lockfile found (PID $PID not running)"
+        exit 1
+      fi
+    else
+      echo "Taurus is not running"
+      exit 1
+    fi
+    ;;
   *)
     exec npx tsx src/index.ts "$@"
     ;;

@@ -29,7 +29,9 @@ WHEN YOU HAVE TIME: IMPORTANT FEATURE ASKS
 [] chatml: token count and HUD managing/partial compactify/
     collapse/uncollapse
 [] context length management (proper! brainstorm)
-[] prevent second ./taurus from running and interfering
+[x] prevent second ./taurus from running and interfering
+    added: src/daemon/lockfile.ts, uses PID-based lockfile in data/taurus.lock
+    added: ./taurus status command to check if running
 [] COUNT $ somewhere
 [] (hottest) let the agent see its runs. and then you could use like odd/even tasks in Hottest, or any metadata attached if needed
     let it see the schedule period
@@ -173,6 +175,3 @@ Could run commands on your computer, browse the web, and control a real browser
 Woke up on a schedule to handle recurring tasks without being asked
 Ran on your own hardware - your laptop, a VPS, a Mac Mini - always on, under your control
 This is what OpenClaw does. It's not a chatbot - it's a personal AI assistant with a persistent identity, tools, and presence across every channel you use.
-
-
-
