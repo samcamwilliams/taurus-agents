@@ -274,7 +274,24 @@ export class Daemon {
   async continueRun(agentId: string, runId: string, input?: string, images?: { base64: string; mediaType: string }[]): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
-    if (managed.process) throw new Error(`Agent "${managed.agent.name}" is already running`);
+
+    // If another run is paused/running, stop it first
+    // TODO: check if you should keep this
+    if (managed.process) {
+      await this.stopRun(agentId);
+    }
+//     -  async resumeAgent(agentId: string, message?: string): Promise<void> {
+// -    const managed = this.agents.get(agentId);
+// -    if (!managed?.process) throw new Error('Agent is not running');
+// -    if (managed.agent.status !== 'paused') throw new Error('Agent is not paused');
+// -
+// -    const msg: ParentMessage = { type: 'resume', message };
+// -    managed.process.send(msg);
+// -    await this.updateAgentStatus(agentId, 'running');
+// -    if (managed.currentRunId) {
+// -      await this.updateRunStatus(agentId, managed.currentRunId, 'running');
+// -    }
+// -  }
 
     const run = await Run.findByPk(runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
@@ -352,19 +369,6 @@ export class Daemon {
 
     if (runId) {
       await this.updateRunStatus(agentId, runId, 'stopped');
-    }
-  }
-
-  async resumeAgent(agentId: string, message?: string): Promise<void> {
-    const managed = this.agents.get(agentId);
-    if (!managed?.process) throw new Error('Agent is not running');
-    if (managed.agent.status !== 'paused') throw new Error('Agent is not paused');
-
-    const msg: ParentMessage = { type: 'resume', message };
-    managed.process.send(msg);
-    await this.updateAgentStatus(agentId, 'running');
-    if (managed.currentRunId) {
-      await this.updateRunStatus(agentId, managed.currentRunId, 'running');
     }
   }
 

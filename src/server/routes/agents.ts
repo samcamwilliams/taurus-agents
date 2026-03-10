@@ -39,7 +39,8 @@ async function handleAsk(
 
     if (agent.status === 'paused') {
       runId = daemon.getCurrentRunId(agentId) ?? '';
-      await daemon.resumeAgent(agentId, message);
+      // todo: used to be await daemon.resumeAgent(agentId, message);
+      await daemon.continueRun(agentId, runId, message);
     } else if (forceNew) {
       runId = await daemon.startRun(agentId, 'manual', message);
     } else {
@@ -137,6 +138,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
     // ── Run Management ──
     route('POST', '/api/agents/:id/run', async (req, res, params) => {
       const body = await parseBody(req);
+      console.log('[DEBUG] POST /run', { agent: params.id, run_id: body.run_id, hasInput: !!body.input });
       try {
         if (body.run_id) {
           // Continue an existing run
@@ -166,15 +168,16 @@ export function agentRoutes(daemon: Daemon): Route[] {
       }
     }),
 
-    route('POST', '/api/agents/:id/resume', async (req, res, params) => {
-      const body = await parseBody(req);
-      try {
-        await daemon.resumeAgent(params.id, body.message);
-        json(res, { ok: true });
-      } catch (err: any) {
-        error(res, err.message);
-      }
-    }),
+    // todo: fixme, delete if not needed anymore
+//     -    route('POST', '/api/agents/:id/resume', async (req, res, params) => {
+// -      const body = await parseBody(req);
+// -      try {
+// -        await daemon.resumeAgent(params.id, body.message);
+// -        json(res, { ok: true });
+// -      } catch (err: any) {
+// -        error(res, err.message);
+// -      }
+// -    }),
 
     route('POST', '/api/agents/:id/inject', async (req, res, params) => {
       const body = await parseBody(req);

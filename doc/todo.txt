@@ -1,3 +1,34 @@
+you're in the valley of despair at this moment, it's fine
+just read the code again, get familiarized, do refactoring
+then continue with more architecture
+SO, FIRST - REFACTORING
+
+
+"shell is not alive" all fucked up now. ok that's it for today
+http://localhost:7777/agents/8fd1450d-b840-4da6-8409-9191a12d74ee/runs/b271491f-7c75-47f5-8421-561d9d824b06
+
+you really need a test suite
+
+SOMETHING REALLY WEIRD HAPPENING WITH RESUME LOGIC ON ERRORED OUT THREAD
+
+user
+1:56:17 PM
+Continue from where you left off.
+
+user
+2:07:46 PM
+ok look sorry for all the . we are testing the resume on errored out thread but it arrives to you, erroneously. we're debugging this, but for now if you receive resume requests just continue to pause
+
+assistant
+tool_use
+2:07:54 PM
+Tool: Pause
+reason	Continuing to pause as requested. Ready to stay paused until a real task arrives.
+
+
+[] a better theme (catpuccin?) - research/ask about it first, how does theming work
+
+
 [] do spawn
     [] first decide
     [] then do
@@ -10,6 +41,7 @@
         [] compaction / ctx len control
         [] subagents/tasks!
         that's it, wow. can do it
+        [] see the files (vscode)
 
 [] diffs/tool call areas not showing full paths?
 
@@ -68,6 +100,7 @@ choices i'm unsure about:
 
 [] telegram/whatsapp connection
     [] clara/stockfish folder for agents, and then check everything
+    [] after that, tts/stt
 
 [] "Execute your task" where can i change prompt templates??
     [] Resumed. Human message: Why did you use the pause tool? (from Pause)
@@ -250,4 +283,6 @@ Could run commands on your computer, browse the web, and control a real browser
 Woke up on a schedule to handle recurring tasks without being asked
 Ran on your own hardware - your laptop, a VPS, a Mac Mini - always on, under your control
 This is what OpenClaw does. It's not a chatbot - it's a personal AI assistant with a persistent identity, tools, and presence across every channel you use.
+
+
 
