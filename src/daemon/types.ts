@@ -1,7 +1,7 @@
 // ─── Agent Enums ───
 
 export type AgentStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
-export type TriggerType = 'schedule' | 'manual' | `signal:${string}`;
+export type TriggerType = 'schedule' | 'manual' | 'spawn' | `signal:${string}`;
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // ─── IPC: Parent → Child ───
@@ -13,7 +13,8 @@ export type ParentMessage =
   | { type: 'stop'; reason: string }
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string; images?: IpcImage[] }
-  | { type: 'signal'; name: string; payload: unknown };
+  | { type: 'signal'; name: string; payload: unknown }
+  | { type: 'spawn_result'; requestId: string; summary: string; error?: string };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───
 
@@ -25,6 +26,7 @@ export type ChildMessage =
   | { type: 'run_complete'; summary: string; error?: string;
       tokens: { input: number; output: number; cost: number } }
   | { type: 'signal_emit'; name: string; payload: unknown }
+  | { type: 'spawn_request'; requestId: string; input: string; system_prompt?: string; tools?: string[]; max_turns?: number; timeout_ms?: number }
   | { type: 'error'; error: string; stack?: string };
 
 // ─── Root folder well-known ID ───

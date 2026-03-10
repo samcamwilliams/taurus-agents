@@ -12,7 +12,9 @@
     "daemon": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "makemigration": "tsx node_modules/sequelize-auto-migrations/bin/makemigration.js && for f in src/db/migrations/*.js; do [ -f \"$f\" ] && mv \"$f\" \"${f%.js}.cjs\"; done",
-    "migrate": "npx sequelize-cli db:migrate"
+    "migrate": "npx sequelize-cli db:migrate",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -51,6 +53,7 @@
     "sass": "^1.97.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }

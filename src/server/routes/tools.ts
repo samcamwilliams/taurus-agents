@@ -11,6 +11,7 @@ const AVAILABLE_TOOLS = [
   { name: 'WebSearch', group: 'Web',    description: 'Search the web' },
   { name: 'WebFetch',  group: 'Web',    description: 'Fetch web pages' },
   { name: 'Browser',   group: 'Web',    description: 'Control a headless browser' },
+  { name: 'Spawn',     group: 'Control', description: 'Spawn sub-agent for subtasks' },
 ];
 
 export function toolRoutes(): Route[] {

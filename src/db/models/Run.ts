@@ -17,6 +17,7 @@ class Run extends Model {
   declare total_output_tokens: number;
   declare total_cost_usd: number;
   declare agent_id: string | null;
+  declare parent_run_id: string | null;
   declare trigger: string | null;
   declare run_summary: string | null;
   declare run_error: string | null;
@@ -48,8 +49,8 @@ class Run extends Model {
   }
 
   toApi() {
-    const { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at } = this;
-    return { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, trigger, run_summary, run_error, created_at, updated_at };
+    const { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, parent_run_id, trigger, run_summary, run_error, created_at, updated_at } = this;
+    return { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, parent_run_id, trigger, run_summary, run_error, created_at, updated_at };
   }
 }
 
@@ -94,6 +95,10 @@ Run.init(
       defaultValue: 0,
     },
     agent_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    parent_run_id: {
       type: DataTypes.UUID,
       allowNull: true,
     },

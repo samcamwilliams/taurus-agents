@@ -1,8 +1,8 @@
 /**
- * agent-worker.ts — Universal child process entry point.
+ * run-worker.ts — One forked process per active run.
  *
  * Spawned via child_process.fork() by Daemon.
- * Reads its own Agent row from DB, handles message persistence directly.
+ * Owns the agent loop, a PersistentShell, and DB writes for its run.
  * IPC is used only for coordination signals (status, logs for SSE, completion).
  */
 
@@ -30,6 +30,7 @@ import { WebFetchTool } from '../tools/web/web-fetch.js';
 import { WebSearchTool } from '../tools/web/web-search.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
+import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
 
 // ── IPC helpers ──
 
@@ -55,6 +56,20 @@ function waitForResume(): Promise<string | undefined> {
   });
 }
 
+// ── Spawn machinery ──
+
+const spawnResolvers = new Map<string, (result: SpawnResult) => void>();
+
+function sendSpawnRequest(request: SpawnRequest): void {
+  send({ type: 'spawn_request', ...request });
+}
+
+function waitForSpawnResult(requestId: string): Promise<SpawnResult> {
+  return new Promise((resolve) => {
+    spawnResolvers.set(requestId, resolve);
+  });
+}
+
 // ── Abort controller for graceful stop ──
 
 const abortController = new AbortController();
@@ -64,38 +79,35 @@ const abortController = new AbortController();
 type InjectedMessage = { text: string; images?: { base64: string; mediaType: string }[] };
 const injectQueue: InjectedMessage[] = [];
 
-// ── Tool registration ──
+// ── Tool factories ──
+// Each tool registers a factory: (shell) => Tool | null.
+// Returning null skips registration (e.g. missing API key).
+
+type ToolFactory = (shell: PersistentShell) => import('../tools/base.js').Tool | null;
+
+const TOOL_FACTORIES: Record<string, ToolFactory> = {
+  Read:      (s) => new ShellReadTool(s),
+  Write:     (s) => new ShellWriteTool(s),
+  Edit:      (s) => new ShellEditTool(s),
+  Glob:      (s) => new ShellGlobTool(s),
+  Grep:      (s) => new ShellGrepTool(s),
+  Bash:      (s) => new PersistentBashTool(s),
+  Browser:   (s) => new BrowserTool(s),
+  Pause:     ()  => new PauseTool(sendPause, waitForResume),
+  Spawn:     ()  => new SpawnTool(sendSpawnRequest, waitForSpawnResult),
+  WebFetch:  ()  => new WebFetchTool(),
+  WebSearch: ()  => {
+    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+    return apiKey ? new WebSearchTool(new BraveSearchProvider(apiKey)) : null;
+  },
+};
 
 function registerTools(registry: ToolRegistry, toolNames: string[], shell: PersistentShell): void {
-  const SHELL_TOOLS: Record<string, () => import('../tools/base.js').Tool> = {
-    Read: () => new ShellReadTool(shell),
-    Write: () => new ShellWriteTool(shell),
-    Edit: () => new ShellEditTool(shell),
-    Glob: () => new ShellGlobTool(shell),
-    Grep: () => new ShellGrepTool(shell),
-  };
-
   for (const name of toolNames) {
-    if (name === 'Bash') {
-      registry.register(new PersistentBashTool(shell));
-    } else if (name === 'Pause') {
-      registry.register(new PauseTool(sendPause, waitForResume));
-    } else if (name === 'WebFetch') {
-      registry.register(new WebFetchTool());
-    } else if (name === 'WebSearch') {
-      const apiKey = process.env.BRAVE_SEARCH_API_KEY;
-      if (apiKey) {
-        registry.register(new WebSearchTool(new BraveSearchProvider(apiKey)));
-      }
-    } else if (name === 'Browser') {
-      registry.register(new BrowserTool(shell));
-    } else if (SHELL_TOOLS[name]) {
-      registry.register(SHELL_TOOLS[name]());
-    }
-  }
-
-  if (!toolNames.includes('Pause')) {
-    registry.register(new PauseTool(sendPause, waitForResume));
+    const factory = TOOL_FACTORIES[name];
+    if (!factory) continue;
+    const tool = factory(shell);
+    if (tool) registry.register(tool);
   }
 }
 
@@ -222,8 +234,11 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   await shell.spawn();
 
   // 3. Register tools
+  // Pause is always available — it's the agent's safety valve to ask for human input.
+  // Spawn children never get Pause (nobody can resume them — it would deadlock).
+  const ALWAYS_ON_TOOLS = trigger === 'spawn' ? [] : ['Pause'];
   const tools = new ToolRegistry();
-  const toolNames = [...new Set([...agent.tools, 'Pause'])];
+  const toolNames = [...new Set([...agent.tools, ...ALWAYS_ON_TOOLS])];
   registerTools(tools, toolNames, shell);
 
   // 4. Build ChatML
@@ -431,6 +446,15 @@ process.on('message', async (msg: ParentMessage) => {
       injectQueue.push({ text: msg.message, images: msg.images });
       log('info', 'agent.inject', `Message queued for next turn: ${msg.message}`);
       break;
+
+    case 'spawn_result': {
+      const resolver = spawnResolvers.get(msg.requestId);
+      if (resolver) {
+        spawnResolvers.delete(msg.requestId);
+        resolver({ summary: msg.summary, error: msg.error });
+      }
+      break;
+    }
 
     case 'signal':
       log('info', 'agent.signal', `Signal received: ${msg.name}`, msg.payload);

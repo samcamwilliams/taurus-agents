@@ -289,25 +289,35 @@ export function AgentsPage() {
     }
   }
 
-  async function handleContinueOrResume(message?: string, images?: import('../components/InputBar').ImageAttachment[]) {
+  async function handleResume() {
     if (!agentId) return;
+    const targetRunId = runId || runs[0]?.id;
+    if (!targetRunId) return;
+    try {
+      // continueRun detects the live paused worker and does IPC resume
+      await api.startRun(agentId, { run_id: targetRunId });
+      await loadAgents();
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  }
+
+  async function handleSend(message: string, images?: import('../components/InputBar').ImageAttachment[]) {
+    if (!agentId || !message.trim()) return;
+    appendOptimisticUserMessage(message, images);
     const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
 
     try {
-      // If running and we're on the active run, inject
-      if (selectedAgent?.status === 'running' && message) {
-        try {
-          await api.injectMessage(agentId, message, apiImages);
-          return;
-        } catch {
-          // Agent may have just stopped — fall through to start/continue
-        }
+      // Worker alive (running or paused) → inject (resumes if paused)
+      if (selectedAgent?.status === 'running' || selectedAgent?.status === 'paused') {
+        await api.injectMessage(agentId, message, apiImages, runId);
+        return;
       }
 
-      // Continue the run we're viewing, or start fresh if no runs exist
+      // No live worker → continue viewed run or start fresh
       const targetRunId = runId || runs[0]?.id;
       const result = await api.startRun(agentId, {
-        input: message || undefined,
+        input: message,
         images: apiImages,
         ...(targetRunId ? { run_id: targetRunId } : {}),
       });
@@ -319,12 +329,6 @@ export function AgentsPage() {
     } catch (err: any) {
       showToast(err.message);
     }
-  }
-
-  async function handleSend(message: string, images?: import('../components/InputBar').ImageAttachment[]) {
-    if (!agentId || !message.trim()) return;
-    appendOptimisticUserMessage(message, images);
-    await handleContinueOrResume(message, images);
   }
 
   async function handleDelete() {
@@ -395,7 +399,7 @@ export function AgentsPage() {
                 {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> Start Run</button>}
                 {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
                 {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> Stop</button>}
-                {isPaused && <button className="btn" onClick={() => handleContinueOrResume()}><PlayCircle size={13} /> Resume</button>}
+                {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
                 {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
                 <button className="btn" onClick={handleRefreshMessages}><RefreshCw size={13} /></button>
                 <button className="btn danger" onClick={handleDelete}><Trash2 size={13} /></button>

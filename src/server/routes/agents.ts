@@ -27,49 +27,62 @@ async function handleAsk(
   const agent = await daemon.getAgent(agentId);
   if (!agent) return error(res, 'Agent not found', 404);
 
-  if (agent.status === 'running') {
-    return error(res, `Agent "${agent.name}" is already running`);
-  }
-
   try {
-    // Register waiter BEFORE starting — prevents race with fast completions
-    const completionPromise = daemon.awaitRunCompletion(agentId, timeoutMs);
-
     let runId: string;
 
     if (agent.status === 'paused') {
+      // Resume via continueRun (which does IPC resume if worker is alive)
       runId = daemon.getCurrentRunId(agentId) ?? '';
-      // todo: used to be await daemon.resumeAgent(agentId, message);
+      const completionPromise = daemon.awaitRunCompletion(runId, timeoutMs);
       await daemon.continueRun(agentId, runId, message);
-    } else if (forceNew) {
+      const result = await completionPromise;
+      return sendAskResult(res, runId, result, full ? daemon : undefined);
+    }
+
+    if (agent.status === 'running') {
+      return error(res, `Agent "${agent.name}" is already running`);
+    }
+
+    if (forceNew) {
       runId = await daemon.startRun(agentId, 'manual', message);
     } else {
       // Continue last run, or start new if none exists
       const runs = await daemon.getAgentRuns(agentId, 1);
       if (runs.length > 0) {
         runId = runs[0].id;
+        const completionPromise = daemon.awaitRunCompletion(runId, timeoutMs);
         await daemon.continueRun(agentId, runId, message);
+        const result = await completionPromise;
+        return sendAskResult(res, runId, result, full ? daemon : undefined);
       } else {
         runId = await daemon.startRun(agentId, 'manual', message);
       }
     }
 
-    const result = await completionPromise;
-
-    if (result.error) {
-      const payload: any = { error: result.error, run_id: runId };
-      if (result.summary) payload.response = result.summary;
-      return json(res, payload, 500);
-    }
-
-    if (full) {
-      const messages = await daemon.getRunMessages(runId);
-      json(res, { response: result.summary, run_id: runId, tokens: result.tokens, messages });
-    } else {
-      json(res, { response: result.summary, run_id: runId, tokens: result.tokens });
-    }
+    // For startRun: register waiter after getting runId (safe — LLM call takes time)
+    const result = await daemon.awaitRunCompletion(runId, timeoutMs);
+    return sendAskResult(res, runId, result, full ? daemon : undefined);
   } catch (err: any) {
     error(res, err.message);
+  }
+}
+
+async function sendAskResult(
+  res: http.ServerResponse,
+  runId: string,
+  result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } },
+  daemon?: Daemon,
+): Promise<void> {
+  if (result.error) {
+    const payload: any = { error: result.error, run_id: runId };
+    if (result.summary) payload.response = result.summary;
+    return json(res, payload, 500);
+  }
+  if (daemon) {
+    const messages = await daemon.getRunMessages(runId);
+    json(res, { response: result.summary, run_id: runId, tokens: result.tokens, messages });
+  } else {
+    json(res, { response: result.summary, run_id: runId, tokens: result.tokens });
   }
 }
 
@@ -138,10 +151,9 @@ export function agentRoutes(daemon: Daemon): Route[] {
     // ── Run Management ──
     route('POST', '/api/agents/:id/run', async (req, res, params) => {
       const body = await parseBody(req);
-      console.log('[DEBUG] POST /run', { agent: params.id, run_id: body.run_id, hasInput: !!body.input });
       try {
         if (body.run_id) {
-          // Continue an existing run
+          // Continue an existing run (or resume if paused)
           await daemon.continueRun(params.id, body.run_id, body.input, body.images);
           json(res, { runId: body.run_id });
         } else {
@@ -161,29 +173,18 @@ export function agentRoutes(daemon: Daemon): Route[] {
 
     route('DELETE', '/api/agents/:id/run', async (_req, res, params) => {
       try {
-        await daemon.stopRun(params.id, 'API stop request');
+        await daemon.stopAllRuns(params.id, 'API stop request');
         json(res, { ok: true });
       } catch (err: any) {
         error(res, err.message);
       }
     }),
 
-    // todo: fixme, delete if not needed anymore
-//     -    route('POST', '/api/agents/:id/resume', async (req, res, params) => {
-// -      const body = await parseBody(req);
-// -      try {
-// -        await daemon.resumeAgent(params.id, body.message);
-// -        json(res, { ok: true });
-// -      } catch (err: any) {
-// -        error(res, err.message);
-// -      }
-// -    }),
-
     route('POST', '/api/agents/:id/inject', async (req, res, params) => {
       const body = await parseBody(req);
       if (!body.message) return error(res, 'message is required');
       try {
-        await daemon.injectMessage(params.id, body.message, body.images);
+        await daemon.injectMessage(params.id, body.message, body.images, body.run_id);
         json(res, { ok: true });
       } catch (err: any) {
         error(res, err.message);

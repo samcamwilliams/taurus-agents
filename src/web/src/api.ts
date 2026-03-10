@@ -66,18 +66,10 @@ export const api = {
     return request(`/api/agents/${agentId}/run`, { method: 'DELETE' });
   },
 
-  // todo: fixme, delete if not needed anymore
-//   -  resumeAgent(agentId: string, message?: string): Promise<{ ok: boolean }> {
-// -    return request(`/api/agents/${agentId}/resume`, {
-// -      method: 'POST',
-// -      body: { message },
-// -    });
-// -  }
-
-  injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[]): Promise<{ ok: boolean }> {
+  injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<{ ok: boolean }> {
     return request(`/api/agents/${agentId}/inject`, {
       method: 'POST',
-      body: { message, images },
+      body: { message, images, run_id: runId },
     });
   },
 

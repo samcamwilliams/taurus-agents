@@ -25,6 +25,45 @@ tool_use
 Tool: Pause
 reason	Continuing to pause as requested. Ready to stay paused until a real task arrives.
 
+[] timeout for spawns if they go in their own direction or if too many turns - should be some budget to check if useful
+
+exit codes in tools - how?
+
+
+Let me check the broader system to understand what tools and resources are available:
+
+Tool: Bash
+command	which python python3 node npm git curl wget
+user
+6:34:26 AM
+Result ERROR <------ does the agent see that
+/usr/bin/python3
+/usr/bin/node
+/usr/bin/npm
+/usr/bin/git
+/usr/bin/curl
+/usr/bin/wget
+
+
+
+IN
+sqlite3 /Users/serge/Projects/_LLMFrameworks/taurus-agents/data/taurus.db "SELECT sql FROM sqlite_master WHERE name='Runs';" 2>&1
+OUT
+0
+
+Bash Run DB migration
+IN
+npm run migrate 2>&1
+
+OUT
+Exit code 1
+
+> taurus-agents@0.1.0 migrate
+
+
+
+[] why is the whole turn injected in the title? i saw somewhere on mouse hover
+
 
 [] a better theme (catpuccin?) - research/ask about it first, how does theming work
 
@@ -33,6 +72,8 @@ reason	Continuing to pause as requested. Ready to stay paused until a real task 
     [] first decide
     [] then do
     [] +share resources
+
+[] next: parallel spawn
 
 [] make it to parity with CC already and you can do it there
     - mysticeti
