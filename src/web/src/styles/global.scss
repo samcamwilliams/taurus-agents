@@ -1,4 +1,4 @@
-@use 'variables' as *;
+@use 'themes';
 
 * {
   margin: 0;
@@ -7,9 +7,9 @@
 }
 
 body {
-  font-family: $font-sans;
-  background: $bg;
-  color: $text;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
   font-size: 14px;
 }
 
@@ -21,28 +21,78 @@ body {
   gap: 4px;
   padding: 5px 12px;
   border-radius: 6px;
-  border: 1px solid $border;
-  background: $bg3;
-  color: $text;
+  border: 1px solid var(--c-border);
+  background: var(--c-bg3);
+  color: var(--c-text);
   cursor: pointer;
   font-size: 12px;
   font-family: inherit;
-  transition: border-color 0.1s;
+  transition: all 0.15s ease;
 
-  &:hover { border-color: $text2; }
+  &:hover { border-color: var(--c-muted); }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  // ── Primary: gradient + 3D shine ──
   &.primary {
-    background: $btn-primary-bg;
-    border-color: $btn-primary-hover;
-    color: #fff;
-    &:hover { background: $btn-primary-hover; }
+    background:
+      linear-gradient(
+        180deg,
+        var(--c-btn-primary-shine) 0%,
+        transparent 40%
+      ),
+      linear-gradient(
+        180deg,
+        var(--c-btn-primary-from) 0%,
+        var(--c-btn-primary-to) 100%
+      );
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 var(--c-btn-primary-shine);
+    color: var(--c-btn-primary-text);
+    font-weight: 500;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+
+    &:hover {
+      background:
+        linear-gradient(
+          180deg,
+          var(--c-btn-primary-shine) 0%,
+          transparent 50%
+        ),
+        linear-gradient(
+          180deg,
+          var(--c-btn-primary-hover-from) 0%,
+          var(--c-btn-primary-hover-to) 100%
+        );
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 var(--c-btn-primary-shine);
+      transform: translateY(-0.5px);
+    }
+
+    &:active {
+      transform: translateY(0.5px);
+      box-shadow:
+        0 0 1px rgba(0, 0, 0, 0.2),
+        inset 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
   }
 
+  // ── Danger ──
   &.danger {
-    background: $btn-danger-bg;
-    border-color: $btn-danger-hover;
+    background: var(--c-btn-danger);
+    border-color: var(--c-btn-danger-hover);
     color: #fff;
-    &:hover { background: $btn-danger-hover; }
+    &:hover { background: var(--c-btn-danger-hover); }
+  }
+
+  &.icon-btn {
+    padding: 5px 6px;
+  }
+
+  &.btn--sm {
+    padding: 3px 8px;
+    font-size: 11px;
   }
 }

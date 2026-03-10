@@ -233,6 +233,11 @@
                     "field": "agent_id",
                     "seqType": "Sequelize.UUID"
                 },
+                "parent_run_id": {
+                    "allowNull": true,
+                    "field": "parent_run_id",
+                    "seqType": "Sequelize.UUID"
+                },
                 "trigger": {
                     "allowNull": true,
                     "field": "trigger",
@@ -353,5 +358,5 @@
             "indexes": []
         }
     },
-    "revision": 5
+    "revision": 6
 }

@@ -3,18 +3,58 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Agent, Run, MessageRecord } from '../types';
 import { api } from '../api';
 import { Sidebar } from '../components/Sidebar';
-import { StatusBadge } from '../components/StatusBadge';
+import { StatusDot } from '../components/StatusDot';
 import { MessageView } from '../components/MessageView';
 import { InputBar } from '../components/InputBar';
 import { CreateAgentModal } from '../components/CreateAgentModal';
 import { AgentSettings } from '../components/AgentSettings';
 import { Countdown } from '../components/Countdown';
-import { RunStatusIcon } from '../components/RunStatusIcon';
 import { useToast, ToastContainer } from '../components/Toast';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { TreeView, type TreeItem } from '../components/TreeView';
+import { useTheme, THEME_LABELS } from '../hooks/useTheme';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, Settings, Palette } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'settings';
+
+function formatRunDate(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const isSameYear = date.getFullYear() === now.getFullYear();
+
+  const timeStr = date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).replace(/\s?AM/g, 'am').replace(/\s?PM/g, 'pm');
+
+  if (isToday) return timeStr;
+
+  const SHOW_YESTERDAY = false;
+  if (SHOW_YESTERDAY) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday =
+      date.getFullYear() === yesterday.getFullYear() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getDate() === yesterday.getDate();
+    if (isYesterday) return `yesterday, ${timeStr}`;
+  }
+
+  const monthDay = date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+
+  if (isSameYear) return `${monthDay}, ${timeStr}`;
+
+  return `${monthDay}, ${date.getFullYear()}, ${timeStr}`;
+}
 
 export function AgentsPage() {
   const { agentId, runId } = useParams();
@@ -25,9 +65,11 @@ export function AgentsPage() {
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
   const [streamingThinking, setStreamingThinking] = useState('');
+  const [runActivity, setRunActivity] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('runs');
   const { toasts, showToast, dismiss } = useToast();
+  const { theme, cycleTheme } = useTheme();
 
   // Remember last selected run per agent so switching back restores it
   const lastRunByAgent = useRef<Record<string, string>>({});
@@ -38,6 +80,7 @@ export function AgentsPage() {
   const messagesRef = useRef(messages);
   const streamingTextRef = useRef('');
   const streamingThinkingRef = useRef('');
+  const runStreamingRef = useRef<Record<string, string>>({});
   useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
   useEffect(() => {
     runIdRef.current = runId;
@@ -70,7 +113,6 @@ export function AgentsPage() {
     api.listRuns(aid).then(loadedRuns => {
       if (agentIdRef.current !== aid) return; // stale response
       setRuns(loadedRuns);
-      setMessages([]); // clear stale messages from previous agent
       if (loadedRuns.length > 0 && !runIdRef.current) {
         const remembered = lastRunByAgent.current[aid];
         const targetId = remembered && loadedRuns.some(r => r.id === remembered) ? remembered : loadedRuns[0].id;
@@ -86,7 +128,12 @@ export function AgentsPage() {
       setMessages([]);
       return;
     }
-    api.getRunMessages(agentId, runId).then(setMessages);
+    let stale = false;
+    setMessages([]); // clear immediately so we don't show previous run's messages
+    api.getRunMessages(agentId, runId).then(msgs => {
+      if (!stale) setMessages(msgs);
+    });
+    return () => { stale = true; };
   }, [agentId, runId]);
 
   // ── Reset tab when agent changes ──
@@ -98,7 +145,6 @@ export function AgentsPage() {
   // ── Optimistic user message helper ──
 
   function appendOptimisticUserMessage(text: string, images?: import('../components/InputBar').ImageAttachment[]) {
-    // Build content: plain string if no images, content blocks if images present
     let content: string | any[] = text;
     if (images && images.length > 0) {
       content = [
@@ -113,7 +159,7 @@ export function AgentsPage() {
     const optimistic: MessageRecord = {
       id: `_optimistic_${Date.now()}`,
       run_id: runIdRef.current ?? '',
-      seq: Infinity, // sorts last, ignored by maxSeq calc
+      seq: Infinity,
       role: 'user',
       content,
       stop_reason: null,
@@ -132,7 +178,6 @@ export function AgentsPage() {
     if (!aid || !rid) return;
 
     const currentMsgs = messagesRef.current;
-    // Ignore optimistic messages (seq=Infinity) for the max calculation
     const realMsgs = currentMsgs.filter(m => !m.id.startsWith('_optimistic_'));
     const maxSeq = realMsgs.length > 0
       ? Math.max(...realMsgs.map(m => m.seq))
@@ -141,7 +186,6 @@ export function AgentsPage() {
     const newMsgs = await api.getRunMessages(aid, rid, maxSeq);
     if (newMsgs.length > 0) {
       setMessages(prev => {
-        // Drop optimistic messages — real ones are arriving
         const settled = prev.filter(m => !m.id.startsWith('_optimistic_'));
         const existingIds = new Set(settled.map(m => m.id));
         const unique = newMsgs.filter(m => !existingIds.has(m.id));
@@ -155,11 +199,12 @@ export function AgentsPage() {
   useEffect(() => {
     if (!agentId) return;
 
-    // Reset streaming state when agent changes
     streamingTextRef.current = '';
     streamingThinkingRef.current = '';
+    runStreamingRef.current = {};
     setStreamingText('');
     setStreamingThinking('');
+    setRunActivity({});
 
     const es = new EventSource(`/api/agents/${agentId}/stream`);
 
@@ -177,7 +222,6 @@ export function AgentsPage() {
             setRuns(prev => {
               const exists = prev.some(r => r.id === data.runId);
               if (!exists) {
-                // New run (e.g. from scheduler) — refresh the full list
                 api.listRuns(agentIdRef.current!).then(setRuns);
                 return prev;
               }
@@ -188,7 +232,6 @@ export function AgentsPage() {
             break;
 
           case 'run_complete':
-            // Clear streaming state, fetch final messages, refresh runs
             streamingTextRef.current = '';
             streamingThinkingRef.current = '';
             setStreamingText('');
@@ -218,20 +261,34 @@ export function AgentsPage() {
             break;
 
           case 'llm_text':
-            if (typeof data.text === 'string' && data.runId === runIdRef.current) {
-              streamingTextRef.current += data.text;
-              setStreamingText(streamingTextRef.current);
+            if (typeof data.text === 'string') {
+              // Accumulate per-run activity for tree secondary text
+              runStreamingRef.current[data.runId] = (runStreamingRef.current[data.runId] ?? '') + data.text;
+              // Selected run: feed message view
+              if (data.runId === runIdRef.current) {
+                streamingTextRef.current += data.text;
+                setStreamingText(streamingTextRef.current);
+              }
             }
             break;
 
           case 'log':
-            if (data.event === 'message.saved' && data.runId === runIdRef.current) {
-              // A message was persisted — fetch new messages incrementally and clear streaming
-              streamingTextRef.current = '';
-              streamingThinkingRef.current = '';
-              setStreamingText('');
-              setStreamingThinking('');
-              fetchNewMessages();
+            if (data.event === 'message.saved') {
+              // Snapshot accumulated text as run activity
+              if (data.message === 'assistant' && runStreamingRef.current[data.runId]) {
+                const text = runStreamingRef.current[data.runId];
+                const firstLine = text.split('\n').find(l => l.trim()) ?? text.slice(0, 120);
+                setRunActivity(prev => ({ ...prev, [data.runId]: firstLine.slice(0, 120) }));
+              }
+              delete runStreamingRef.current[data.runId];
+              // Selected run: clear streaming and fetch persisted messages
+              if (data.runId === runIdRef.current) {
+                streamingTextRef.current = '';
+                streamingThinkingRef.current = '';
+                setStreamingText('');
+                setStreamingThinking('');
+                fetchNewMessages();
+              }
             }
             break;
         }
@@ -241,10 +298,18 @@ export function AgentsPage() {
     return () => es.close();
   }, [agentId, loadAgents, fetchNewMessages]);
 
-  // ── Actions ──
+  // ── Derived state ──
 
   const selectedAgent = agents.find(a => a.id === agentId) ?? null;
   const selectedRun = runs.find(r => r.id === runId) ?? null;
+
+  // Adapt runs for TreeView
+  const treeRuns: (Run & TreeItem)[] = runs.map(r => ({
+    ...r,
+    parentId: r.parent_run_id,
+  }));
+
+  // ── Actions ──
 
   async function handleStartRun() {
     if (!agentId) return;
@@ -289,12 +354,25 @@ export function AgentsPage() {
     }
   }
 
+  async function handleStopSelectedRun() {
+    if (!agentId || !runId) return;
+    try {
+      await api.stopSpecificRun(agentId, runId);
+      await loadAgents();
+      const msgs = await api.getRunMessages(agentId, runId);
+      setMessages(msgs);
+      const updatedRuns = await api.listRuns(agentId);
+      setRuns(updatedRuns);
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  }
+
   async function handleResume() {
     if (!agentId) return;
     const targetRunId = runId || runs[0]?.id;
     if (!targetRunId) return;
     try {
-      // continueRun detects the live paused worker and does IPC resume
       await api.startRun(agentId, { run_id: targetRunId });
       await loadAgents();
     } catch (err: any) {
@@ -308,13 +386,11 @@ export function AgentsPage() {
     const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
 
     try {
-      // Worker alive (running or paused) → inject (resumes if paused)
       if (selectedAgent?.status === 'running' || selectedAgent?.status === 'paused') {
         await api.injectMessage(agentId, message, apiImages, runId);
         return;
       }
 
-      // No live worker → continue viewed run or start fresh
       const targetRunId = runId || runs[0]?.id;
       const result = await api.startRun(agentId, {
         input: message,
@@ -364,11 +440,15 @@ export function AgentsPage() {
     }
   }
 
-  // ── Render ──
+  // ── Helpers ──
 
   const isRunning = selectedAgent?.status === 'running';
   const isPaused = selectedAgent?.status === 'paused';
   const isStopped = !isRunning && !isPaused;
+
+  const isLive = (r: Run) => r.status === 'running' || r.status === 'paused';
+
+  // ── Render ──
 
   return (
     <div className="app">
@@ -386,89 +466,92 @@ export function AgentsPage() {
             {/* Agent header */}
             <div className="panel-header">
               <div className="panel-header__info">
+                <StatusDot status={selectedAgent.status} />
                 <h2>{selectedAgent.name}</h2>
-                <StatusBadge status={selectedAgent.status} />
                 <span className="panel-header__meta">{selectedAgent.model}</span>
                 {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
-                  <span className="panel-header__meta">
-                    Next: <Countdown targetDate={selectedAgent.next_run} />
-                  </span>
+                  <Countdown targetDate={selectedAgent.next_run} />
                 )}
               </div>
               <div className="panel-header__actions">
-                {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> Start Run</button>}
+                {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
                 {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
-                {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> Stop</button>}
+                {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> Stop All</button>}
                 {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
                 {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
-                <button className="btn" onClick={handleRefreshMessages}><RefreshCw size={13} /></button>
-                <button className="btn danger" onClick={handleDelete}><Trash2 size={13} /></button>
+                <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
+                <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
+                <button className="btn icon-btn" onClick={() => setActiveTab(activeTab === 'settings' ? 'runs' : 'settings')} title="Settings"><Settings size={13} /></button>
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="tab-bar">
-              <button
-                className={`tab-bar__tab ${activeTab === 'runs' ? 'active' : ''}`}
-                onClick={() => setActiveTab('runs')}
-              >
-                Runs
-              </button>
-              <button
-                className={`tab-bar__tab ${activeTab === 'settings' ? 'active' : ''}`}
-                onClick={() => setActiveTab('settings')}
-              >
-                Settings
-              </button>
-            </div>
-
-            {/* Tab content */}
-            {activeTab === 'runs' ? (
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                {/* Runs list */}
+            {/* Content */}
+            {activeTab === 'settings' ? (
+              <AgentSettings agent={selectedAgent} onUpdated={loadAgents} />
+            ) : (
+              <div className="content-split">
+                {/* Runs tree */}
                 <div className="runs-panel">
-                  <div className="runs-panel__header">Runs ({runs.length})</div>
-                  <div className="runs-panel__list">
-                    {runs.map(run => (
-                      <div
-                        key={run.id}
-                        className={`run-item ${run.id === runId ? 'active' : ''}`}
-                        onClick={() => handleSelectRun(run.id)}
-                      >
-                        <div className="run-item__header">
-                          <RunStatusIcon run={run} />
-                          <span className="run-item__trigger">{run.trigger ?? 'manual'}</span>
-                          <span className="run-item__time">{new Date(run.created_at).toLocaleString()}</span>
-                        </div>
-                        {run.run_error && <div className="run-item__error">{run.run_error}</div>}
-                        {run.run_summary && !run.run_error && (
-                          <div className="run-item__summary" title={run.run_summary}>
-                            {run.run_summary.slice(0, 80)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {runs.length === 0 && (
-                      <div style={{ padding: '12px', color: '#8b949e', fontSize: '12px' }}>
-                        No runs yet
-                      </div>
-                    )}
+                  <div className="runs-panel__header">
+                    <span>Runs ({runs.filter(r => !r.parent_run_id).length})</span>
                   </div>
+                  <TreeView
+                    items={treeRuns}
+                    selectedId={runId}
+                    onSelect={handleSelectRun}
+                    emptyMessage="No runs yet"
+                    renderIcon={(run) => <StatusDot status={run.status} />}
+                    renderLabel={(run) => (
+                      <span style={{ fontSize: 12 }}>
+                        {formatRunDate(run.created_at)}
+                      </span>
+                    )}
+                    renderSecondary={(run) => {
+                      if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;
+                      if (run.run_summary) return <span title={run.run_summary}>{run.run_summary.slice(0, 80)}</span>;
+                      const activity = runActivity[run.id];
+                      if (activity) return <span title={activity}>{activity.slice(0, 80)}</span>;
+                      if (run.status === 'running') return <span style={{ color: 'var(--c-accent)' }}>Running...</span>;
+                      if (run.last_message) return <span title={run.last_message.text}>{run.last_message.text.slice(0, 80)}</span>;
+                      return null;
+                    }}
+                    renderActions={(run) =>
+                      isLive(run) ? (
+                        <button
+                          className="btn btn--sm"
+                          onClick={() => agentId && api.stopSpecificRun(agentId, run.id).then(() => { loadAgents(); api.listRuns(agentId).then(setRuns); })}
+                        >
+                          <Square size={10} />
+                        </button>
+                      ) : null
+                    }
+                  />
                 </div>
 
                 {/* Messages */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+                <div className="messages-area">
+                  {selectedRun && isLive(selectedRun) && (
+                    <div className="run-actions">
+                      <StatusDot status={selectedRun.status} />
+                      <span>{selectedRun.status === 'paused' ? 'Paused' : 'Running'}</span>
+                      {selectedRun.status === 'paused' && (
+                        <button className="btn btn--sm" onClick={handleResume}>
+                          <PlayCircle size={11} /> Resume
+                        </button>
+                      )}
+                      <button className="btn btn--sm" onClick={handleStopSelectedRun}>
+                        <Square size={11} /> Stop
+                      </button>
+                    </div>
+                  )}
                   {selectedRun ? (
                     <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} />
                   ) : (
-                    <div className="empty-state">Select a run to view messages</div>
+                    <div className="empty-state">Select a run</div>
                   )}
-
                   <InputBar onSend={handleSend} />
                 </div>
               </div>
-            ) : (
-              <AgentSettings agent={selectedAgent} onUpdated={loadAgents} />
             )}
           </>
         )}

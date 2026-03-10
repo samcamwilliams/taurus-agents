@@ -50,7 +50,19 @@ class Run extends Model {
 
   toApi() {
     const { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, parent_run_id, trigger, run_summary, run_error, created_at, updated_at } = this;
-    return { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, parent_run_id, trigger, run_summary, run_error, created_at, updated_at };
+    // Extract last_message from eagerly loaded messages (if included)
+    const msgs = (this as any).messages as any[] | undefined;
+    let last_message: { role: string; text: string } | null = null;
+    if (msgs?.length) {
+      const content = msgs[0].content;
+      const text = typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.find((b: any) => b.type === 'text')?.text ?? ''
+          : '';
+      last_message = { role: msgs[0].role, text: text.slice(0, 200) };
+    }
+    return { id, name, status, cwd, model, total_input_tokens, total_output_tokens, total_cost_usd, agent_id, parent_run_id, trigger, run_summary, run_error, last_message, created_at, updated_at };
   }
 }
 

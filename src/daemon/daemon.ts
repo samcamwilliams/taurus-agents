@@ -26,6 +26,9 @@ import Folder from '../db/models/Folder.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 
+// Set up association for eager loading
+Run.hasMany(Message, { foreignKey: 'run_id', as: 'messages' });
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');
 
@@ -791,7 +794,16 @@ export class Daemon {
       where: { agent_id: agentId },
       order: [['created_at', 'DESC']],
       limit,
+      include: [{
+        model: Message,
+        as: 'messages',
+        attributes: ['role', 'content'],
+        order: [['seq', 'DESC']],
+        limit: 1,
+        separate: true, // required for limit inside include with hasMany
+      }],
     });
+
     return runs.map(r => r.toApi());
   }
 

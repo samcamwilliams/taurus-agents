@@ -33,9 +33,11 @@ export interface Run {
   total_output_tokens: number;
   total_cost_usd: number;
   agent_id: string | null;
+  parent_run_id: string | null;
   trigger: string | null;
   run_summary: string | null;
   run_error: string | null;
+  last_message: { role: string; text: string } | null;
   created_at: string;
   updated_at: string;
 }

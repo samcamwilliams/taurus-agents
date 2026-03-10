@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import type { Agent } from '../types';
-import { StatusBadge } from './StatusBadge';
+import { StatusDot } from './StatusDot';
 import { Countdown } from './Countdown';
 
 interface SidebarProps {
@@ -26,16 +26,13 @@ export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
             className={`agent-item ${agent.id === selectedId ? 'active' : ''}`}
             onClick={() => { if (agent.id !== selectedId) navigate(`/agents/${agent.id}`); }}
           >
-            <div className="agent-item__name">
-              {agent.name}
-              <StatusBadge status={agent.status} />
-            </div>
-            <div className="agent-item__meta">
-              {agent.tools.join(', ')}
+            <div className="agent-item__row">
+              <StatusDot status={agent.status} />
+              <span className="agent-item__name">{agent.name}</span>
             </div>
             {agent.schedule && agent.next_run && agent.status !== 'running' && (
               <div className="agent-item__meta">
-                Next: <Countdown targetDate={agent.next_run} />
+                <Countdown targetDate={agent.next_run} />
               </div>
             )}
           </div>

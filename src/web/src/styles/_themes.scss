@@ -1,0 +1,80 @@
+// ── Theme system ──
+// Themes are defined as CSS custom properties on [data-theme].
+// Default (no attribute or data-theme="dark") = GitHub Dark.
+// Add new themes by adding a new [data-theme="..."] block.
+
+:root,
+[data-theme="dark"] {
+  // Backgrounds
+  --c-bg:      #0d1117;
+  --c-bg2:     #161b22;
+  --c-bg3:     #21262d;
+  --c-border:  #30363d;
+
+  // Text
+  --c-text:    #c9d1d9;
+  --c-muted:   #8b949e;
+
+  // Accents
+  --c-accent:  #58a6ff;
+  --c-green:   #3fb950;
+  --c-red:     #f85149;
+  --c-yellow:  #d29922;
+  --c-purple:  #bc8cff;
+  --c-amber:   #d49562;
+
+  // Status backgrounds
+  --c-status-running: #0d419d;
+  --c-status-paused:  #4d2d00;
+  --c-status-error:   #490202;
+
+  // Buttons — primary gradient
+  --c-btn-primary-from:  #238636;
+  --c-btn-primary-to:    #1a6b2b;
+  --c-btn-primary-hover-from: #2ea043;
+  --c-btn-primary-hover-to:   #238636;
+  --c-btn-primary-text:  #fff;
+  --c-btn-primary-shine: rgba(255, 255, 255, 0.12);
+
+  // Buttons — danger
+  --c-btn-danger:        #da3633;
+  --c-btn-danger-hover:  #f85149;
+}
+
+[data-theme="catppuccin"] {
+  // Catppuccin Mocha
+  // Backgrounds
+  --c-bg:      #1e1e2e; // base
+  --c-bg2:     #181825; // mantle
+  --c-bg3:     #313244; // surface0
+  --c-border:  #45475a; // surface1
+
+  // Text
+  --c-text:    #cdd6f4; // text
+  --c-muted:   #a6adc8; // subtext0
+
+  // Accents
+  --c-accent:  #89b4fa; // blue
+  --c-green:   #a6e3a1; // green
+  --c-red:     #f38ba8; // red
+  --c-yellow:  #f9e2af; // yellow
+  --c-purple:  #cba6f7; // mauve
+  --c-amber:   #fab387; // peach
+
+  // Status backgrounds
+  --c-status-running: #1e3a5f;
+  --c-status-paused:  #3d2e00;
+  --c-status-error:   #3e1215;
+
+  // Buttons — primary: deep blue-violet gradient, dark but rich
+  --c-btn-primary-from:  #3b4f8a; // muted deep blue
+  --c-btn-primary-to:    #2e3a6e; // darker indigo
+  --c-btn-primary-hover-from: #4a62a8; // lifted blue
+  --c-btn-primary-hover-to:   #3b4f8a; // muted deep blue
+  --c-btn-primary-text:  #cdd6f4; // text (light on dark)
+  --c-btn-primary-shine: rgba(137, 180, 250, 0.15); // blue-tinted shine
+
+  // Buttons — danger
+  --c-btn-danger:        #f38ba8; // red
+  --c-btn-danger-hover:  #eba0ac; // maroon
+}

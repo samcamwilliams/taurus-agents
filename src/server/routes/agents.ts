@@ -180,6 +180,15 @@ export function agentRoutes(daemon: Daemon): Route[] {
       }
     }),
 
+    route('DELETE', '/api/agents/:id/runs/:runId', async (_req, res, params) => {
+      try {
+        await daemon.stopRun(params.id, params.runId, 'API stop request');
+        json(res, { ok: true });
+      } catch (err: any) {
+        error(res, err.message);
+      }
+    }),
+
     route('POST', '/api/agents/:id/inject', async (req, res, params) => {
       const body = await parseBody(req);
       if (!body.message) return error(res, 'message is required');

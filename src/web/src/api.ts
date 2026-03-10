@@ -66,6 +66,10 @@ export const api = {
     return request(`/api/agents/${agentId}/run`, { method: 'DELETE' });
   },
 
+  stopSpecificRun(agentId: string, runId: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${agentId}/runs/${runId}`, { method: 'DELETE' });
+  },
+
   injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<{ ok: boolean }> {
     return request(`/api/agents/${agentId}/inject`, {
       method: 'POST',

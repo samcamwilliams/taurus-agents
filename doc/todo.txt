@@ -61,6 +61,29 @@ Exit code 1
 > taurus-agents@0.1.0 migrate
 
 
+[] small: in ui
+    [] still better color for primary buttons (not blue)
+    [] still better neon border
+        [] the one highlighting message turns is still blue and offsetting - why are we using different code for the same thing?
+
+    [] if all items in the tree branch are childless, don't render the empty space where their [+] would have been
+        [] actually no, that would offset them awkwardly. i guess, just continue the --- dotted in its place, so it's not empty gap
+
+
+    [] Tool: Bash - replace "tool" with icon
+    [] for Tool: Bash, it's always command: something syntax, isn't it. so "command: " part i wouldn't like to see all the time. needs to be rendered separately. if bash has more parameters those we can pass to jsonkv. we could try prepending a "command line" icon to the command prompt rendered line
+    [] not enough space between assistant text and tool call frame - should be at least one height but it's like a few pixels only
+    [] timer pill is ambiguous: is it running for 19m 20s or is it "Next: ". we should add Next
+    [] the header of the left sidebar and right panel are different heights
+    [] the background of the run (i see it for example at the end of the run with token count) is lighter than some turns like user turn. should be darker to indicate proper depth
+    [] why is task: in Tool:Spawn indented with padding but not the other fields, what's happening there
+    [] stop button within tree view
+    [] why thinking block not markdown rendered? is that by design? seems to be wrong. definitely shouldn't be monospaced
+    [] color: could we make ? and in general, the "current" marker which is the left border could be bright violet neon not blue, blue seems out of place in catpuccin. and maybe it could be like a small gradient instead of one thin line. or line + gradient for neonish effect
+        [] another bug: right now this line causes the current item content to be offset!
+[] agent says there's no python installed? let's install some environments like python, node... ah wait it says `python` not available but `python3` is... still, we need to have one image with things like panda/numpy etc
+[] later: maybe combine tool calls visually IN / OUT like in CC? and maybe don't show Read?
+
 
 [] why is the whole turn injected in the title? i saw somewhere on mouse hover
 
@@ -130,7 +153,7 @@ choices i'm unsure about:
 [] create an agent - fetch token count and costs from anthropic? and put on dashboard. wow
 
 [] instead of tool list in ui maybe something better in agent list. make it more professional
-
+tool
 [] bloody captchas again on browser use...
     [] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
     [] brainstorm
@@ -159,8 +182,9 @@ choices i'm unsure about:
     - investigate: first scheduled run stopped with "API stop request" nobody sent
 
 [] show/visualize kb, view/edit/download/upload files
-    [] is vscode embeddable? would be great
+    [] is vscode embeddable? would be great. yeah i think we can connect it remotely by having a vscode server in the docker and rendering it... in an iframe? need to ask claude how that works
 [] add console page - log into the container and run commands as needed
+    actually vscode would expose terminal to you i guess?
 
 [] let the agent see its runs. and then you could use like odd/even tasks in Hottest, or any metadata attached if needed
     let it see the schedule period
@@ -247,7 +271,9 @@ HottestLang
         http://localhost:7777/agents/73665a54-a2db-4e28-9943-8968fa8d081a/runs/c35c55e3-8b44-44be-9528-785b380ab87a
 
 
-also small thing, but when next scheduled run triggers, i don't see it in the ui on the list until i reload the page
+[] in the future: copy turn as markdown
+[] in the future: copy the whole conversation as markdown or as rich text? don't include pills like end_turn? should be configurable? idk
+
 
 [] create subagents as needed
 [] brainstorm Hottest

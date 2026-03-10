@@ -74,6 +74,9 @@ Message.init(
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: false,
+    indexes: [
+      { fields: ['run_id', 'seq'] },
+    ],
   }
 );
 

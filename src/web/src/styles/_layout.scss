@@ -15,6 +15,22 @@
   flex-direction: column;
 }
 
+.content-split {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.messages-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+
 // ── Spin Animation ──
 
 @keyframes spin {
@@ -24,36 +40,30 @@
 
 .spin { animation: spin 1s linear infinite; }
 
-// ── Status Badge ──
+// ── Status Dot ──
 
-.status-badge {
+.status-dot-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-
-  &.idle     { background: $bg3; color: $text2; }
-  &.running  { background: $status-running-bg; color: $accent; }
-  &.paused   { background: $status-paused-bg; color: $yellow; }
-  &.error    { background: $status-error-bg; color: $red; }
-  &.disabled { background: $bg3; color: $text2; opacity: 0.5; }
+  gap: 5px;
+  flex-shrink: 0;
 }
 
-// ── Run Status Icon ──
-
-.run-status {
-  display: inline-flex;
-  align-items: center;
+.status-dot {
+  border-radius: 50%;
   flex-shrink: 0;
 
-  &--running   { color: $accent; }
-  &--paused    { color: $yellow; }
-  &--completed { color: $green; }
-  &--error     { color: $red; }
-  &--stopped   { color: $text2; }
+  &--pulse { animation: pulse 2s ease-in-out infinite; }
+}
+
+.status-dot__label {
+  font-size: 11px;
+  color: var(--c-muted);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
 }
 
 // ── Sidebar ──
@@ -61,22 +71,19 @@
 .sidebar {
   width: $sidebar-width;
   flex-shrink: 0;
-  border-right: 1px solid $border;
+  border-right: 1px solid var(--c-border);
   display: flex;
   flex-direction: column;
-  background: $bg2;
+  background: var(--c-bg2);
 
   &__header {
-    padding: 16px;
-    border-bottom: 1px solid $border;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--c-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
 
-    h1 {
-      font-size: 16px;
-      font-weight: 600;
-    }
+    h1 { font-size: 16px; font-weight: 600; }
   }
 
   &__list {
@@ -88,58 +95,75 @@
 .agent-item {
   padding: 10px 16px;
   cursor: pointer;
-  border-bottom: 1px solid $border;
+  border-bottom: 1px solid var(--c-border);
   transition: background 0.1s;
+  position: relative;
 
-  &:hover { background: $bg3; }
+  &:hover { background: var(--c-bg3); }
   &.active {
-    background: $bg3;
-    border-left: 2px solid $accent;
+    background: var(--c-bg3);
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: $purple;
+      box-shadow: 0 0 8px rgba($purple, 0.6), 0 0 20px rgba($purple, 0.3);
+      border-radius: 0 2px 2px 0;
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   &__name {
     font-weight: 500;
-    margin-bottom: 2px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__meta {
-    font-size: 12px;
-    color: $text2;
+    font-size: 11px;
+    color: var(--c-muted);
+    margin-top: 3px;
+    padding-left: 16px;
   }
 }
 
 // ── Panel Header ──
 
 .panel-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid $border;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--c-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: $bg2;
+  background: var(--c-bg2);
+  flex-shrink: 0;
 
-  h2 {
-    font-size: 15px;
-    font-weight: 500;
-  }
+  h2 { font-size: 15px; font-weight: 500; }
 
   &__info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   &__meta {
     font-size: 12px;
-    color: $text2;
+    color: var(--c-muted);
   }
 
   &__actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
   }
 }
 
@@ -148,41 +172,11 @@
 .countdown {
   font-size: 11px;
   font-family: $font-mono;
-  color: $accent;
+  color: var(--c-accent);
   background: rgba($accent, 0.1);
   padding: 1px 6px;
   border-radius: 8px;
   white-space: nowrap;
-}
-
-// ── Tabs ──
-
-.tab-bar {
-  display: flex;
-  border-bottom: 1px solid $border;
-  background: $bg2;
-  padding: 0 16px;
-}
-
-.tab-bar__tab {
-  padding: 8px 16px;
-  font-size: 13px;
-  color: $text2;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  font-family: inherit;
-  transition: color 0.1s;
-
-  &:hover { color: $text; }
-
-  &.active {
-    color: $text;
-    border-bottom-color: $accent;
-  }
 }
 
 // ── Empty State ──
@@ -192,7 +186,7 @@
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: $text2;
+  color: var(--c-muted);
   font-size: 14px;
 }
 
@@ -200,8 +194,8 @@
 
 .input-bar {
   padding: 8px 16px;
-  border-top: 1px solid $border;
-  background: $bg2;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-bg2);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -209,18 +203,18 @@
   &__input-wrap {
     display: flex;
     align-items: flex-end;
-    background: $bg;
-    border: 1px solid $border;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
     border-radius: 6px;
 
-    &:focus-within { border-color: #4a5568; }
+    &:focus-within { border-color: var(--c-muted); }
 
     textarea {
       flex: 1;
       background: none;
       border: none;
       padding: 6px 4px 6px 0;
-      color: $text;
+      color: var(--c-text);
       font-family: inherit;
       font-size: 13px;
       outline: none !important;
@@ -240,7 +234,7 @@
     border-radius: 5px;
     border: none;
     background: transparent;
-    color: $text2;
+    color: var(--c-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -249,16 +243,13 @@
     transition: color 0.1s;
     margin-bottom: 3px;
 
-    &:hover { color: $text; }
+    &:hover { color: var(--c-text); }
   }
 
   &__send {
     margin-right: 4px;
-
     &:disabled { opacity: 0.25; cursor: default; }
   }
-
-  // ── + button & menu ──
 
   &__plus-wrap {
     position: relative;
@@ -266,17 +257,15 @@
     align-items: flex-end;
   }
 
-  &__plus {
-    margin-left: 4px;
-  }
+  &__plus { margin-left: 4px; }
 
   &__menu {
     position: absolute;
     bottom: 100%;
     left: 0;
     margin-bottom: 4px;
-    background: $bg;
-    border: 1px solid $border;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     overflow: hidden;
@@ -291,16 +280,14 @@
       padding: 8px 12px;
       background: none;
       border: none;
-      color: $text;
+      color: var(--c-text);
       font-size: 13px;
       text-align: left;
       cursor: pointer;
 
-      &:hover { background: $bg3; }
+      &:hover { background: var(--c-bg3); }
     }
   }
-
-  // ── Attachment thumbnails ──
 
   &__attachments {
     display: flex;
@@ -314,7 +301,7 @@
     width: 64px;
     height: 64px;
     border-radius: 6px;
-    border: 1px solid $border;
+    border: 1px solid var(--c-border);
     overflow: hidden;
     flex-shrink: 0;
 
@@ -377,86 +364,55 @@
   }
 
   &--error {
-    background: $status-error-bg;
-    border: 1px solid $red;
-    color: $red;
+    background: var(--c-status-error);
+    border: 1px solid var(--c-red);
+    color: var(--c-red);
   }
 
   &--info {
-    background: $bg3;
-    border: 1px solid $border;
-    color: $text;
+    background: var(--c-bg3);
+    border: 1px solid var(--c-border);
+    color: var(--c-text);
   }
 }
 
-// ── Runs List ──
+// ── Runs Panel ──
 
 .runs-panel {
-  width: 260px;
-  border-right: 1px solid $border;
+  width: 240px;
+  border-right: 1px solid var(--c-border);
   display: flex;
   flex-direction: column;
-  background: $bg2;
+  background: var(--c-bg2);
   flex-shrink: 0;
 
   &__header {
-    padding: 10px 12px;
-    border-bottom: 1px solid $border;
-    font-size: 12px;
-    font-weight: 600;
-    color: $text2;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--c-border);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--c-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-  }
-
-  &__list {
-    flex: 1;
-    overflow-y: auto;
+    flex-shrink: 0;
   }
 }
 
-.run-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid $border;
-  transition: background 0.1s;
+// ── Floating Run Actions ──
 
-  &:hover { background: $bg3; }
-  &.active {
-    background: $bg3;
-    border-left: 2px solid $accent;
-  }
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  &__trigger {
-    font-size: 11px;
-    color: $text2;
-    text-transform: uppercase;
-  }
-
-  &__time {
-    font-size: 11px;
-    color: $text2;
-    margin-left: auto;
-  }
-
-  &__summary {
-    font-size: 11px;
-    color: $text2;
-    margin-top: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__error {
-    font-size: 11px;
-    color: $red;
-    margin-top: 2px;
-  }
+.run-actions {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  color: var(--c-muted);
 }
