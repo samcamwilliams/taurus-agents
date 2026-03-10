@@ -507,70 +507,72 @@ export function AgentsPage() {
               </button>
             </div>
 
-            {/* Content */}
-            {activeTab === 'settings' ? (
+            {/* Content — terminal and editor stay mounted (CSS hidden) to preserve state */}
+            {activeTab === 'settings' && (
               <AgentSettings agent={selectedAgent} onUpdated={loadAgents} />
-            ) : activeTab === 'editor' ? (
-              <FileBrowser agentId={selectedAgent.id} />
-            ) : activeTab === 'terminal' ? (
-              <div className="terminal-fullpane">
-                <Terminal agentId={selectedAgent.id} />
-              </div>
-            ) : (
-              <div className="content-split">
-                {/* Runs tree */}
-                <div className="runs-panel">
-                  <div className="runs-panel__header">
-                    <span>Runs ({runs.filter(r => !r.parent_run_id).length})</span>
-                  </div>
-                  <TreeView
-                    items={treeRuns}
-                    selectedId={runId}
-                    onSelect={handleSelectRun}
-                    emptyMessage="No runs yet"
-                    renderIcon={(run) => <StatusDot status={run.status} />}
-                    renderLabel={(run) => (
-                      <span style={{ fontSize: 12 }}>
-                        {formatRunDate(run.created_at)}
-                      </span>
-                    )}
-                    renderSecondary={(run) => {
-                      if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;
-                      if (run.run_summary) return <span>{run.run_summary.slice(0, 80)}</span>;
-                      const activity = runActivity[run.id];
-                      if (activity) return <span>{activity.slice(0, 80)}</span>;
-                      if (run.status === 'running') return <span style={{ color: 'var(--c-accent)' }}>Running...</span>;
-                      if (run.last_message) return <span>{run.last_message.text.slice(0, 80)}</span>;
-                      return null;
-                    }}
-                  />
-                </div>
-
-                {/* Messages */}
-                <div className="messages-area">
-                  {selectedRun && isLive(selectedRun) && (
-                    <div className="run-actions">
-                      <StatusDot status={selectedRun.status} />
-                      <span>{selectedRun.status === 'paused' ? 'Paused' : 'Running'}</span>
-                      {selectedRun.status === 'paused' && (
-                        <button className="btn btn--sm" onClick={handleResume}>
-                          <PlayCircle size={11} /> Resume
-                        </button>
-                      )}
-                      <button className="btn btn--sm" onClick={handleStopSelectedRun}>
-                        <Square size={11} /> Stop
-                      </button>
-                    </div>
-                  )}
-                  {selectedRun ? (
-                    <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} runStatus={selectedRun.status} />
-                  ) : (
-                    <div className="empty-state">Select a run</div>
-                  )}
-                  <InputBar onSend={handleSend} />
-                </div>
-              </div>
             )}
+
+            <div className="content-split" style={{ display: activeTab === 'runs' ? undefined : 'none' }}>
+              {/* Runs tree */}
+              <div className="runs-panel">
+                <div className="runs-panel__header">
+                  <span>Runs ({runs.filter(r => !r.parent_run_id).length})</span>
+                </div>
+                <TreeView
+                  items={treeRuns}
+                  selectedId={runId}
+                  onSelect={handleSelectRun}
+                  emptyMessage="No runs yet"
+                  renderIcon={(run) => <StatusDot status={run.status} />}
+                  renderLabel={(run) => (
+                    <span style={{ fontSize: 12 }}>
+                      {formatRunDate(run.created_at)}
+                    </span>
+                  )}
+                  renderSecondary={(run) => {
+                    if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;
+                    if (run.run_summary) return <span>{run.run_summary.slice(0, 80)}</span>;
+                    const activity = runActivity[run.id];
+                    if (activity) return <span>{activity.slice(0, 80)}</span>;
+                    if (run.status === 'running') return <span style={{ color: 'var(--c-accent)' }}>Running...</span>;
+                    if (run.last_message) return <span>{run.last_message.text.slice(0, 80)}</span>;
+                    return null;
+                  }}
+                />
+              </div>
+
+              {/* Messages */}
+              <div className="messages-area">
+                {selectedRun && isLive(selectedRun) && (
+                  <div className="run-actions">
+                    <StatusDot status={selectedRun.status} />
+                    <span>{selectedRun.status === 'paused' ? 'Paused' : 'Running'}</span>
+                    {selectedRun.status === 'paused' && (
+                      <button className="btn btn--sm" onClick={handleResume}>
+                        <PlayCircle size={11} /> Resume
+                      </button>
+                    )}
+                    <button className="btn btn--sm" onClick={handleStopSelectedRun}>
+                      <Square size={11} /> Stop
+                    </button>
+                  </div>
+                )}
+                {selectedRun ? (
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} runStatus={selectedRun.status} />
+                ) : (
+                  <div className="empty-state">Select a run</div>
+                )}
+                <InputBar onSend={handleSend} />
+              </div>
+            </div>
+
+            <div style={{ display: activeTab === 'editor' ? 'flex' : 'none', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              <FileBrowser agentId={selectedAgent.id} />
+            </div>
+
+            <div className="terminal-fullpane" style={{ display: activeTab === 'terminal' ? undefined : 'none' }}>
+              <Terminal agentId={selectedAgent.id} />
+            </div>
           </>
         )}
       </div>
