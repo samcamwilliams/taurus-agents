@@ -129,6 +129,10 @@ export function FileEditor({ agentId, filePath }: Props) {
             tabSize: 2,
             wordWrap: 'on',
             automaticLayout: true,
+            quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
+            parameterHints: { enabled: false },
+            hover: { enabled: false },
           }}
         />
       </div>
