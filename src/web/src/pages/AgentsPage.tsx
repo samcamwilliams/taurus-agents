@@ -478,7 +478,7 @@ export function AgentsPage() {
 
             {/* Content */}
             {activeTab === 'settings' ? (
-              <AgentSettings agent={selectedAgent} onUpdated={loadAgents} />
+              <AgentSettings agent={selectedAgent} onUpdated={loadAgents} onBack={() => setActiveTab('runs')} />
             ) : (
               <div className="content-split">
                 {/* Runs tree */}

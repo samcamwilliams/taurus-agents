@@ -141,6 +141,7 @@ HottestLang
         [] see in apple notes
         [] well basically all your projects _vibe
     [] eventually you'll need ACL stuff
+[] hierarchy of prompts
 [] sophisticated cron triggers: e.g. by a new email arriving or a calendar event being close, and need to think through whether to remind the user (also self-schedule/self-snooze!)
     [] in prod could go through supervisor agent, when requesting to run? if by some chance asks to run * * * * * - why. resource mgmt
 [] dashboard! that agents can operate on. notion-like! factorio-like!

@@ -19,7 +19,10 @@
       "Bash(sqlite3 data/taurus.sqlite \"SELECT name FROM SequelizeMeta;\")",
       "Bash(sqlite3 data/taurus.sqlite \"PRAGMA table_info\\(Runs\\);\")",
       "Bash(sqlite3 data/taurus.sqlite \"UPDATE SequelizeMeta SET name = ''6-add-parent-run-id.cjs'' WHERE name = ''6-noname.cjs'';\")",
-      "Bash(grep \"\\\\.tsx$\")"
+      "Bash(grep \"\\\\.tsx$\")",
+      "Bash(curl -s -m 5 http://localhost:7777/api/health)",
+      "Bash(curl -s -m 5 http://localhost:7777/api/agents)",
+      "Bash(lsof -i :7777 -P)"
     ]
   }
 }

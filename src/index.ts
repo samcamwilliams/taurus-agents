@@ -27,6 +27,9 @@ async function main() {
   await daemon.init();
 
   const server = createServer(daemon, PORT);
+  // Keep-alive timeout: close idle connections after 5s to avoid exhausting
+  // the browser's 6-connection-per-host limit (SSE streams are long-lived).
+  server.keepAliveTimeout = 5_000;
 
   const agentCount = (await daemon.listAgents()).length;
   server.listen(PORT, () => {

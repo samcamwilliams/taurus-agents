@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { api } from '../api';
 import { AgentForm, type AgentFormData } from './AgentForm';
 import { Countdown } from './Countdown';
+import { ArrowLeft } from 'lucide-react';
 import type { Agent } from '../types';
 
 interface AgentSettingsProps {
   agent: Agent;
   onUpdated: () => void;
+  onBack?: () => void;
 }
 
-export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
+export function AgentSettings({ agent, onUpdated, onBack }: AgentSettingsProps) {
   const [editing, setEditing] = useState(false);
 
   async function handleSubmit(data: AgentFormData) {
@@ -52,6 +54,7 @@ export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
   return (
     <div className="agent-settings">
       <div className="agent-settings__header">
+        {onBack && <button className="btn" onClick={onBack}><ArrowLeft size={13} /> Back</button>}
         <button className="btn" onClick={() => setEditing(true)}>Edit</button>
       </div>
       <div className="agent-settings__grid">
