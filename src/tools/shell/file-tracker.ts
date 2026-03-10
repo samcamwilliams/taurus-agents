@@ -15,9 +15,7 @@ export class FileTracker {
 
   /** Update mtime after a successful write/edit (so subsequent edits don't require re-read). */
   updateMtime(filePath: string, mtime: number): void {
-    if (this.readFiles.has(filePath)) {
-      this.readFiles.set(filePath, mtime);
-    }
+    this.readFiles.set(filePath, mtime);
   }
 
   /** Check if a file is safe to edit. Returns null if OK, or an error message. */
