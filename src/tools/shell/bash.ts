@@ -34,7 +34,13 @@ export class PersistentBashTool extends Tool {
         timeout: input.timeout,
       });
 
-      const output = result.stdout || `(exit code ${result.exitCode})`;
+      let output = result.stdout || '';
+      if (result.exitCode !== 0) {
+        output = output
+          ? `${output}\n\nExit code: ${result.exitCode}`
+          : `Exit code: ${result.exitCode}`;
+      }
+      if (!output) output = '(no output)';
 
       return {
         output,

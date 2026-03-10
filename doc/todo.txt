@@ -1,70 +1,24 @@
-you're in the valley of despair at this moment, it's fine
-just read the code again, get familiarized, do refactoring
-then continue with more architecture
-SO, FIRST - REFACTORING
+NEXT
+[] TG/WHATSAPP NOW!
 
+LEFT UNTIL PARITY WITH CC
+[] compaction / ctx len control
+[] see the files (vscode)
+then you can do: - mysticeti - stockfish transplant
 
-"shell is not alive" all fucked up now. ok that's it for today
-http://localhost:7777/agents/8fd1450d-b840-4da6-8409-9191a12d74ee/runs/b271491f-7c75-47f5-8421-561d9d824b06
-
-you really need a test suite
-
-SOMETHING REALLY WEIRD HAPPENING WITH RESUME LOGIC ON ERRORED OUT THREAD
-
-user
-1:56:17 PM
-Continue from where you left off.
-
-user
-2:07:46 PM
-ok look sorry for all the . we are testing the resume on errored out thread but it arrives to you, erroneously. we're debugging this, but for now if you receive resume requests just continue to pause
-
-assistant
-tool_use
-2:07:54 PM
-Tool: Pause
-reason	Continuing to pause as requested. Ready to stay paused until a real task arrives.
-
-[] timeout for spawns if they go in their own direction or if too many turns - should be some budget to check if useful
-
-exit codes in tools - how?
-
-
-Let me check the broader system to understand what tools and resources are available:
-
-Tool: Bash
-command	which python python3 node npm git curl wget
-user
-6:34:26 AM
-Result ERROR <------ does the agent see that
-/usr/bin/python3
-/usr/bin/node
-/usr/bin/npm
-/usr/bin/git
-/usr/bin/curl
-/usr/bin/wget
-
-
-
-IN
-sqlite3 /Users/serge/Projects/_LLMFrameworks/taurus-agents/data/taurus.db "SELECT sql FROM sqlite_master WHERE name='Runs';" 2>&1
-OUT
-0
-
-Bash Run DB migration
-IN
-npm run migrate 2>&1
-
-OUT
-Exit code 1
-
-> taurus-agents@0.1.0 migrate
+[] factorio use case:
+    create an agent - fetch token count and costs from anthropic? and put on dashboard. wow
 
 WHEN YOU HAVE TIME: IMPORTANT FEATURE ASKS
+[] track mtime and error out on edit without reading first
 [] pdfs! see how codex does it etc. but also deepseek pdf (skill/agent?)
 [] claude has its own web search. and so does openai api? could use their backends?
 [] whisper backend. and what about tts?
+[] integrate CC SDK? for some subagents? free inference, basically, on max plan [] could you pass it the tools instead of using its own?
+[] how to store credentials in a smart way. secrets, basically, like gh. need to investigate. there's also onepass vault skill or something in openclaw
 LATER/NOT URGENT
+[] more tests
+[] timeout for spawns if they go in their own direction or if too many turns - should be some budget to check if useful
 [] next: parallel spawn
 [] think about dot on the agent itself. how is its status computed even?
 [] agent says there's no python installed? let's install some environments like python, node... ah wait it says `python` not available but `python3` is... still, we need to have one image with things like panda/numpy etc
@@ -72,26 +26,10 @@ LATER/NOT URGENT
 []       requestBody.reasoning = { effort: 'high' }; - need to control that
 [] save metadata info on each message like what model produced it etc
 [] show model name in run (should save there in db if changes on agent)
-choices i'm unsure about:
-[] default backend - anthropic? should just error out, "no such backend"
-
-
-[] make it to parity with CC already and you can do it there
-    - mysticeti
-    - stockfish transplant
-    what's left?
-        [] compaction / ctx len control
-        [x] subagents/tasks!
-        that's it, wow. can do it
-        [] see the files (vscode)
-
-[] Result ERROR 0 sed: read error on /workspace/src: Is a directory <- intercept this
-
-
-[] switch to lighter models for tests [] there's even free api on claude on openrouter? no wait maybe that was deepseek?
-[] integrate CC SDK? for some subagents? free inference, basically [] could you pass it the tools instead of using its own?
-[] how to store credentials in a smart way. secrets, basically, like gh. need to investigate. there's also onepass vault skill or something in openclaw
-
+[] model selector, like in novelchat
+[] choices i'm unsure about:
+    [] default backend - anthropic? should just error out, "no such backend"
+    [] Result ERROR 0 sed: read error on /workspace/src: Is a directory <- intercept this
 [] add tools inside container (maintain docker/Dockerfile)
     base: bash, git, curl, wget, jq, rg (ripgrep), fd-find, tree, python3
     node: via mise or nvm (needed for playwright cli, bun also an option)
@@ -103,33 +41,9 @@ choices i'm unsure about:
     alternative: vercel agent-browser (Rust+Node, ~200 tokens/snapshot, 93% less context)
     codex-universal has: bun, git, curl, wget, jq, rg, python3, go, ruby, java, swift, php — but NO node/npm, NO browsers (25.8GB)
     skills: playwright-cli install --skills
-
+    [] grep tool? ripgrep?
 [] different placeholders and templates stored somewhere
-
-[] TG/WHATSAPP NOW!
-
-[] add openrouter? ah but so many inference nuances then, not like anthropic-cli. hmm
-    on the other hand, useful for quick tests with :free models to not burn $
-
-[] track mtime and error out on edit without reading first
-
-[] create an agent - fetch token count and costs from anthropic? and put on dashboard. wow
-
-[] instead of tool list in ui maybe something better in agent list. make it more professional
-tool
-[] bloody captchas again on browser use...
-    [] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
-    [] brainstorm
-
-[] grep tool? ripgrep?
-
-[] model selector, like in novelchat
-
-[] telegram/whatsapp connection
-    [] clara/stockfish folder for agents, and then check everything
-    [] after that, tts/stt
-
-[] "Execute your task" where can i change prompt templates??
+    [] "Execute your task"
     [] Resumed. Human message: Why did you use the pause tool? (from Pause)
     [] tool descriptions
     [] system prompts
@@ -137,12 +51,15 @@ tool
     [] does the syntax of the tools output make sense? maybe compact?
     [] Edited /workspace/experiment.json: replaced 1 occurrence(s) (26 → 24 chars)
 
-[] tighten agent/run status state machine
-    - agent status and run status are two independent columns updated at different points
-    - can go out of sync (e.g. stopRun sets run=stopped but agent waits for handleChildExit)
-    - run_complete doesn't set agent status (relies on child exit code=0 → idle)
-    - consider: make agent status derived from runs, or at least update both atomically
-    - investigate: first scheduled run stopped with "API stop request" nobody sent
+
+[] bloody captchas again on browser use...
+    [] what is https://www.google.com/search?q=Stealth+Mode+Playwright&oq=Stealth+Mode+Playwright - not needed for now
+    [] brainstorm
+
+
+[] telegram/whatsapp connection
+    [] clara/stockfish folder for agents, and then check everything
+    [] after that, tts/stt
 
 [] show/visualize kb, view/edit/download/upload files
     [] is vscode embeddable? would be great. yeah i think we can connect it remotely by having a vscode server in the docker and rendering it... in an iframe? need to ask claude how that works
