@@ -165,8 +165,9 @@ function ContentBlockView({ block }: { block: any }) {
   return <pre className="msg-raw">{JSON.stringify(block, null, 2)}</pre>;
 }
 
-function MessageContent({ content }: { content: unknown }) {
+function MessageContent({ content, role }: { content: unknown; role?: string }) {
   if (typeof content === 'string') {
+    if (role === 'user') return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
     return <Markdown>{content}</Markdown>;
   }
   if (Array.isArray(content)) {
@@ -254,7 +255,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
             </span>
           </div>
           <div className="message__body">
-            <MessageContent content={msg.content} />
+            <MessageContent content={msg.content} role={msg.role} />
           </div>
         </div>
         );
