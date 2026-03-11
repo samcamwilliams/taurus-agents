@@ -44,7 +44,13 @@ interface ManagedRun {
 interface ManagedAgent {
   agent: Agent;
   runs: Map<string, ManagedRun>;
+  /** Number of active terminal WebSocket connections */
+  terminals: number;
+  /** Timer that pauses the container after idle timeout */
+  idleTimer?: NodeJS.Timeout;
 }
+
+const CONTAINER_IDLE_MS = 5 * 60 * 1000; // 5 min before pausing idle containers
 
 interface CompletionWaiter {
   resolve: (result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }) => void;
@@ -81,7 +87,7 @@ export class Daemon {
       if (agent.status === 'running') {
         await agent.update({ status: 'idle' });
       }
-      this.agents.set(agent.id, { agent, runs: new Map() });
+      this.agents.set(agent.id, { agent, runs: new Map(), terminals: 0 });
     }
 
     // Mark orphaned running runs as stopped — paused runs stay paused (no resources consumed)
@@ -104,6 +110,14 @@ export class Daemon {
   async shutdown(): Promise<void> {
     this.logger('info', 'Graceful shutdown starting...');
     this.scheduler.shutdown();
+
+    // Clear all idle timers
+    for (const managed of this.agents.values()) {
+      if (managed.idleTimer) {
+        clearTimeout(managed.idleTimer);
+        managed.idleTimer = undefined;
+      }
+    }
 
     const stopPromises: Promise<void>[] = [];
     for (const [, managed] of this.agents) {
@@ -171,13 +185,55 @@ export class Daemon {
       mounts: input.mounts ?? [],
     });
 
-    this.agents.set(agent.id, { agent, runs: new Map() });
+    this.agents.set(agent.id, { agent, runs: new Map(), terminals: 0 });
     if (agent.schedule) {
       this.scheduler.register(agent.id, agent.schedule, agent.schedule_overlap);
     }
     this.logger('info', `Agent created: "${agent.name}" (${agent.id})`);
 
     return agent.toApi();
+  }
+
+  // ── Container idle management ──
+
+  /** Schedule a container pause after CONTAINER_IDLE_MS if nothing holds it. */
+  private scheduleIdleCheck(agentId: string): void {
+    const managed = this.agents.get(agentId);
+    if (!managed) return;
+
+    if (managed.idleTimer) {
+      clearTimeout(managed.idleTimer);
+      managed.idleTimer = undefined;
+    }
+
+    // Something actively using the container — don't schedule
+    if (managed.runs.size > 0 || managed.terminals > 0) return;
+
+    managed.idleTimer = setTimeout(() => {
+      managed.idleTimer = undefined;
+      if (managed.runs.size === 0 && managed.terminals === 0) {
+        this.docker.pauseContainer(managed.agent.container_id).catch(() => {});
+      }
+    }, CONTAINER_IDLE_MS);
+  }
+
+  /** Called when a terminal WebSocket connects to this agent. */
+  terminalConnected(agentId: string): void {
+    const managed = this.agents.get(agentId);
+    if (!managed) return;
+    managed.terminals++;
+    if (managed.idleTimer) {
+      clearTimeout(managed.idleTimer);
+      managed.idleTimer = undefined;
+    }
+  }
+
+  /** Called when a terminal WebSocket disconnects. */
+  terminalDisconnected(agentId: string): void {
+    const managed = this.agents.get(agentId);
+    if (!managed) return;
+    managed.terminals = Math.max(0, managed.terminals - 1);
+    this.scheduleIdleCheck(agentId);
   }
 
   async updateAgent(id: string, updates: Partial<{
@@ -768,10 +824,8 @@ export class Daemon {
     // Derive agent status from remaining runs
     this.deriveAgentStatus(agentId).catch(() => {});
 
-    // Pause container to free resources only when no runs are active
-    if (managed.runs.size === 0) {
-      this.docker.pauseContainer(managed.agent.container_id).catch(() => {});
-    }
+    // Schedule idle check — pauses the container if nothing else holds it
+    this.scheduleIdleCheck(agentId);
   }
 
   private async updateRunStatus(agentId: string, runId: string, status: 'running' | 'paused' | 'completed' | 'error' | 'stopped'): Promise<void> {
@@ -896,6 +950,8 @@ export class Daemon {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
     await this.docker.ensureContainer(managed.agent);
+    // Reset idle timer — container is being actively used
+    this.scheduleIdleCheck(agentId);
     return managed.agent.container_id;
   }
 }

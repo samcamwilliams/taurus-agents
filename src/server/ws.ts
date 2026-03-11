@@ -145,6 +145,10 @@ function cleanupSession(agentId: string, stream: net.Socket, message?: string): 
 // ── Connection handler ──
 
 async function handleConnection(ws: WebSocket, agentId: string, daemon: Daemon): Promise<void> {
+  // Track this WS as holding the container alive
+  daemon.terminalConnected(agentId);
+  ws.on('close', () => daemon.terminalDisconnected(agentId));
+
   // Check for existing persistent session
   const existing = sessions.get(agentId);
   if (existing && !existing.stream.destroyed) {

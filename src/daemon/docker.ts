@@ -23,8 +23,15 @@ export class DockerService {
   }
 
   private async docker(...args: string[]): Promise<string> {
-    const { stdout } = await exec('docker', args, { timeout: 30_000 });
-    return stdout.trim();
+    try {
+      const { stdout } = await exec('docker', args, { timeout: 30_000 });
+      return stdout.trim();
+    } catch (err: any) {
+      // execFile errors have stderr but message only says "Command failed: ..."
+      const stderr = (err.stderr || '').trim();
+      if (stderr) err.message += `\n${stderr}`;
+      throw err;
+    }
   }
 
   async isContainerRunning(container_id: string): Promise<boolean> {
@@ -128,13 +135,15 @@ export class DockerService {
   }
 
   async stopContainer(container_id: string): Promise<void> {
-    if (await this.isContainerRunning(container_id)) {
-      try {
+    try {
+      const status = await this.docker('inspect', '--format', '{{.State.Status}}', container_id);
+      if (status === 'running' || status === 'paused') {
+        // docker stop handles both running and paused containers
         await this.docker('stop', '-t', '5', container_id);
         this.logger('info', `Container stopped: ${container_id}`);
-      } catch (err: any) {
-        this.logger('warn', `Failed to stop container ${container_id}: ${err.message}`);
       }
+    } catch {
+      // Container doesn't exist or Docker is unavailable — nothing to stop
     }
   }
 
