@@ -264,6 +264,7 @@ export function AgentsPage() {
             fetchNewMessages();
             api.listRuns(agentIdRef.current!).then(setRuns);
             loadAgents();
+            if (data.error) showToast(data.error);
             break;
 
           case 'agent_paused':
@@ -276,6 +277,7 @@ export function AgentsPage() {
             setAgents(prev => prev.map(a =>
               a.id === data.agentId ? { ...a, status: 'error' as const } : a,
             ));
+            if (data.error) showToast(data.error);
             break;
 
           case 'tool_output':
