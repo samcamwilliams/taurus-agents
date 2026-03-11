@@ -107,6 +107,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           system_prompt: body.system_prompt,
           tools: body.tools ?? DEFAULT_TOOLS,
           cwd: body.cwd ?? '/workspace',
+          parent_agent_id: body.parent_agent_id,
           folder_id: body.folder_id,
           model: body.model,
           schedule: body.schedule,
@@ -126,7 +127,10 @@ export function agentRoutes(daemon: Daemon): Route[] {
     route('GET', '/api/agents/:id', async (_req, res, params) => {
       const agent = await daemon.getAgent(params.id);
       if (!agent) return error(res, 'Agent not found', 404);
-      json(res, agent);
+      const children = daemon.getChildren(params.id).map(c => ({
+        id: c.id, name: c.name, status: c.status,
+      }));
+      json(res, { ...agent, children });
     }),
 
     route('PUT', '/api/agents/:id', async (req, res, params) => {

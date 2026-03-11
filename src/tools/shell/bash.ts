@@ -6,6 +6,7 @@ const DEBOUNCE_MS = 150;
 
 export class PersistentBashTool extends Tool {
   readonly name = 'Bash';
+  readonly group = 'Exec';
   readonly description = 'Execute a bash command in a persistent shell. Working directory and environment persist between calls.';
   readonly requiresApproval = true;
   readonly inputSchema = {
@@ -85,3 +86,4 @@ export class PersistentBashTool extends Tool {
     }
   }
 }
+

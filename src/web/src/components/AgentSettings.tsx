@@ -7,10 +7,11 @@ import type { Agent } from '../types';
 
 interface AgentSettingsProps {
   agent: Agent;
+  agents?: Agent[];
   onUpdated: () => void;
 }
 
-export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
+export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) {
   const [editing, setEditing] = useState(false);
 
   async function handleSubmit(data: AgentFormData) {
@@ -41,6 +42,7 @@ export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
         <div className="agent-settings__form">
           <AgentForm
             initial={agent}
+            agents={agents}
             onSubmit={handleSubmit}
             onCancel={() => setEditing(false)}
             submitLabel="Save"
@@ -57,6 +59,9 @@ export function AgentSettings({ agent, onUpdated }: AgentSettingsProps) {
       </div>
       <div className="agent-settings__grid">
         <Row label="Name" value={agent.name} />
+        {agent.parent_agent_id && (
+          <Row label="Parent" value={agents?.find(a => a.id === agent.parent_agent_id)?.name ?? agent.parent_agent_id} />
+        )}
         <Row label="Model" value={agent.model} />
         <Row label="Working Directory" value={agent.cwd} mono />
         <Row label="Docker Image" value={agent.docker_image} mono />

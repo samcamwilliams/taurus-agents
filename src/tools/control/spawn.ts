@@ -25,6 +25,7 @@ export interface SpawnResult {
  */
 export class SpawnTool extends Tool {
   readonly name = 'Spawn';
+  readonly group = 'Control';
   readonly description = 'Spawn a sub-agent to handle a task. The sub-agent runs in the same container with its own conversation and returns the result when done. Use this to delegate self-contained subtasks.';
   readonly requiresApproval = false;
   readonly inputSchema = {
@@ -91,3 +92,4 @@ export class SpawnTool extends Tool {
     };
   }
 }
+

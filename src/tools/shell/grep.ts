@@ -20,6 +20,7 @@ interface GrepInput {
 
 export class ShellGrepTool extends Tool {
   readonly name = 'Grep';
+  readonly group = 'Search';
   readonly description = 'Search file contents using regex patterns. Returns matching lines with file paths and line numbers.';
   readonly inputSchema = {
     type: 'object' as const,
@@ -157,3 +158,4 @@ export class ShellGrepTool extends Tool {
     return `grep ${flags.join(' ')} ${JSON.stringify(input.pattern)} ${JSON.stringify(searchPath)} 2>/dev/null ${paginationPipe}`;
   }
 }
+

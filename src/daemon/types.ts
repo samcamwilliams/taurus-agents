@@ -1,7 +1,7 @@
 // ─── Agent Enums ───
 
 export type AgentStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
-export type TriggerType = 'schedule' | 'manual' | 'spawn' | `signal:${string}`;
+export type TriggerType = 'schedule' | 'manual' | 'spawn' | 'delegate' | `signal:${string}`;
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // ─── IPC: Parent → Child ───
@@ -14,7 +14,9 @@ export type ParentMessage =
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string; images?: IpcImage[] }
   | { type: 'signal'; name: string; payload: unknown }
-  | { type: 'spawn_result'; requestId: string; summary: string; error?: string };
+  | { type: 'spawn_result'; requestId: string; summary: string; error?: string }
+  | { type: 'delegate_result'; requestId: string; summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }
+  | { type: 'supervisor_result'; requestId: string; result: unknown; error?: string };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───
 
@@ -27,6 +29,8 @@ export type ChildMessage =
       tokens: { input: number; output: number; cost: number } }
   | { type: 'signal_emit'; name: string; payload: unknown }
   | { type: 'spawn_request'; requestId: string; input: string; system_prompt?: string; tools?: string[]; max_turns?: number; timeout_ms?: number }
+  | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string }
+  | { type: 'supervisor_request'; requestId: string; action: string; params: Record<string, unknown> }
   | { type: 'error'; error: string; stack?: string };
 
 // ─── Root folder well-known ID ───

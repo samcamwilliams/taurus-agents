@@ -10,6 +10,7 @@ const CLI_SCRIPT = '/usr/local/lib/browser-cli.mjs';
 
 export class BrowserTool extends Tool {
   readonly name = 'Browser';
+  readonly group = 'Web';
   readonly description =
     'Control a headless browser inside the container. One tool, multiple actions.\n\n' +
     'Actions:\n' +
@@ -153,3 +154,4 @@ function truncate(text: string): string {
   if (text.length <= MAX_OUTPUT) return text;
   return text.slice(0, MAX_OUTPUT) + `\n\n[Truncated — showing ${MAX_OUTPUT} of ${text.length} characters]`;
 }
+

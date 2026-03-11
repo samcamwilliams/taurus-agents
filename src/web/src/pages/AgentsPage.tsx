@@ -528,7 +528,7 @@ export function AgentsPage() {
 
             {/* Content — terminal and editor stay mounted (CSS hidden) to preserve state */}
             {activeTab === 'settings' && (
-              <AgentSettings agent={selectedAgent} onUpdated={loadAgents} />
+              <AgentSettings agent={selectedAgent} agents={agents} onUpdated={loadAgents} />
             )}
 
             <div className="content-split" style={{ display: activeTab === 'runs' ? undefined : 'none' }}>
@@ -604,6 +604,7 @@ export function AgentsPage() {
 
       {showCreateModal && (
         <CreateAgentModal
+          agents={agents}
           onClose={() => setShowCreateModal(false)}
           onCreated={handleCreated}
         />

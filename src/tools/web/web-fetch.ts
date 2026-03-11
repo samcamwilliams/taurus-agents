@@ -21,6 +21,7 @@ type Backend = 'local' | 'jina';
 
 export class WebFetchTool extends Tool {
   readonly name = 'WebFetch';
+  readonly group = 'Web';
   readonly description =
     'Fetch a web page or file and return its content.\n\n' +
     '`format` controls the output:\n' +
@@ -231,3 +232,4 @@ function truncate(text: string): string {
   if (text.length <= MAX_OUTPUT_CHARS) return text;
   return text.slice(0, MAX_OUTPUT_CHARS) + `\n\n[Truncated — showing ${MAX_OUTPUT_CHARS} of ${text.length} characters]`;
 }
+

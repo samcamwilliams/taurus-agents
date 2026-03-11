@@ -4,6 +4,7 @@ import type { PersistentShell } from '../../daemon/persistent-shell.js';
 
 export class ShellGlobTool extends Tool {
   readonly name = 'Glob';
+  readonly group = 'Search';
   readonly description = 'Find files matching a glob pattern. Supports ** for recursive matching (e.g. "**/*.ts", "src/**/*.js"). Returns matching file paths sorted by name.';
   readonly inputSchema = {
     type: 'object' as const,
@@ -39,3 +40,4 @@ export class ShellGlobTool extends Tool {
     };
   }
 }
+

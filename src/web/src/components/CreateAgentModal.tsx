@@ -1,12 +1,14 @@
 import { api } from '../api';
 import { AgentForm, type AgentFormData } from './AgentForm';
+import type { Agent } from '../types';
 
 interface CreateAgentModalProps {
+  agents?: Agent[];
   onClose: () => void;
   onCreated: (agentId: string) => void;
 }
 
-export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) {
+export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModalProps) {
   async function handleSubmit(data: AgentFormData) {
     const result = await api.createAgent({
       name: data.name,
@@ -20,6 +22,7 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
       max_turns: data.max_turns,
       timeout_ms: data.timeout_ms,
       mounts: data.mounts,
+      parent_agent_id: data.parent_agent_id || undefined,
     });
 
     if (result.error) {
@@ -35,7 +38,7 @@ export function CreateAgentModal({ onClose, onCreated }: CreateAgentModalProps) 
       <div className="modal">
         <div className="modal__header"><h3>Create Agent</h3></div>
         <div className="modal__body">
-          <AgentForm onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create" />
+          <AgentForm agents={agents} onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create" />
         </div>
       </div>
     </div>

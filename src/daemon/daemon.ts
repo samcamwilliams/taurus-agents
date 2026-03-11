@@ -38,6 +38,10 @@ interface ManagedRun {
   parentRunId: string | null;
   /** Set on spawn children — used to route spawn_result back to the parent worker */
   spawnRequestId: string | null;
+  /** Set on delegate children — used to route delegate_result back to the delegator's worker */
+  delegateRequestId: string | null;
+  delegatorAgentId: string | null;
+  delegatorRunId: string | null;
   status: 'running' | 'paused';
 }
 
@@ -159,6 +163,7 @@ export class Daemon {
     system_prompt: string;
     tools: string[];
     cwd: string;
+    parent_agent_id?: string | null;
     folder_id?: string;
     model?: string;
     schedule?: string;
@@ -169,11 +174,18 @@ export class Daemon {
     docker_image?: string;
     mounts?: { host: string; container: string; readonly?: boolean }[];
   }): Promise<ReturnType<Agent['toApi']>> {
+    // Validate parent exists if specified
+    if (input.parent_agent_id) {
+      const parent = this.agents.get(input.parent_agent_id);
+      if (!parent) throw new Error(`Parent agent not found: ${input.parent_agent_id}`);
+    }
+
     const agent = await Agent.create({
       name: input.name,
       system_prompt: input.system_prompt,
       tools: input.tools,
       cwd: input.cwd,
+      parent_agent_id: input.parent_agent_id ?? null,
       folder_id: input.folder_id ?? ROOT_FOLDER_ID,
       model: input.model ?? DEFAULT_MODEL,
       schedule: input.schedule ?? null,
@@ -241,6 +253,7 @@ export class Daemon {
     system_prompt: string;
     tools: string[];
     cwd: string;
+    parent_agent_id: string | null;
     folder_id: string;
     model: string;
     schedule: string | null;
@@ -254,6 +267,13 @@ export class Daemon {
   }>): Promise<ReturnType<Agent['toApi']>> {
     const managed = this.agents.get(id);
     if (!managed) throw new Error(`Agent not found: ${id}`);
+
+    // Validate parent_agent_id change — prevent cycles
+    if ('parent_agent_id' in updates && updates.parent_agent_id !== undefined) {
+      if (updates.parent_agent_id && this.wouldCreateCycle(id, updates.parent_agent_id)) {
+        throw new Error('Cannot set parent: would create a cycle');
+      }
+    }
 
     // If mounts or docker_image changed, destroy the container so it's
     // recreated with the new config on the next run (volume is preserved).
@@ -274,21 +294,27 @@ export class Daemon {
   }
 
   async deleteAgent(id: string): Promise<void> {
-    this.scheduler.unregister(id);
-    const managed = this.agents.get(id);
-    if (managed && managed.runs.size > 0) {
-      await this.stopAllRuns(id, 'agent deleted');
+    // Cascade delete: collect all descendants first, then delete leaf-to-root
+    const descendants = this.collectDescendants(id);
+    const toDelete = [...descendants.reverse(), id]; // children first, then self
+
+    for (const agentId of toDelete) {
+      this.scheduler.unregister(agentId);
+      const managed = this.agents.get(agentId);
+      if (managed && managed.runs.size > 0) {
+        await this.stopAllRuns(agentId, 'agent deleted');
+      }
+
+      if (managed) {
+        await this.docker.removeContainer(managed.agent.container_id);
+      }
+
+      await AgentLog.destroy({ where: { agent_id: agentId } });
+      await Agent.destroy({ where: { id: agentId } });
+      this.agents.delete(agentId);
+
+      this.logger('info', `Agent deleted: ${agentId}`);
     }
-
-    if (managed) {
-      await this.docker.removeContainer(managed.agent.container_id);
-    }
-
-    await AgentLog.destroy({ where: { agent_id: id } });
-    await Agent.destroy({ where: { id } });
-    this.agents.delete(id);
-
-    this.logger('info', `Agent deleted: ${id}`);
   }
 
   async getAgent(id: string): Promise<ReturnType<Agent['toApi']> & { next_run: string | null } | null> {
@@ -393,6 +419,9 @@ export class Daemon {
       process: child,
       parentRunId,
       spawnRequestId: null,
+      delegateRequestId: null,
+      delegatorAgentId: null,
+      delegatorRunId: null,
       status: 'running',
     });
 
@@ -542,6 +571,75 @@ export class Daemon {
     return null;
   }
 
+  // ── Hierarchy helpers ──
+
+  getChildren(agentId: string): Agent[] {
+    const children: Agent[] = [];
+    for (const managed of this.agents.values()) {
+      if (managed.agent.parent_agent_id === agentId) children.push(managed.agent);
+    }
+    return children;
+  }
+
+  findChildByName(parentId: string, childName: string): Agent | null {
+    for (const managed of this.agents.values()) {
+      if (managed.agent.parent_agent_id === parentId && managed.agent.name === childName) {
+        return managed.agent;
+      }
+    }
+    return null;
+  }
+
+  /** Walk a path like "agency/researcher/fact_checker" to resolve an agent. */
+  findAgentByPath(path: string): Agent | null {
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return null;
+
+    // First segment: top-level agent (parent_agent_id = null)
+    let current: Agent | null = null;
+    for (const managed of this.agents.values()) {
+      if (managed.agent.parent_agent_id === null && managed.agent.name === parts[0]) {
+        current = managed.agent;
+        break;
+      }
+    }
+    if (!current) return null;
+
+    // Walk remaining segments
+    for (let i = 1; i < parts.length; i++) {
+      current = this.findChildByName(current.id, parts[i]);
+      if (!current) return null;
+    }
+    return current;
+  }
+
+  /** Check if setting proposedParentId as parent of agentId would create a cycle. */
+  wouldCreateCycle(agentId: string, proposedParentId: string): boolean {
+    let current: string | null = proposedParentId;
+    while (current) {
+      if (current === agentId) return true;
+      const managed = this.agents.get(current);
+      current = managed?.agent.parent_agent_id ?? null;
+    }
+    return false;
+  }
+
+  /** Collect all descendant agent IDs (depth-first). */
+  private collectDescendants(agentId: string): string[] {
+    const descendants: string[] = [];
+    const stack = [agentId];
+    while (stack.length > 0) {
+      const parentId = stack.pop()!;
+      for (const managed of this.agents.values()) {
+        if (managed.agent.parent_agent_id === parentId) {
+          descendants.push(managed.agent.id);
+          stack.push(managed.agent.id);
+        }
+      }
+    }
+    return descendants;
+  }
+
   awaitRunCompletion(runId: string, timeoutMs: number = 300_000): Promise<{ summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -675,6 +773,22 @@ export class Daemon {
           completedRun.spawnRequestId = null;
         }
 
+        // If this is a delegate child, route result back to the delegator's worker (cross-agent)
+        if (completedRun?.delegateRequestId && completedRun.delegatorAgentId) {
+          const delegatorManaged = this.agents.get(completedRun.delegatorAgentId);
+          const delegatorRun = delegatorManaged?.runs.get(completedRun.delegatorRunId!);
+          if (delegatorRun) {
+            delegatorRun.process.send({
+              type: 'delegate_result',
+              requestId: completedRun.delegateRequestId,
+              summary: msg.summary,
+              error: msg.error,
+              tokens: msg.tokens,
+            } as ParentMessage);
+          }
+          completedRun.delegateRequestId = null;
+        }
+
         await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed');
         this.scheduler.onRunComplete(agentId);
 
@@ -701,6 +815,22 @@ export class Daemon {
         });
         break;
 
+      case 'delegate_request':
+        this.handleDelegateRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Delegate failed: ${err.message}`);
+          const callerRun = managed.runs.get(runId);
+          if (callerRun) {
+            callerRun.process.send({ type: 'delegate_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
+          }
+        });
+        break;
+
+      case 'supervisor_request':
+        this.handleSupervisorRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Supervisor request failed: ${err.message}`);
+        });
+        break;
+
       case 'signal_emit':
         // TODO: route to other agents
         this.logger('info', `[${managed.agent.name}] Signal emitted: ${msg.name}`);
@@ -722,7 +852,22 @@ export class Daemon {
               error: msg.error,
             } as ParentMessage);
           }
-          erroredRun.spawnRequestId = null; // prevent double-send from handleChildExit
+          erroredRun.spawnRequestId = null;
+        }
+
+        // Route error to delegator if this is a delegate child (cross-agent)
+        if (erroredRun?.delegateRequestId && erroredRun.delegatorAgentId) {
+          const delegatorManaged = this.agents.get(erroredRun.delegatorAgentId);
+          const delegatorRun = delegatorManaged?.runs.get(erroredRun.delegatorRunId!);
+          if (delegatorRun) {
+            delegatorRun.process.send({
+              type: 'delegate_result',
+              requestId: erroredRun.delegateRequestId,
+              summary: '',
+              error: msg.error,
+            } as ParentMessage);
+          }
+          erroredRun.delegateRequestId = null;
         }
 
         await this.updateRunStatus(agentId, runId, 'error');
@@ -781,6 +926,192 @@ export class Daemon {
     this.logger('info', `[${managed.agent.name}] Spawned child run ${childRun.id} (parent: ${parentRunId})`);
   }
 
+  private async handleDelegateRequest(
+    callerAgentId: string,
+    callerRunId: string,
+    msg: { requestId: string; targetAgent: string; input: string; context?: string },
+  ): Promise<void> {
+    // Resolve target: must be a direct child of the caller
+    const targetAgent = this.findChildByName(callerAgentId, msg.targetAgent);
+    if (!targetAgent) {
+      const callerManaged = this.agents.get(callerAgentId);
+      throw new Error(`Agent "${msg.targetAgent}" is not a child of "${callerManaged?.agent.name ?? callerAgentId}"`);
+    }
+
+    const targetManaged = this.agents.get(targetAgent.id);
+    if (!targetManaged) throw new Error(`Target agent not loaded: ${targetAgent.id}`);
+
+    // Ensure the child's container is running (lazy start)
+    await this.docker.ensureContainer(targetAgent);
+
+    const childRun = await Run.create({
+      cwd: targetAgent.cwd,
+      model: targetAgent.model,
+      agent_id: targetAgent.id,
+      trigger: 'delegate',
+      parent_run_id: callerRunId,
+    });
+
+    await this.forkWorker(targetAgent.id, childRun.id, callerRunId, {
+      type: 'start',
+      agentId: targetAgent.id,
+      runId: childRun.id,
+      trigger: 'delegate',
+      input: msg.input,
+    });
+
+    // Tag the child run for cross-agent routing
+    const childManagedRun = targetManaged.runs.get(childRun.id);
+    if (childManagedRun) {
+      childManagedRun.delegateRequestId = msg.requestId;
+      childManagedRun.delegatorAgentId = callerAgentId;
+      childManagedRun.delegatorRunId = callerRunId;
+    }
+
+    const callerManaged = this.agents.get(callerAgentId);
+    this.logger('info', `[${callerManaged?.agent.name}] Delegated to "${msg.targetAgent}" → run ${childRun.id}`);
+  }
+
+  /**
+   * Handle supervisor tool requests (ListTeam, CreateAgent, etc.)
+   * These are synchronous operations that don't need a child worker.
+   */
+  private async handleSupervisorRequest(
+    callerAgentId: string,
+    callerRunId: string,
+    msg: { requestId: string; action: string; params: Record<string, unknown> },
+  ): Promise<void> {
+    const callerManaged = this.agents.get(callerAgentId);
+    if (!callerManaged) return;
+
+    const callerRun = callerManaged.runs.get(callerRunId);
+    if (!callerRun) return;
+
+    let result: unknown;
+    try {
+      switch (msg.action) {
+        case 'list_team': {
+          const children = this.getChildren(callerAgentId);
+          result = children.map(c => {
+            const cm = this.agents.get(c.id);
+            const latestRun = cm ? [...cm.runs.values()].pop() : undefined;
+            return {
+              key: c.name,
+              status: c.status,
+              currentRun: latestRun ? { id: latestRun.runId, status: latestRun.status } : null,
+            };
+          });
+          break;
+        }
+
+        case 'create_agent': {
+          const p = msg.params as { key: string; system_prompt: string; tools?: string[]; model?: string; docker_image?: string };
+          const created = await this.createAgent({
+            name: p.key,
+            system_prompt: p.system_prompt,
+            tools: p.tools ?? ['Read', 'Glob', 'Grep'],
+            cwd: callerManaged.agent.cwd,
+            parent_agent_id: callerAgentId,
+            model: p.model ?? callerManaged.agent.model,
+            docker_image: p.docker_image ?? callerManaged.agent.docker_image,
+          });
+          result = { id: created.id, key: created.name };
+          break;
+        }
+
+        case 'update_agent': {
+          const p = msg.params as { key: string; system_prompt?: string; tools?: string[]; model?: string };
+          const child = this.findChildByName(callerAgentId, p.key);
+          if (!child) throw new Error(`Child "${p.key}" not found`);
+          const updates: Record<string, unknown> = {};
+          if (p.system_prompt !== undefined) updates.system_prompt = p.system_prompt;
+          if (p.tools !== undefined) updates.tools = p.tools;
+          if (p.model !== undefined) updates.model = p.model;
+          await this.updateAgent(child.id, updates as any);
+          result = { ok: true };
+          break;
+        }
+
+        case 'delete_agent': {
+          const p = msg.params as { key: string };
+          const child = this.findChildByName(callerAgentId, p.key);
+          if (!child) throw new Error(`Child "${p.key}" not found`);
+          await this.deleteAgent(child.id);
+          result = { ok: true };
+          break;
+        }
+
+        case 'inspect_run': {
+          const p = msg.params as { key: string; run_id?: string };
+          const child = this.findChildByName(callerAgentId, p.key);
+          if (!child) throw new Error(`Child "${p.key}" not found`);
+          const runs = await Run.findAll({
+            where: { agent_id: child.id },
+            order: [['created_at', 'DESC']],
+            limit: 1,
+          });
+          if (runs.length === 0) {
+            result = { status: 'no_runs' };
+          } else {
+            const run = runs[0];
+            const messages = await Message.findAll({
+              where: { run_id: run.id },
+              order: [['seq', 'DESC']],
+              limit: 5,
+            });
+            result = {
+              id: run.id,
+              status: run.status,
+              trigger: run.trigger,
+              started_at: run.created_at,
+              messages: messages.reverse().map(m => ({
+                role: m.role,
+                content: typeof m.content === 'string'
+                  ? m.content.slice(0, 500)
+                  : JSON.stringify(m.content).slice(0, 500),
+              })),
+            };
+          }
+          break;
+        }
+
+        case 'inject_message': {
+          const p = msg.params as { key: string; message: string };
+          const child = this.findChildByName(callerAgentId, p.key);
+          if (!child) throw new Error(`Child "${p.key}" not found`);
+          await this.injectMessage(child.id, p.message);
+          result = { ok: true };
+          break;
+        }
+
+        case 'stop_run': {
+          const p = msg.params as { key: string; run_id?: string };
+          const child = this.findChildByName(callerAgentId, p.key);
+          if (!child) throw new Error(`Child "${p.key}" not found`);
+          await this.stopAllRuns(child.id, 'supervisor stopped');
+          result = { ok: true };
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown supervisor action: ${msg.action}`);
+      }
+
+      callerRun.process.send({
+        type: 'supervisor_result',
+        requestId: msg.requestId,
+        result,
+      });
+    } catch (err: any) {
+      callerRun.process.send({
+        type: 'supervisor_result',
+        requestId: msg.requestId,
+        result: null,
+        error: err.message,
+      });
+    }
+  }
+
   private handleChildExit(agentId: string, runId: string, code: number | null): void {
     const managed = this.agents.get(agentId);
     if (!managed) return;
@@ -799,6 +1130,20 @@ export class Daemon {
           requestId: exitedRun.spawnRequestId,
           summary: '',
           error: code === 0 ? undefined : `Spawn child exited with code ${code}`,
+        } as ParentMessage);
+      }
+    }
+
+    // If this was a delegate child, route fallback result to the delegator (cross-agent)
+    if (exitedRun?.delegateRequestId && exitedRun.delegatorAgentId) {
+      const delegatorManaged = this.agents.get(exitedRun.delegatorAgentId);
+      const delegatorRun = delegatorManaged?.runs.get(exitedRun.delegatorRunId!);
+      if (delegatorRun) {
+        delegatorRun.process.send({
+          type: 'delegate_result',
+          requestId: exitedRun.delegateRequestId,
+          summary: '',
+          error: code === 0 ? undefined : `Delegate child exited with code ${code}`,
         } as ParentMessage);
       }
     }

@@ -4,6 +4,7 @@ import type { SearchProvider } from './search-provider.js';
 
 export class WebSearchTool extends Tool {
   readonly name = 'WebSearch';
+  readonly group = 'Web';
   readonly description =
     'Search the web for current information. Returns a list of results with titles, URLs, and snippets. ' +
     'Use this when you need up-to-date information, documentation, or answers from the internet.';
@@ -64,3 +65,4 @@ export class WebSearchTool extends Tool {
     }
   }
 }
+

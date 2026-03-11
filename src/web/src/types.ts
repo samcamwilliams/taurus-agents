@@ -2,6 +2,7 @@ export type AgentStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
 
 export interface Agent {
   id: string;
+  parent_agent_id: string | null;
   folder_id: string;
   name: string;
   status: AgentStatus;

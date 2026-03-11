@@ -18,17 +18,20 @@ export interface AgentFormData {
   max_turns: number;
   timeout_ms: number;
   mounts: MountEntry[];
+  parent_agent_id: string;
 }
 
 interface AgentFormProps {
   /** Pre-fill from existing agent (edit mode) */
   initial?: Agent;
+  /** All agents for the parent selector (create mode) */
+  agents?: Agent[];
   onSubmit: (data: AgentFormData) => void;
   onCancel: () => void;
   submitLabel?: string;
 }
 
-export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' }: AgentFormProps) {
+export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = 'Create' }: AgentFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [systemPrompt, setSystemPrompt] = useState(initial?.system_prompt ?? 'You are a helpful agent. Today\'s date is {{date}}.');
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(initial?.tools ?? []));
@@ -40,6 +43,7 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
   const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : '');
   const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
   const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
+  const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
   const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number } | null>(null);
   const [allToolNames, setAllToolNames] = useState<string[]>([]);
   const [readonlyTools, setReadonlyTools] = useState<string[]>([]);
@@ -76,6 +80,7 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
       max_turns: resolvedMaxTurns,
       timeout_ms: resolvedTimeoutS * 1000,
       mounts: mounts.filter(m => m.host && m.container),
+      parent_agent_id: parentAgentId || '',
     });
   }
 
@@ -83,6 +88,21 @@ export function AgentForm({ initial, onSubmit, onCancel, submitLabel = 'Create' 
     <>
       <label>Name</label>
       <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. code-reviewer" />
+
+      {agents && agents.length > 0 && (
+        <>
+          <label>Parent Agent (optional)</label>
+          <select value={parentAgentId} onChange={e => setParentAgentId(e.target.value)}>
+            <option value="">None (top-level)</option>
+            {agents
+              .filter(a => a.id !== initial?.id)
+              .map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))
+            }
+          </select>
+        </>
+      )}
 
       <label>System Prompt</label>
       <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="You are a..." />

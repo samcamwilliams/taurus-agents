@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import type { Agent } from '../types';
 import { StatusDot } from './StatusDot';
 import { Countdown } from './Countdown';
+import { TreeView, type TreeItem } from './TreeView';
 
 interface SidebarProps {
   agents: Agent[];
@@ -10,8 +11,15 @@ interface SidebarProps {
   onCreateClick: () => void;
 }
 
+type AgentTreeItem = Agent & TreeItem;
+
 export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
   const navigate = useNavigate();
+
+  const treeAgents: AgentTreeItem[] = agents.map(a => ({
+    ...a,
+    parentId: a.parent_agent_id,
+  }));
 
   return (
     <div className="sidebar">
@@ -19,25 +27,22 @@ export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
         <h1>Taurus</h1>
         <button className="btn primary" onClick={onCreateClick}><Plus size={14} /> New</button>
       </div>
-      <div className="sidebar__list">
-        {agents.map(agent => (
-          <div
-            key={agent.id}
-            className={`agent-item ${agent.id === selectedId ? 'active' : ''}`}
-            onClick={() => { if (agent.id !== selectedId) navigate(`/agents/${agent.id}`); }}
-          >
-            <div className="agent-item__row">
-              <StatusDot status={agent.status} />
-              <span className="agent-item__name">{agent.name}</span>
-            </div>
-            {agent.schedule && agent.next_run && agent.status !== 'running' && (
-              <div className="agent-item__meta">
-                <Countdown targetDate={agent.next_run} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <TreeView
+        items={treeAgents}
+        selectedId={selectedId}
+        onSelect={(id) => navigate(`/agents/${id}`)}
+        emptyMessage="No agents yet"
+        renderIcon={(agent) => <StatusDot status={agent.status} />}
+        renderLabel={(agent) => (
+          <span className="agent-item__name">{agent.name}</span>
+        )}
+        renderSecondary={(agent) => {
+          if (agent.schedule && agent.next_run && agent.status !== 'running') {
+            return <Countdown targetDate={agent.next_run} />;
+          }
+          return null;
+        }}
+      />
     </div>
   );
 }

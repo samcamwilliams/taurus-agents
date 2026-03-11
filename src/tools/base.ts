@@ -9,6 +9,9 @@ export abstract class Tool {
   abstract readonly description: string;
   abstract readonly inputSchema: object; // JSON Schema for the LLM API
 
+  /** Group for UI display (e.g. 'File', 'Search', 'Web', 'Control', 'Supervisor'). */
+  readonly group: string = 'Other';
+
   /** If true, the agent loop will ask for user approval before executing. */
   readonly requiresApproval: boolean = false;
 

@@ -32,6 +32,8 @@ import { FileTracker } from '../tools/shell/file-tracker.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
 import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
+import { DelegateTool, type DelegateRequest, type DelegateResult } from '../tools/control/delegate.js';
+import { SupervisorTool } from '../tools/control/supervisor.js';
 
 // ── IPC helpers ──
 
@@ -71,6 +73,34 @@ function waitForSpawnResult(requestId: string): Promise<SpawnResult> {
   });
 }
 
+// ── Delegate machinery ──
+
+const delegateResolvers = new Map<string, (result: DelegateResult) => void>();
+
+function sendDelegateRequest(request: DelegateRequest): void {
+  send({ type: 'delegate_request', ...request });
+}
+
+function waitForDelegateResult(requestId: string): Promise<DelegateResult> {
+  return new Promise((resolve) => {
+    delegateResolvers.set(requestId, resolve);
+  });
+}
+
+// ── Supervisor machinery ──
+
+const supervisorResolvers = new Map<string, (result: import('../tools/control/supervisor.js').SupervisorResult) => void>();
+
+function sendSupervisorRequest(request: import('../tools/control/supervisor.js').SupervisorRequest): void {
+  send({ type: 'supervisor_request', ...request });
+}
+
+function waitForSupervisorResult(requestId: string): Promise<import('../tools/control/supervisor.js').SupervisorResult> {
+  return new Promise((resolve) => {
+    supervisorResolvers.set(requestId, resolve);
+  });
+}
+
 // ── Abort controller for graceful stop ──
 
 const abortController = new AbortController();
@@ -98,6 +128,8 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   Browser:   (s) => new BrowserTool(s),
   Pause:     ()  => new PauseTool(sendPause, waitForResume),
   Spawn:     ()  => new SpawnTool(sendSpawnRequest, waitForSpawnResult),
+  Delegate:  ()  => new DelegateTool(sendDelegateRequest, waitForDelegateResult),
+  Supervisor: () => new SupervisorTool(sendSupervisorRequest, waitForSupervisorResult),
   WebFetch:  ()  => new WebFetchTool(),
   WebSearch: ()  => {
     const apiKey = process.env.BRAVE_SEARCH_API_KEY;
@@ -250,19 +282,31 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   await shell.spawn();
 
   // 3. Register tools
-  // Pause is always available — it's the agent's safety valve to ask for human input.
-  // Spawn children never get Pause (nobody can resume them — it would deadlock).
-  // Spawn children can request a tool subset (already intersected with parent's tools by daemon).
-  // Pause is always available except for spawn children (nobody can resume them — deadlock).
-  const ALWAYS_ON_TOOLS = trigger === 'spawn' ? [] : ['Pause'];
-  const baseTools = toolOverride ?? agent.tools as string[];
+  // Pause is the agent's safety valve to ask for human input.
+  // Spawn/delegate children never get Pause (nobody can resume them — deadlock).
+  const ALWAYS_ON_TOOLS = (trigger === 'spawn' || trigger === 'delegate') ? [] : ['Pause'];
+  const TOOL_GROUPS: Record<string, string[]> = {
+    supervisor: ['Delegate', 'Supervisor'],
+  };
+  const rawTools = toolOverride ?? agent.tools as string[];
+  const baseTools = rawTools.flatMap(t => TOOL_GROUPS[t] ?? [t]);
   const tools = new ToolRegistry();
   const toolNames = [...new Set([...baseTools, ...ALWAYS_ON_TOOLS])];
   registerTools(tools, toolNames, shell);
 
-  // 4. Build ChatML
+  // 4. Build ChatML — inject children list into system prompt if any exist
+  let systemPrompt = expandSystemPrompt(agent.system_prompt);
+  const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
+  if (children.length > 0) {
+    const childList = children.map(c => {
+      const firstLine = c.system_prompt.split('\n')[0].slice(0, 120);
+      return `- ${c.name}: ${firstLine}`;
+    }).join('\n');
+    systemPrompt += `\n\n## Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool:\n${childList}`;
+  }
+
   const chatml = new ChatML();
-  chatml.setSystem(expandSystemPrompt(agent.system_prompt));
+  chatml.setSystem(systemPrompt);
 
   // Helper: build user content from text + optional images
   function buildUserContent(text: string, imgs?: IpcImage[]): string | ContentBlock[] {
@@ -471,6 +515,24 @@ process.on('message', async (msg: ParentMessage) => {
       if (resolver) {
         spawnResolvers.delete(msg.requestId);
         resolver({ summary: msg.summary, error: msg.error });
+      }
+      break;
+    }
+
+    case 'delegate_result': {
+      const resolver = delegateResolvers.get(msg.requestId);
+      if (resolver) {
+        delegateResolvers.delete(msg.requestId);
+        resolver({ summary: msg.summary, error: msg.error, tokens: msg.tokens });
+      }
+      break;
+    }
+
+    case 'supervisor_result': {
+      const resolver = supervisorResolvers.get(msg.requestId);
+      if (resolver) {
+        supervisorResolvers.delete(msg.requestId);
+        resolver({ result: msg.result, error: msg.error });
       }
       break;
     }

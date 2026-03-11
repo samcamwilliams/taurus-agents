@@ -14,6 +14,7 @@ const IMAGE_MIMES: Record<string, ImageData['mediaType']> = {
 
 export class ShellReadTool extends Tool {
   readonly name = 'Read';
+  readonly group = 'File';
   readonly description = 'Read a file from the filesystem. Returns contents with line numbers. Can read images (png, jpg, gif, webp). Rejects binary files.';
   readonly inputSchema = {
     type: 'object' as const,
@@ -105,3 +106,4 @@ export class ShellReadTool extends Tool {
     return { output: `${header}${showing}\n${numbered}`, isError: false, durationMs: result.durationMs };
   }
 }
+

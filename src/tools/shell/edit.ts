@@ -5,6 +5,7 @@ import type { FileTracker } from './file-tracker.js';
 
 export class ShellEditTool extends Tool {
   readonly name = 'Edit';
+  readonly group = 'File';
   readonly description = 'Edit a file by replacing an exact string match. The old_string must appear exactly once in the file (unless replace_all is true). You must Read the file first.';
   readonly requiresApproval = true;
   readonly inputSchema = {
@@ -78,3 +79,4 @@ export class ShellEditTool extends Tool {
     };
   }
 }
+

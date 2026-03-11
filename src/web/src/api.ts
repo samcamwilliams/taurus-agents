@@ -31,6 +31,7 @@ export const api = {
     max_turns?: number;
     timeout_ms?: number;
     mounts?: { host: string; container: string; readonly?: boolean }[];
+    parent_agent_id?: string;
   }): Promise<Agent & { error?: string }> {
     return request('/api/agents', { method: 'POST', body: data });
   },
@@ -88,7 +89,7 @@ export const api = {
 
   listTools(): Promise<{
     tools: { name: string; group: string; description: string }[];
-    defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; max_turns: number; timeout_ms: number };
+    defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; supervisor_tools: string[]; max_turns: number; timeout_ms: number };
   }> {
     return request('/api/tools');
   },

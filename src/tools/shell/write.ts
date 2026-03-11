@@ -5,6 +5,7 @@ import type { FileTracker } from './file-tracker.js';
 
 export class ShellWriteTool extends Tool {
   readonly name = 'Write';
+  readonly group = 'File';
   readonly description = 'Write content to a file. Creates parent directories if needed. Overwrites existing files. If overwriting, you must Read the file first.';
   readonly requiresApproval = true;
   readonly inputSchema = {
@@ -51,3 +52,4 @@ export class ShellWriteTool extends Tool {
     return { output: `File written: ${fp} (${input.content.length} bytes)`, isError: false, durationMs: result.durationMs };
   }
 }
+

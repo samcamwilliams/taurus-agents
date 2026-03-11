@@ -9,6 +9,7 @@ const sequelize = Database.init();
 
 class Agent extends Model {
   declare id: string;
+  declare parent_agent_id: string | null;
   declare folder_id: string;
   declare name: string;
   declare status: AgentStatus;
@@ -31,10 +32,10 @@ class Agent extends Model {
   }
 
   toApi() {
-    const { id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
+    const { id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
     // SQLite may store JSON default as a raw string — ensure mounts is always an array
     const mounts = typeof this.mounts === 'string' ? JSON.parse(this.mounts) : (this.mounts ?? []);
-    return { id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, mounts, created_at, updated_at };
+    return { id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, mounts, created_at, updated_at };
   }
 }
 
@@ -45,6 +46,11 @@ Agent.init(
       defaultValue: uuidv4,
       primaryKey: true,
     },
+    parent_agent_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      defaultValue: null,
+    },
     folder_id: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -53,7 +59,7 @@ Agent.init(
     name: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
+      // Uniqueness enforced by composite index (parent_agent_id, name) in migration
     },
     status: {
       type: DataTypes.STRING,
@@ -118,6 +124,13 @@ Agent.init(
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at',
+    indexes: [
+      {
+        unique: true,
+        fields: ['parent_agent_id', 'name'],
+        name: 'agents_parent_name_unique',
+      },
+    ],
   }
 );
 
