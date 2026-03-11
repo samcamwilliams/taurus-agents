@@ -13,6 +13,7 @@ import { Countdown } from '../components/Countdown';
 import { useToast, ToastContainer } from '../components/Toast';
 import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings } from 'lucide-react';
 import '../styles/components.scss';
 
@@ -72,6 +73,7 @@ export function AgentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('runs');
   const { toasts, showToast, dismiss } = useToast();
   const { theme, cycleTheme } = useTheme();
+  const conn = useConnectionStatus();
 
   // Remember last selected run per agent so switching back restores it
   const lastRunByAgent = useRef<Record<string, string>>({});
@@ -481,6 +483,7 @@ export function AgentsPage() {
                 )}
               </div>
               <div className="panel-header__actions">
+                {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
                 {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
                 {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
                 {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> Stop All</button>}

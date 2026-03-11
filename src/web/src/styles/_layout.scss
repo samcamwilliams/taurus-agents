@@ -75,6 +75,23 @@
   }
 }
 
+// ── Connection label ──
+
+.conn-label {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--c-muted);
+  margin-right: 4px;
+  animation: conn-blink 2s ease-in-out infinite;
+}
+
+@keyframes conn-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 // ── Sidebar ──
 
 .sidebar {
@@ -93,6 +110,7 @@
     align-items: center;
 
     h1 {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 17px;
       font-weight: 100;
       letter-spacing: 0.12em;
