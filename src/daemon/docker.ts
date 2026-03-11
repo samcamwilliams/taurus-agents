@@ -17,6 +17,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class DockerService {
   private logger: (level: LogLevel, msg: string) => void;
+  /** Per-container lock to prevent concurrent ensureContainer races */
+  private ensureLocks = new Map<string, Promise<void>>();
 
   constructor(logger: (level: LogLevel, msg: string) => void) {
     this.logger = logger;
@@ -55,6 +57,18 @@ export class DockerService {
   }
 
   async ensureContainer(agent: Agent): Promise<void> {
+    const { container_id } = agent;
+
+    // Deduplicate concurrent calls for the same container
+    const pending = this.ensureLocks.get(container_id);
+    if (pending) { await pending; return; }
+
+    const promise = this._ensureContainer(agent);
+    this.ensureLocks.set(container_id, promise);
+    try { await promise; } finally { this.ensureLocks.delete(container_id); }
+  }
+
+  private async _ensureContainer(agent: Agent): Promise<void> {
     const { container_id, docker_image } = agent;
 
     if (await this.isContainerRunning(container_id)) return;
