@@ -215,4 +215,9 @@ body {
     padding: 3px 8px;
     font-size: 11px;
   }
+
+  &.btn--active {
+    background: var(--c-accent);
+    color: #000;
+  }
 }

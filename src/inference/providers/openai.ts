@@ -32,11 +32,17 @@ export class OpenAIProvider extends InferenceProvider {
     const messages = this.convertMessages(params.system, params.messages);
     const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
 
+    const maxTokens = params.maxTokens ?? 16000;
     const requestBody: Record<string, any> = {
       model,
       messages,
       tools,
-      max_tokens: params.maxTokens ?? 16000,
+      // Newer OpenAI models (gpt-4o-2024-11+, gpt-5, o-series) require
+      // max_completion_tokens; older ones use max_tokens. Use the new param
+      // for OpenAI, fall back to max_tokens for other OpenAI-compatible APIs.
+      ...(this.name === 'openai'
+        ? { max_completion_tokens: maxTokens }
+        : { max_tokens: maxTokens }),
       stream: true,
       stream_options: { include_usage: true },
     };
