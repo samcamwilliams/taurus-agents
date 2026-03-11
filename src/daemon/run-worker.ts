@@ -7,6 +7,8 @@
  */
 
 import 'dotenv/config';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { ParentMessage, ChildMessage, TriggerType, LogLevel, IpcImage } from './types.js';
 import Agent from '../db/models/Agent.js';
 import Run from '../db/models/Run.js';
@@ -251,6 +253,25 @@ function expandSystemPrompt(prompt: string): string {
     'year': String(now.getFullYear()),
     'timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
+
+  // First pass: resolve {{include:name}} directives from prompts/ directory (recursive, max 5 deep)
+  const promptsDir = fs.realpathSync(path.resolve('prompts'));
+  const resolveInclude = (name: string): string => {
+    const clean = name.trim()
+      .replace(/\0/g, '')           // strip null bytes
+      .replace(/[^\w/.\-]/g, '');   // allow only alphanumeric, /, ., - (no .., unicode, %xx)
+    if (!clean || clean.includes('..')) return `[include denied]`;
+    const resolved = fs.realpathSync(path.join(promptsDir, clean));
+    if (!resolved.startsWith(promptsDir + path.sep)) return `[include denied]`;
+    return fs.readFileSync(resolved, 'utf-8');
+  };
+  for (let depth = 0; depth < 5 && /\{\{include:[^}]+\}\}/i.test(prompt); depth++) {
+    prompt = prompt.replace(/\{\{include:([^}]+)\}\}/gi, (_match, name) => {
+      try { return resolveInclude(name); } catch { return `[include failed: not found]`; }
+    });
+  }
+
+  // Second pass: resolve {{key}} variables
   return prompt.replace(/\{\{(\w+)\}\}/gi, (match, key) => {
     return replacements[key.toLowerCase()] ?? match;
   });

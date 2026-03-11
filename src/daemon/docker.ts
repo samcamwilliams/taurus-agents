@@ -83,13 +83,19 @@ export class DockerService {
       return;
     }
 
-    // Create volume
+    // Create volumes
     const volumeName = `taurus-vol-${agent.id}`;
-    try {
-      await this.docker('volume', 'create', volumeName);
-    } catch {
-      // Volume may already exist
+    const sharedVolumeName = `taurus-shared-${agent.id}`;
+    for (const vol of [volumeName, sharedVolumeName]) {
+      try { await this.docker('volume', 'create', vol); } catch { /* may already exist */ }
     }
+
+    // Determine which shared volume to mount:
+    // - If agent has a parent, mount the parent's shared volume (team collaboration)
+    // - Otherwise, mount its own shared volume (it's the team root)
+    const sharedMount = agent.parent_agent_id
+      ? `taurus-shared-${agent.parent_agent_id}`
+      : sharedVolumeName;
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host
@@ -97,6 +103,7 @@ export class DockerService {
       'create', '--name', container_id,
       '--shm-size=256m',
       '-v', `${volumeName}:/workspace`,
+      '-v', `${sharedMount}:/shared`,
     ];
 
     // Add bind mounts (validate paths are absolute)
@@ -168,8 +175,10 @@ export class DockerService {
   }
 
   async removeContainer(container_id: string): Promise<void> {
+    const agentId = container_id.replace('taurus-agent-', '');
     try { await this.docker('rm', '-f', container_id); } catch { /* ignore */ }
-    try { await this.docker('volume', 'rm', `taurus-vol-${container_id.replace('taurus-agent-', '')}`); } catch { /* ignore */ }
+    try { await this.docker('volume', 'rm', `taurus-vol-${agentId}`); } catch { /* ignore */ }
+    try { await this.docker('volume', 'rm', `taurus-shared-${agentId}`); } catch { /* ignore */ }
     this.logger('info', `Container removed: ${container_id}`);
   }
 
