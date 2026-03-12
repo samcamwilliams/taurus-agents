@@ -25,6 +25,10 @@ export class AnthropicProvider extends InferenceProvider {
       max_tokens: params.maxTokens ?? 16000,
       // Extended thinking — temperature must be omitted (defaults to 1)
       thinking: { type: 'enabled', budget_tokens: 10000 },
+      // Prompt caching — the API automatically places a breakpoint on the last
+      // cacheable block and moves it forward as the conversation grows.
+      // Cache read = 10% of input price; write = 1.25x. Pays for itself after 1 hit.
+      cache_control: { type: 'ephemeral' },
     });
 
     // Track tool state for streaming tool_use_end events
@@ -84,14 +88,20 @@ export class AnthropicProvider extends InferenceProvider {
       }
     });
 
+    // Normalize usage — inputTokens is always the TOTAL (see TokenUsage docs in types.ts).
+    // Anthropic reports: input_tokens (non-cached) + cache_read + cache_creation = total.
+    const rawInput = finalMessage.usage.input_tokens;
+    const cacheRead = (finalMessage.usage as any).cache_read_input_tokens ?? 0;
+    const cacheWrite = (finalMessage.usage as any).cache_creation_input_tokens ?? 0;
+
     yield {
       type: 'message_complete',
       message: { role: 'assistant', content: assembledContent } as ChatMessage,
       usage: {
-        inputTokens: finalMessage.usage.input_tokens,
+        inputTokens: rawInput + cacheRead + cacheWrite,
         outputTokens: finalMessage.usage.output_tokens,
-        cacheRead: (finalMessage.usage as any).cache_read_input_tokens,
-        cacheWrite: (finalMessage.usage as any).cache_creation_input_tokens,
+        cacheRead,
+        cacheWrite,
       },
       stopReason: finalMessage.stop_reason ?? 'end_turn',
     };

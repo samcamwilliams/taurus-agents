@@ -10,6 +10,8 @@ import { CreateAgentModal } from '../components/CreateAgentModal';
 import { AgentSettings } from '../components/AgentSettings';
 import { FileBrowser, Terminal } from '../components/file-browser';
 import { Countdown } from '../components/Countdown';
+import { RunFooter, RunControls } from '../components/RunToolbar';
+import { InspectModal } from '../components/InspectModal';
 import { useToast, ToastContainer } from '../components/Toast';
 import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
@@ -70,6 +72,8 @@ export function AgentsPage() {
   const [streamingToolOutput, setStreamingToolOutput] = useState('');
   const [runActivity, setRunActivity] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [inspectMessage, setInspectMessage] = useState<MessageRecord | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('runs');
   // Lazy-mount: Terminal and FileBrowser trigger container startup on mount,
   // so only mount them once the user actually clicks their tab.
@@ -473,8 +477,6 @@ export function AgentsPage() {
   const isPaused = selectedAgent?.status === 'paused';
   const isStopped = !isRunning && !isPaused;
 
-  const isLive = (r: Run) => r.status === 'running' || r.status === 'paused';
-
   // ── Render ──
 
   return (
@@ -564,22 +566,18 @@ export function AgentsPage() {
 
               {/* Messages */}
               <div className="messages-area">
-                {selectedRun && isLive(selectedRun) && (
-                  <div className="run-actions">
-                    <StatusDot status={selectedRun.status} />
-                    <span>{selectedRun.status === 'paused' ? 'Paused' : 'Running'}</span>
-                    {selectedRun.status === 'paused' && (
-                      <button className="btn btn--sm" onClick={handleResume}>
-                        <PlayCircle size={11} /> Resume
-                      </button>
-                    )}
-                    <button className="btn btn--sm" onClick={handleStopSelectedRun}>
-                      <Square size={11} /> Stop
-                    </button>
-                  </div>
+                {selectedRun && (
+                  <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} runStatus={selectedRun.status} />
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage}>
+                    <RunFooter
+                      run={selectedRun}
+                      messages={messages}
+                      showMetadata={showMetadata}
+                      onToggleMetadata={() => setShowMetadata(v => !v)}
+                    />
+                  </MessageView>
                 ) : (
                   <div className="empty-state">Select a run</div>
                 )}
@@ -609,6 +607,13 @@ export function AgentsPage() {
           agents={agents}
           onClose={() => setShowCreateModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {inspectMessage && (
+        <InspectModal
+          message={inspectMessage}
+          onClose={() => setInspectMessage(null)}
         />
       )}
     </div>

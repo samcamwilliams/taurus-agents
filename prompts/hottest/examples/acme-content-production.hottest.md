@@ -12,6 +12,8 @@
 4. Delegate to editor with the draft
 5. Update order status to "complete"
 
+Reconcile differences automatically if in any other state
+
 ## On wake (scheduled)
 - Check orders.json for pending work
 - Check team status — restart stuck agents

@@ -43,6 +43,15 @@ export interface Run {
   updated_at: string;
 }
 
+export interface MessageUsage {
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  reasoningTokens?: number;
+  nativeCost?: number;
+}
+
 export interface MessageRecord {
   id: string;
   run_id: string;
@@ -52,6 +61,8 @@ export interface MessageRecord {
   stop_reason: string | null;
   input_tokens: number;
   output_tokens: number;
+  usage?: MessageUsage;
+  cost?: number;
   created_at: string;
 }
 

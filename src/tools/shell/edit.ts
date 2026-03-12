@@ -66,9 +66,10 @@ export class ShellEditTool extends Tool {
     }
 
     // Update tracked mtime after successful edit
+    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const newMtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
-      const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
-      if (stat.exitCode === 0) this.tracker.updateMtime(fp, parseInt(stat.stdout.trim(), 10));
+      this.tracker.updateMtime(fp, newMtime);
     }
 
     const replacedCount = input.replace_all ? occurrences : 1;
@@ -76,7 +77,7 @@ export class ShellEditTool extends Tool {
       output: `Edited ${fp}: replaced ${replacedCount} occurrence(s) (${input.old_string.length} → ${input.new_string.length} chars)`,
       isError: false,
       durationMs: readResult.durationMs + writeResult.durationMs,
+      metadata: { file_path: fp, mtime: newMtime }, // works!
     };
   }
 }
-

@@ -136,6 +136,7 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
 
     // ── Act: execute tool calls ──
     const toolUseBlocks = chatml.getToolUseBlocks();
+    const toolMeta: Record<string, any> = {};
 
     for (const toolUse of toolUseBlocks) {
       if (signal?.aborted) {
@@ -157,6 +158,11 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
       const result = await tools.execute(toolUse.name, toolUse.input, { cwd });
       chatml.addToolResult(toolUse.id, result.output, result.isError, result.images);
 
+      // Collect internal metadata (e.g. file tracker state) — stored on Message.meta, not sent to LLM
+      if (result.metadata) {
+        toolMeta[toolUse.id] = result.metadata;
+      }
+
       yield { type: 'tool_end', name: toolUse.name, result };
     }
 
@@ -164,7 +170,8 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     const allMessages = chatml.getMessages();
     const lastMsg = allMessages[allMessages.length - 1];
     if (lastMsg?.role === 'user') {
-      yield { type: 'user_message', message: lastMsg };
+      const meta = Object.keys(toolMeta).length > 0 ? toolMeta : undefined;
+      yield { type: 'user_message', message: lastMsg, meta };
     }
 
     turns++;

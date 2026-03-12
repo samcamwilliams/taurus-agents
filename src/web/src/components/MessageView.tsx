@@ -9,6 +9,8 @@ import { Markdown } from './Markdown';
 import { JsonKV } from './JsonKV';
 import { DiffView } from './DiffView';
 import { Lightbox } from './Lightbox';
+import { MessageMenu } from './MessageMenu';
+import { UsageSummary } from './UsageSummary';
 
 const TOOL_ICONS: Record<string, typeof Terminal> = {
   Bash: Terminal,
@@ -36,7 +38,7 @@ function ToolHeader({ name, description }: { name: string; description?: string 
 
 // ── Collapsible thinking block ──
 
-function ThinkingBlock({ text, defaultCollapsed = true }: { text: string; defaultCollapsed?: boolean }) {
+function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { text: string; defaultCollapsed?: boolean; showTokens?: boolean }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   // Auto-collapse when defaultCollapsed changes (e.g., thinking done → output starts)
@@ -45,7 +47,7 @@ function ThinkingBlock({ text, defaultCollapsed = true }: { text: string; defaul
   }, [defaultCollapsed]);
 
   const charCount = text.length;
-  const label = charCount > 1000
+  const label = showTokens && charCount > 1000
     ? `Thinking (${Math.round(charCount / 4).toLocaleString()} tokens)`
     : 'Thinking';
 
@@ -69,9 +71,9 @@ function ThinkingBlock({ text, defaultCollapsed = true }: { text: string; defaul
 
 // ── Content block rendering ──
 
-function ContentBlockView({ block }: { block: any }) {
+function ContentBlockView({ block, showMetadata }: { block: any; showMetadata?: boolean }) {
   if (block.type === 'thinking') {
-    return <ThinkingBlock text={block.thinking} />;
+    return <ThinkingBlock text={block.thinking} showTokens={showMetadata} />;
   }
   if (block.type === 'text') {
     return <Markdown>{block.text}</Markdown>;
@@ -165,7 +167,7 @@ function ContentBlockView({ block }: { block: any }) {
   return <pre className="msg-raw">{JSON.stringify(block, null, 2)}</pre>;
 }
 
-function MessageContent({ content, role }: { content: unknown; role?: string }) {
+function MessageContent({ content, role, showMetadata }: { content: unknown; role?: string; showMetadata?: boolean }) {
   if (typeof content === 'string') {
     if (role === 'user') return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
     return <Markdown>{content}</Markdown>;
@@ -174,7 +176,7 @@ function MessageContent({ content, role }: { content: unknown; role?: string }) 
     return (
       <>
         {content.map((block, i) => (
-          <ContentBlockView key={i} block={block} />
+          <ContentBlockView key={i} block={block} showMetadata={showMetadata} />
         ))}
       </>
     );
@@ -190,9 +192,12 @@ interface MessageViewProps {
   streamingThinking?: string;
   streamingToolOutput?: string;
   runStatus?: string;
+  showMetadata?: boolean;
+  onInspect?: (message: MessageRecord) => void;
+  children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, runStatus }: MessageViewProps) {
+export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, runStatus, showMetadata, onInspect, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -205,7 +210,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
     if (wasNearBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, streamingText, streamingThinking, streamingToolOutput]);
+  }, [messages, streamingText, streamingThinking, streamingToolOutput, showMetadata]);
 
   // Auto-scroll the tool output <pre> to its bottom as new content streams in
   useEffect(() => {
@@ -232,8 +237,6 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
     return <div className="empty-state">{label}</div>;
   }
 
-  const totalIn = messages.reduce((s, m) => s + m.input_tokens, 0);
-  const totalOut = messages.reduce((s, m) => s + m.output_tokens, 0);
   const isStreaming = !!(streamingText || streamingThinking);
 
   // Auto-collapse thinking when output text starts arriving
@@ -253,10 +256,16 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
                 : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
               {!isOptimistic && new Date(msg.created_at).toLocaleTimeString()}
             </span>
+            {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} />}
           </div>
           <div className="message__body">
-            <MessageContent content={msg.content} role={msg.role} />
+            <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} />
           </div>
+          {showMetadata && msg.usage && (
+            <div className="message__footer">
+              <UsageSummary usage={msg.usage} cost={msg.cost} />
+            </div>
+          )}
         </div>
         );
       })}
@@ -288,17 +297,13 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
           </div>
           <div className="message__body">
             {streamingThinking && (
-              <ThinkingBlock text={streamingThinking} defaultCollapsed={thinkingDone} />
+              <ThinkingBlock text={streamingThinking} defaultCollapsed={thinkingDone} showTokens={showMetadata} />
             )}
             {streamingText && <Markdown>{streamingText}</Markdown>}
           </div>
         </div>
       )}
-      {totalIn > 0 && (
-        <div className="message-list__footer">
-          {totalIn.toLocaleString()} input / {totalOut.toLocaleString()} output tokens
-        </div>
-      )}
+      {children}
     </div>
   );
 }

@@ -34,7 +34,7 @@ class Run extends Model {
     });
   }
 
-  async addMessage(role: string, content: any, opts?: { stopReason?: string; inputTokens?: number; outputTokens?: number }) {
+  async addMessage(role: string, content: any, opts?: { stopReason?: string; inputTokens?: number; outputTokens?: number; meta?: Record<string, any> }) {
     const { default: Message } = await import('./Message.js');
     const maxSeq = await Message.max('seq', { where: { run_id: this.id } }) as number || 0;
     return Message.create({
@@ -42,6 +42,7 @@ class Run extends Model {
       seq: maxSeq + 1,
       role,
       content,
+      meta: opts?.meta ?? null,
       stop_reason: opts?.stopReason ?? null,
       input_tokens: opts?.inputTokens ?? 0,
       output_tokens: opts?.outputTokens ?? 0,

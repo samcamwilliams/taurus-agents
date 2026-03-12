@@ -97,13 +97,18 @@ export class ShellReadTool extends Tool {
       : '';
 
     // Track mtime for freshness enforcement (mtime 0 = stat unavailable, still allows edits)
+    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const mtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
-      const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
-      const mtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
       this.tracker.markRead(fp, mtime);
     }
 
-    return { output: `${header}${showing}\n${numbered}`, isError: false, durationMs: result.durationMs };
+    // Return mtime in metadata so it can be persisted and restored on run resume
+    return {
+      output: `${header}${showing}\n${numbered}`,
+      isError: false,
+      durationMs: result.durationMs,
+      metadata: { file_path: fp, mtime },
+    };
   }
 }
-

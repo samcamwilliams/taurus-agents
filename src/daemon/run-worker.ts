@@ -31,6 +31,7 @@ import { ShellGrepTool } from '../tools/shell/grep.js';
 import { WebFetchTool } from '../tools/web/web-fetch.js';
 import { WebSearchTool } from '../tools/web/web-search.js';
 import { FileTracker } from '../tools/shell/file-tracker.js';
+import { computeCost } from '../core/models.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
 import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
@@ -139,13 +140,30 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   },
 };
 
-function registerTools(registry: ToolRegistry, toolNames: string[], shell: PersistentShell): void {
+function registerTools(registry: ToolRegistry, toolNames: string[], shell: PersistentShell): FileTracker {
   const tracker = new FileTracker();
   for (const name of toolNames) {
     const factory = TOOL_FACTORIES[name];
     if (!factory) continue;
     const tool = factory(shell, tracker);
     if (tool) registry.register(tool);
+  }
+  return tracker;
+}
+
+/**
+ * Hydrate a FileTracker from Message.meta fields.
+ * Each meta is a map of tool_use_id → { file_path, mtime }.
+ */
+function hydrateTrackerFromMessages(tracker: FileTracker, messages: Message[]): void {
+  for (const msg of messages) {
+    if (!msg.meta) continue;
+    for (const entry of Object.values(msg.meta)) {
+      const { file_path, mtime } = entry as { file_path?: string; mtime?: number };
+      if (file_path && typeof mtime === 'number') {
+        tracker.markRead(file_path, mtime);
+      }
+    }
   }
 }
 
@@ -169,19 +187,18 @@ function buildInputMessage(trigger: TriggerType, input?: string): string {
 // ── Persist a message to the DB ──
 
 async function persistMessage(run: Run, role: string, content: any, opts?: {
-  stopReason?: string; inputTokens?: number; outputTokens?: number;
+  stopReason?: string; inputTokens?: number; outputTokens?: number; meta?: Record<string, any>;
 }): Promise<void> {
   await run.addMessage(role, content, opts);
 }
 
 // ── Load run history from DB ──
 
-async function loadRunHistory(runId: string): Promise<ChatMessage[]> {
-  const messages = await Message.findAll({
+async function loadRunHistory(runId: string): Promise<Message[]> {
+  return Message.findAll({
     where: { run_id: runId },
     order: [['created_at', 'ASC']],
   });
-  return messages.map(m => m.toChatMLMessage());
 }
 
 /**
@@ -244,8 +261,8 @@ function patchIncompleteToolCalls(messages: ChatMessage[]): void {
 
 // ── System prompt template expansion ──
 
-function expandSystemPrompt(prompt: string): string {
-  const now = new Date();
+function expandSystemPrompt(prompt: string, asOf?: Date): string {
+  const now = asOf ?? new Date();
   const replacements: Record<string, string> = {
     'datetime': now.toISOString(),
     'date': now.toISOString().split('T')[0],
@@ -313,10 +330,12 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const baseTools = rawTools.flatMap(t => TOOL_GROUPS[t] ?? [t]);
   const tools = new ToolRegistry();
   const toolNames = [...new Set([...baseTools, ...ALWAYS_ON_TOOLS])];
-  registerTools(tools, toolNames, shell);
+  const fileTracker = registerTools(tools, toolNames, shell);
 
   // 4. Build ChatML — inject children list into system prompt if any exist
-  let systemPrompt = expandSystemPrompt(agent.system_prompt);
+  // On resume, use run.created_at so the system prompt stays identical to the original run.
+  // This preserves prompt cache prefixes (system changes invalidate the messages cache).
+  let systemPrompt = expandSystemPrompt(agent.system_prompt, resume ? run.created_at : undefined);
   const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
   if (children.length > 0) {
     const childList = children.map(c => {
@@ -347,8 +366,10 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     // Restore conversation from this run's persisted messages
     const history = await loadRunHistory(runId);
     if (history.length > 0) {
-      patchIncompleteToolCalls(history);
-      for (const msg of history) {
+      const chatHistory = history.map(m => m.toChatMLMessage());
+      patchIncompleteToolCalls(chatHistory);
+      hydrateTrackerFromMessages(fileTracker, history);
+      for (const msg of chatHistory) {
         if (msg.role === 'user') chatml.addUser(msg.content);
         else chatml.addAssistant(msg.content);
       }
@@ -414,10 +435,24 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
             log('debug', 'llm.text', event.event.text);
           }
           if (event.event.type === 'message_complete') {
+            const u = event.event.usage;
+            // Persist normalized usage in meta (see TokenUsage docs in types.ts).
+            // input = total input tokens (cached + uncached + cache writes).
             await persistMessage(run, 'assistant', event.event.message.content, {
               stopReason: event.event.stopReason,
-              inputTokens: event.event.usage.inputTokens,
-              outputTokens: event.event.usage.outputTokens,
+              inputTokens: u.inputTokens,
+              outputTokens: u.outputTokens,
+              meta: {
+                usage: {
+                  input: u.inputTokens,
+                  output: u.outputTokens,
+                  cacheRead: u.cacheRead ?? 0,
+                  cacheWrite: u.cacheWrite ?? 0,
+                  ...(u.reasoningTokens ? { reasoningTokens: u.reasoningTokens } : {}),
+                  ...(u.nativeCost != null ? { nativeCost: u.nativeCost } : {}),
+                },
+                model: resolvedModel,
+              },
             });
             log('info', 'message.saved', 'assistant');
           }
@@ -440,7 +475,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           break;
 
         case 'user_message':
-          await persistMessage(run, 'user', event.message.content);
+          await persistMessage(run, 'user', event.message.content, { meta: event.meta });
           log('info', 'message.saved', 'user');
           break;
 
@@ -478,13 +513,31 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 
   // 8. Update run record and log completion
   const usage = inference.getUsage();
-  const tokens = { input: usage.inputTokens, output: usage.outputTokens, cost: 0 };
+  const tokens = {
+    input: usage.inputTokens,
+    output: usage.outputTokens,
+    cacheRead: usage.cacheRead ?? 0,
+    cacheWrite: usage.cacheWrite ?? 0,
+    reasoningTokens: usage.reasoningTokens ?? 0,
+    cost: computeCost(resolvedModel, {
+      input: usage.inputTokens,
+      output: usage.outputTokens,
+      cacheRead: usage.cacheRead ?? 0,
+      cacheWrite: usage.cacheWrite ?? 0,
+      nativeCost: usage.nativeCost,
+    }),
+  };
+
+  if (tokens.cacheRead > 0 || tokens.cacheWrite > 0) {
+    log('info', 'run.cache', `Cache stats — read: ${tokens.cacheRead.toLocaleString()} tokens, write: ${tokens.cacheWrite.toLocaleString()} tokens`);
+  }
 
   await run.update({
     run_summary: summary,
     run_error: null,
     total_input_tokens: tokens.input,
     total_output_tokens: tokens.output,
+    total_cost_usd: tokens.cost,
   });
 
   await AgentLog.create({

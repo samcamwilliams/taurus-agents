@@ -59,7 +59,7 @@ export class OpenAIProvider extends InferenceProvider {
     let textContent = '';
     let reasoningContent = '';
     let finishReason = '';
-    let usage: { prompt_tokens: number; completion_tokens: number } | null = null;
+    let usage: any = null; // full usage object — shape varies (OpenAI vs OpenRouter)
 
     for await (const chunk of stream) {
       // Usage arrives in the final chunk with empty choices
@@ -122,12 +122,26 @@ export class OpenAIProvider extends InferenceProvider {
     // Map finish_reason to our stop_reason
     const stopReason = finishReason === 'tool_calls' ? 'tool_use' : 'end_turn';
 
+    // Normalize usage — inputTokens is always the TOTAL (see TokenUsage docs in types.ts).
+    // OpenAI: prompt_tokens is already total (includes cached). Cache details are in sub-objects.
+    // OpenRouter: same shape, plus inline `cost` field and `cache_write_tokens`.
+    const promptTokens = usage?.prompt_tokens ?? 0;
+    const completionTokens = usage?.completion_tokens ?? 0;
+    const cacheRead = usage?.prompt_tokens_details?.cached_tokens ?? 0;
+    const cacheWrite = usage?.prompt_tokens_details?.cache_write_tokens ?? 0; // OpenRouter only
+    const reasoningTokens = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+    const nativeCost = typeof usage?.cost === 'number' ? usage.cost : undefined; // OpenRouter only
+
     yield {
       type: 'message_complete',
       message: { role: 'assistant', content } as ChatMessage,
       usage: {
-        inputTokens: usage?.prompt_tokens ?? 0,
-        outputTokens: usage?.completion_tokens ?? 0,
+        inputTokens: promptTokens,
+        outputTokens: completionTokens,
+        cacheRead: cacheRead || undefined,
+        cacheWrite: cacheWrite || undefined,
+        reasoningTokens: reasoningTokens || undefined,
+        nativeCost,
       },
       stopReason,
     };

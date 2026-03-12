@@ -44,12 +44,17 @@ export class ShellWriteTool extends Tool {
     }
 
     // Update tracked mtime
+    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const newMtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
-      const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
-      if (stat.exitCode === 0) this.tracker.updateMtime(fp, parseInt(stat.stdout.trim(), 10));
+      this.tracker.updateMtime(fp, newMtime);
     }
 
-    return { output: `File written: ${fp} (${input.content.length} bytes)`, isError: false, durationMs: result.durationMs };
+    return {
+      output: `File written: ${fp} (${input.content.length} bytes)`,
+      isError: false,
+      durationMs: result.durationMs,
+      metadata: { file_path: fp, mtime: newMtime },
+    };
   }
 }
-

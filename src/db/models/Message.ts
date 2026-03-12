@@ -2,6 +2,7 @@ import { DataTypes, Model } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
 import type { ChatMessage } from '../../core/types.js';
+import { computeCost } from '../../core/models.js';
 
 const sequelize = Database.init();
 
@@ -11,6 +12,7 @@ class Message extends Model {
   declare seq: number;
   declare role: string;
   declare content: any;
+  declare meta: Record<string, any> | null;
   declare stop_reason: string | null;
   declare input_tokens: number;
   declare output_tokens: number;
@@ -24,8 +26,17 @@ class Message extends Model {
   }
 
   toApi() {
-    const { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, created_at } = this;
-    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, created_at };
+    const { id, run_id, seq, role, content, meta, stop_reason, input_tokens, output_tokens, created_at } = this;
+    // Compute cost on the fly from persisted meta.usage + meta.model.
+    // meta.usage follows the normalized TokenUsage convention (see types.ts):
+    //   input = total tokens, cacheRead/cacheWrite are subsets, nativeCost is authoritative (OpenRouter).
+    let cost: number | undefined;
+    let usage: Record<string, number> | undefined;
+    if (role === 'assistant' && meta?.usage && meta?.model) {
+      usage = meta.usage;
+      cost = computeCost(meta.model, meta.usage);
+    }
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, created_at };
   }
 }
 
@@ -52,6 +63,10 @@ Message.init(
     content: {
       type: DataTypes.JSON,
       allowNull: false,
+    },
+    meta: {
+      type: DataTypes.JSON,
+      allowNull: true,
     },
     stop_reason: {
       type: DataTypes.STRING,

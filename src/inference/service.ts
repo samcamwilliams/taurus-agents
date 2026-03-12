@@ -16,7 +16,7 @@ export interface CompletionOpts {
  */
 export class InferenceService {
   private provider: InferenceProvider;
-  private totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+  private totalUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
 
   constructor(provider: InferenceProvider) {
     this.provider = provider;
@@ -37,10 +37,17 @@ export class InferenceService {
     };
 
     for await (const event of this.provider.stream(params)) {
-      // Track usage from completion events
+      // Track usage from completion events (all fields are cumulative across turns)
       if (event.type === 'message_complete') {
-        this.totalUsage.inputTokens += event.usage.inputTokens;
-        this.totalUsage.outputTokens += event.usage.outputTokens;
+        const u = event.usage;
+        this.totalUsage.inputTokens += u.inputTokens;
+        this.totalUsage.outputTokens += u.outputTokens;
+        this.totalUsage.cacheRead = (this.totalUsage.cacheRead ?? 0) + (u.cacheRead ?? 0);
+        this.totalUsage.cacheWrite = (this.totalUsage.cacheWrite ?? 0) + (u.cacheWrite ?? 0);
+        this.totalUsage.reasoningTokens = (this.totalUsage.reasoningTokens ?? 0) + (u.reasoningTokens ?? 0);
+        if (u.nativeCost != null) {
+          this.totalUsage.nativeCost = (this.totalUsage.nativeCost ?? 0) + u.nativeCost;
+        }
       }
 
       yield event;
