@@ -36,6 +36,29 @@ function ToolHeader({ name, description }: { name: string; description?: string 
   );
 }
 
+// ── Collapsible system prompt block ──
+
+function SystemPromptBlock({ text }: { text: string }) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div className={`system-prompt-block ${collapsed ? 'system-prompt-block--collapsed' : ''}`}>
+      <div className="system-prompt-block__header" onClick={() => setCollapsed(!collapsed)}>
+        <span className="system-prompt-block__toggle">{collapsed ? '\u25b6' : '\u25bc'}</span>
+        <span className="system-prompt-block__label">System prompt</span>
+        {collapsed && (
+          <span className="system-prompt-block__preview">
+            {text.slice(0, 120).replace(/\n/g, ' ')}{text.length > 120 ? '...' : ''}
+          </span>
+        )}
+      </div>
+      {!collapsed && (
+        <div className="system-prompt-block__content"><Markdown>{text}</Markdown></div>
+      )}
+    </div>
+  );
+}
+
 // ── Collapsible thinking block ──
 
 function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { text: string; defaultCollapsed?: boolean; showTokens?: boolean }) {
@@ -193,11 +216,12 @@ interface MessageViewProps {
   streamingToolOutput?: string;
   runStatus?: string;
   showMetadata?: boolean;
+  systemPrompt?: string;
   onInspect?: (message: MessageRecord) => void;
   children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, runStatus, showMetadata, onInspect, children }: MessageViewProps) {
+export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, runStatus, showMetadata, systemPrompt, onInspect, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -244,6 +268,16 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
 
   return (
     <div className="message-list" ref={containerRef} onScroll={handleScroll}>
+      {systemPrompt && (
+        <div className="message message--system">
+          <div className="message__header">
+            <span className="message__role">system</span>
+          </div>
+          <div className="message__body">
+            <SystemPromptBlock text={systemPrompt} />
+          </div>
+        </div>
+      )}
       {messages.map(msg => {
         const isOptimistic = msg.id.startsWith('_optimistic_');
         return (

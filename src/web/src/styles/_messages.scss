@@ -97,6 +97,7 @@
     color: $accent;
 
     .message--user & { color: $green; }
+    .message--system & { color: #7b8fa3; }
   }
 
   &__meta {
@@ -305,6 +306,62 @@
   }
 
   strong { font-weight: 600; }
+}
+
+// ── System Prompt Block ──
+
+.system-prompt-block {
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(#7b8fa3, 0.25);
+  background: rgba(#7b8fa3, 0.06);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    color: $text2;
+    transition: background 0.1s;
+
+    &:hover { background: rgba(#7b8fa3, 0.1); }
+  }
+
+  &__toggle {
+    font-size: 9px;
+    color: $text2;
+    width: 10px;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    color: #7b8fa3;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__preview {
+    color: $text2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.6;
+    font-style: italic;
+  }
+
+  &__content {
+    padding: 8px 10px;
+    border-top: 1px solid rgba(#7b8fa3, 0.15);
+    font-size: 12px;
+    line-height: 1.5;
+    color: $text2;
+    max-height: 500px;
+    overflow-y: auto;
+  }
 }
 
 // ── Thinking Block ──
