@@ -51,7 +51,7 @@ export type ModelDef = {
 //
 // cacheRead: cost of tokens served from cache.
 //   Anthropic: ~10% of input (90% savings).
-//   OpenAI:    ~50% of input (50% savings). Some newer models get 75%.
+//   OpenAI:    varies — gpt-4o 50%, o-series 25%, gpt-5 series 10%.
 //
 // OpenRouter models don't need pricing — they report nativeCost inline.
 
@@ -62,8 +62,14 @@ const HAIKU_45: ModelPricing = { input: 1, output: 5, cacheWrite: 1.25, cacheRea
 const HAIKU_35: ModelPricing = { input: 0.80, output: 4, cacheWrite: 1, cacheRead: 0.08 };
 const GPT4O: ModelPricing = { input: 2.50, output: 10, cacheWrite: 2.50, cacheRead: 1.25 };
 const GPT4O_MINI: ModelPricing = { input: 0.15, output: 0.60, cacheWrite: 0.15, cacheRead: 0.075 };
-const O3: ModelPricing = { input: 2, output: 8, cacheWrite: 2, cacheRead: 1 };
-const O4_MINI: ModelPricing = { input: 1.10, output: 4.40, cacheWrite: 1.10, cacheRead: 0.55 };
+const O3: ModelPricing = { input: 2, output: 8, cacheWrite: 2, cacheRead: 0.50 };
+const O4_MINI: ModelPricing = { input: 1.10, output: 4.40, cacheWrite: 1.10, cacheRead: 0.275 };
+const GPT5: ModelPricing = { input: 1.25, output: 10, cacheWrite: 1.25, cacheRead: 0.125 };
+const GPT5_MINI: ModelPricing = { input: 0.25, output: 2, cacheWrite: 0.25, cacheRead: 0.025 };
+const GPT5_NANO: ModelPricing = { input: 0.05, output: 0.40, cacheWrite: 0.05, cacheRead: 0.005 };
+const GPT5_1: ModelPricing = { input: 1.25, output: 10, cacheWrite: 1.25, cacheRead: 0.125 };
+const GPT5_2: ModelPricing = { input: 1.75, output: 14, cacheWrite: 1.75, cacheRead: 0.175 };
+const GPT5_4: ModelPricing = { input: 2.50, output: 15, cacheWrite: 2.50, cacheRead: 0.25 };
 
 // ── Registry ──
 
@@ -130,6 +136,36 @@ export const MODEL_REGISTRY: ModelDef[] = [
     id: 'o4-mini', title: 'o4-mini', provider: 'openai',
     description: 'Fast, cost-efficient reasoning.',
     contextTokens: 200_000, maxOutputTokens: 100_000, pricing: O4_MINI,
+  },
+  {
+    id: 'gpt-5', title: 'GPT-5', provider: 'openai',
+    description: 'Reasoning flagship with summaries.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5,
+  },
+  {
+    id: 'gpt-5-mini', title: 'GPT-5 Mini', provider: 'openai',
+    description: 'Fast reasoning, affordable.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5_MINI,
+  },
+  {
+    id: 'gpt-5-nano', title: 'GPT-5 Nano', provider: 'openai',
+    description: 'Cheapest reasoning model.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5_NANO,
+  },
+  {
+    id: 'gpt-5.1', title: 'GPT-5.1', provider: 'openai',
+    description: 'Improved GPT-5 with better coding.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5_1,
+  },
+  {
+    id: 'gpt-5.2', title: 'GPT-5.2', provider: 'openai',
+    description: 'Enhanced reasoning and tool use.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5_2,
+  },
+  {
+    id: 'gpt-5.4', title: 'GPT-5.4', provider: 'openai',
+    description: 'Most capable OpenAI model, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 32_768, pricing: GPT5_4,
   },
 
   // ── OpenRouter (pricing varies — leave undefined, computed by OR) ──

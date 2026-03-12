@@ -47,7 +47,9 @@ export class OpenAIProvider extends InferenceProvider {
       stream_options: { include_usage: true },
     };
 
-    // OpenRouter: request reasoning/thinking output for models that support it
+    // OpenRouter: request reasoning/thinking output for models that support it.
+    // Note: reasoning summaries for gpt-5 are only available via the Responses API,
+    // not Chat Completions. We'd need to migrate to Responses API to get them.
     if (this.name === 'openrouter') {
       requestBody.reasoning = { effort: 'high' };
     }
