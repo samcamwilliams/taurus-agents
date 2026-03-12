@@ -63,11 +63,27 @@ function SystemPromptBlock({ text }: { text: string }) {
 
 function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { text: string; defaultCollapsed?: boolean; showTokens?: boolean }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const nearBottom = useRef(true);
 
   // Auto-collapse when defaultCollapsed changes (e.g., thinking done → output starts)
   useEffect(() => {
     if (defaultCollapsed) setCollapsed(true);
   }, [defaultCollapsed]);
+
+  // Auto-scroll content to bottom as thinking streams in (same pattern as tool output)
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el && nearBottom.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [text]);
+
+  function handleContentScroll() {
+    const el = contentRef.current;
+    if (!el) return;
+    nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+  }
 
   const charCount = text.length;
   const label = showTokens && charCount > 1000
@@ -86,7 +102,9 @@ function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { 
         )}
       </div>
       {!collapsed && (
-        <div className="thinking-block__content"><Markdown>{text}</Markdown></div>
+        <div className="thinking-block__content" ref={contentRef} onScroll={handleContentScroll}>
+          <Markdown>{text}</Markdown>
+        </div>
       )}
     </div>
   );
