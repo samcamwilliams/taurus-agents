@@ -38,7 +38,7 @@ export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
         )}
         renderSecondary={(agent) => {
           if (agent.schedule && agent.next_run && agent.status !== 'running') {
-            return <Countdown targetDate={agent.next_run} />;
+            return <Countdown targetDate={agent.next_run} schedule={agent.schedule} />;
           }
           return null;
         }}

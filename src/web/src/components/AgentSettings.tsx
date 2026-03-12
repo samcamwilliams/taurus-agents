@@ -77,7 +77,7 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
             <Row label="Overlap Policy" value={agent.schedule_overlap} />
             <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'}>
               {agent.next_run && agent.status !== 'running' && (
-                <> <Countdown targetDate={agent.next_run} /></>
+                <> <Countdown targetDate={agent.next_run} schedule={agent.schedule ?? undefined} /></>
               )}
             </Row>
           </>

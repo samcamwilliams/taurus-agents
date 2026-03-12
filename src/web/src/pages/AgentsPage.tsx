@@ -512,7 +512,7 @@ export function AgentsPage() {
                 <h2>{selectedAgent.name}</h2>
                 <span className="panel-header__meta">{selectedAgent.model}</span>
                 {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
-                  <Countdown targetDate={selectedAgent.next_run} />
+                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} />
                 )}
               </div>
               <div className="panel-header__actions">
