@@ -11,7 +11,11 @@ import { OpenAICompatProvider } from './openai-compat.js';
  *   - "anthropic/claude-sonnet-4-20250514" → anthropic
  *   - "openai/gpt-4o"                     → openai (Responses API)
  *   - "openrouter/deepseek/deepseek-r1"   → openrouter (Chat Completions)
- *   - "openrouter/anthropic/claude-..."    → openrouter
+ *   - "custom/model-name"                 → custom OpenAI-compatible provider
+ *
+ * Custom provider is configured via env vars:
+ *   CUSTOM_PROVIDER_BASE_URL — required, e.g. https://api.example.com/v1
+ *   CUSTOM_PROVIDER_API_KEY  — required
  *
  * Returns { provider, model } where model is the string to send to the API
  * (with the backend prefix stripped).
@@ -51,6 +55,21 @@ export function resolveProvider(model: string): { provider: InferenceProvider; m
     case 'anthropic': {
       return {
         provider: new AnthropicProvider(),
+        model: model.slice(firstSlash + 1),
+      };
+    }
+
+    case 'custom': {
+      const apiKey = process.env.CUSTOM_PROVIDER_API_KEY;
+      const baseURL = process.env.CUSTOM_PROVIDER_BASE_URL;
+      if (!apiKey) throw new Error('CUSTOM_PROVIDER_API_KEY is required for custom/ models');
+      if (!baseURL) throw new Error('CUSTOM_PROVIDER_BASE_URL is required for custom/ models');
+      return {
+        provider: new OpenAICompatProvider({
+          apiKey,
+          baseURL,
+          name: 'custom',
+        }),
         model: model.slice(firstSlash + 1),
       };
     }

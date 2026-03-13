@@ -459,6 +459,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
                   ...(u.reasoningTokens ? { reasoningTokens: u.reasoningTokens } : {}),
                   ...(u.nativeCost != null ? { nativeCost: u.nativeCost } : {}),
                 },
+                provider: provider.name,
+                ...(provider.baseURL ? { baseURL: provider.baseURL } : {}),
                 model: resolvedModel,
               },
             });

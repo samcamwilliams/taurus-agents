@@ -14,12 +14,14 @@ type OAITool = OpenAI.ChatCompletionTool;
  */
 export class OpenAICompatProvider extends InferenceProvider {
   readonly name: string;
+  readonly baseURL?: string;
   private client: OpenAI;
   private defaultModel: string;
 
   constructor(opts: { apiKey: string; baseURL?: string; name?: string; defaultModel?: string; defaultHeaders?: Record<string, string> }) {
     super();
     this.name = opts.name ?? 'openai-compat';
+    this.baseURL = opts.baseURL;
     this.defaultModel = opts.defaultModel ?? 'gpt-4o';
     this.client = new OpenAI({
       apiKey: opts.apiKey,

@@ -6,6 +6,7 @@ import type { InferenceRequest, StreamEvent } from '../../core/types.js';
  */
 export abstract class InferenceProvider {
   abstract readonly name: string;
+  readonly baseURL?: string; // Set by providers with configurable endpoints
 
   /**
    * Stream a completion. Yields StreamEvents as they arrive.
