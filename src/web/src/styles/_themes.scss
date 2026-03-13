@@ -53,6 +53,56 @@
   --c-btn-danger-hover:  #f85149;
 }
 
+[data-theme="vivid"] {
+  // GitHub Dark + saturate(3.0) baked in
+  // Backgrounds
+  --c-bg:      #061224;
+  --c-bg2:     #0d1c31;
+  --c-bg3:     #18273c;
+  --c-border:  #26384d;
+
+  // Text
+  --c-text:    #bbd3eb;
+  --c-muted:   #7b96b4;
+
+  // Accents
+  --c-accent:  #00baff;
+  --c-green:   #00ff71;
+  --c-red:     #ff0b00;
+  --c-yellow:  #ff9200;
+  --c-purple:  #f767ff;
+  --c-amber:   #ff8200;
+
+  // Active marker (neon violet)
+  --c-marker:       #f767ff;
+  --c-marker-bright: #feb6ff;
+  --c-marker-glow1: rgba(247, 103, 255, 0.7);
+  --c-marker-glow2: rgba(247, 103, 255, 0.35);
+  --c-marker-glow3: rgba(247, 103, 255, 0.15);
+  --c-hover:        rgba(247, 103, 255, 0.08);
+
+  // Status backgrounds
+  --c-status-running: #642500;
+  --c-status-paused:  #862600;
+  --c-status-error:   #b90000;
+
+  // Buttons — primary (neon marker)
+  --c-btn-primary-from:  rgba(247, 103, 255, 0.20);
+  --c-btn-primary-to:    rgba(247, 103, 255, 0.10);
+  --c-btn-primary-hover-from: rgba(247, 103, 255, 0.30);
+  --c-btn-primary-hover-to:   rgba(247, 103, 255, 0.18);
+  --c-btn-primary-text:  #feb6ff;
+  --c-btn-primary-shine: rgba(247, 103, 255, 0.12);
+  --c-btn-primary-border: rgba(247, 103, 255, 0.45);
+  --c-btn-primary-border-hover: rgba(247, 103, 255, 0.7);
+  --c-btn-primary-glow:  rgba(247, 103, 255, 0.15);
+  --c-btn-primary-glow-hover: rgba(247, 103, 255, 0.3);
+
+  // Buttons — danger
+  --c-btn-danger:        #ff0000;
+  --c-btn-danger-hover:  #ff0b00;
+}
+
 [data-theme="catppuccin"] {
   // Catppuccin Mocha
   // Backgrounds
@@ -101,4 +151,54 @@
   // Buttons — danger
   --c-btn-danger:        #f38ba8; // red
   --c-btn-danger-hover:  #eba0ac; // maroon
+}
+
+[data-theme="vivid-catppuccin"] {
+  // Catppuccin Mocha + saturate(2.0) baked in
+  // Backgrounds
+  --c-bg:      #1d1d3d;
+  --c-bg2:     #171731;
+  --c-bg3:     #2f3155;
+  --c-border:  #42466c;
+
+  // Text
+  --c-text:    #c4d6ff;
+  --c-muted:   #9fade3;
+
+  // Accents
+  --c-accent:  #62b8ff;
+  --c-green:   #2dffbf;
+  --c-red:     #ff73ad;
+  --c-yellow:  #ffe17b;
+  --c-purple:  #e298ff;
+  --c-amber:   #ffa74f;
+
+  // Active marker (neon violet)
+  --c-marker:       #e298ff;
+  --c-marker-bright: #f4ceff;
+  --c-marker-glow1: rgba(226, 152, 255, 0.7);
+  --c-marker-glow2: rgba(226, 152, 255, 0.35);
+  --c-marker-glow3: rgba(226, 152, 255, 0.15);
+  --c-hover:        rgba(226, 152, 255, 0.08);
+
+  // Status backgrounds
+  --c-status-running: #502600;
+  --c-status-paused:  #4c2e00;
+  --c-status-error:   #60080e;
+
+  // Buttons — primary (neon marker)
+  --c-btn-primary-from:  rgba(226, 152, 255, 0.20);
+  --c-btn-primary-to:    rgba(226, 152, 255, 0.10);
+  --c-btn-primary-hover-from: rgba(226, 152, 255, 0.30);
+  --c-btn-primary-hover-to:   rgba(226, 152, 255, 0.18);
+  --c-btn-primary-text:  #f4ceff;
+  --c-btn-primary-shine: rgba(226, 152, 255, 0.12);
+  --c-btn-primary-border: rgba(226, 152, 255, 0.45);
+  --c-btn-primary-border-hover: rgba(226, 152, 255, 0.7);
+  --c-btn-primary-glow:  rgba(226, 152, 255, 0.15);
+  --c-btn-primary-glow-hover: rgba(226, 152, 255, 0.3);
+
+  // Buttons — danger
+  --c-btn-danger:        #ff73ad;
+  --c-btn-danger-hover:  #ff8fa7;
 }

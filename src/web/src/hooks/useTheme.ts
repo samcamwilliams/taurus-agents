@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 
-const THEMES = ['dark', 'catppuccin'] as const;
+const THEMES = ['dark', 'vivid', 'catppuccin', 'vivid-catppuccin'] as const;
 export type Theme = typeof THEMES[number];
 
 const THEME_LABELS: Record<Theme, string> = {
   dark: 'Dark',
+  vivid: 'Vivid',
   catppuccin: 'Catppuccin',
+  'vivid-catppuccin': 'Vivid Catppuccin',
 };
 
 export { THEMES, THEME_LABELS };
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem('taurus-theme') as Theme) || 'catppuccin';
+    return (localStorage.getItem('taurus-theme') as Theme) || 'vivid-catppuccin';
   });
 
   useEffect(() => {
