@@ -105,17 +105,24 @@
   &__header {
     padding: 10px 16px;
     border-bottom: 1px solid var(--c-border);
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
 
     h1 {
+      grid-column: 2;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 17px;
       font-weight: 100;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: #e8e0f0;
+      color: var(--c-text);
+      transform: translateX(-11px);
+    }
+
+    .btn {
+      grid-column: 3;
+      justify-self: end;
     }
   }
 
