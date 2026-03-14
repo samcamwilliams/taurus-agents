@@ -68,7 +68,7 @@
 }
 
 .message {
-  padding: 8px 16px;
+  padding: 8px 16px 12px;
   border-bottom: 1px solid var(--c-border);
 
   &--user {
@@ -83,7 +83,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+  }
+
+  &__body > :first-child {
+    margin-top: 0;
   }
 
   // Show menu trigger on whole message hover (not just header)
@@ -311,7 +315,7 @@
 // ── System Prompt Block ──
 
 .system-prompt-block {
-  margin: 0;
+  margin: 4px 0;
   border-radius: 4px;
   border: 1px solid rgba(#7b8fa3, 0.25);
   background: rgba(#7b8fa3, 0.06);
@@ -364,10 +368,93 @@
   }
 }
 
+// ── Compaction Block ──
+
+.message--compaction {
+  padding: 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.compaction-block {
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--c-purple) 25%, transparent);
+  background: color-mix(in srgb, var(--c-purple) 4%, transparent);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    color: var(--c-muted);
+    transition: background 0.1s;
+
+    &:hover { background: color-mix(in srgb, var(--c-purple) 8%, transparent); }
+
+    &--live {
+      cursor: default;
+      .compaction-block__label {
+        animation: pulse-streaming 1.5s ease-in-out infinite;
+      }
+    }
+  }
+
+  &__icon {
+    color: var(--c-purple);
+    flex-shrink: 0;
+  }
+
+  &__label {
+    color: var(--c-purple);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__stats {
+    color: var(--c-muted);
+    opacity: 0.6;
+    font-size: 11px;
+  }
+
+  &__cost {
+    color: color-mix(in srgb, var(--c-green) 55%, transparent);
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: auto;
+  }
+
+  &__toggle {
+    font-size: 9px;
+    color: var(--c-muted);
+    width: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
+
+    // When cost is shown, don't use margin-left: auto (cost already pushes it right)
+    .compaction-block__cost ~ & {
+      margin-left: 0;
+    }
+  }
+
+  &__content {
+    padding: 8px 10px;
+    border-top: 1px solid color-mix(in srgb, var(--c-purple) 10%, transparent);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--c-muted);
+    max-height: 500px;
+    overflow-y: auto;
+  }
+}
+
 // ── Thinking Block ──
 
 .thinking-block {
-  margin: 4px 0;
+  margin: 4px 0 8px;
   border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--c-amber) 20%, transparent);
   background: color-mix(in srgb, var(--c-amber) 4%, transparent);
@@ -616,7 +703,7 @@
 }
 
 .msg-tool-result {
-  margin: 8px 0 4px;
+  margin: 4px 0;
   border: 1px solid var(--c-border);
   border-radius: 4px;
   overflow: hidden;

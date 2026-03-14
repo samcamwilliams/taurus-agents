@@ -1,7 +1,8 @@
-import type { AgentEvent, StreamEvent, ToolDef, ContentBlock } from '../core/types.js';
+import type { AgentEvent, StreamEvent, ContentBlock } from '../core/types.js';
 import type { ChatML } from '../core/chatml.js';
 import type { InferenceService } from '../inference/service.js';
 import type { ToolRegistry } from '../tools/registry.js';
+import { maybeCompact, shouldCompact } from './compaction.js';
 
 export interface AgentLoopParams {
   chatml: ChatML;
@@ -22,6 +23,10 @@ export interface AgentLoopParams {
   /** Model override (passed to inference provider per-request). */
   model?: string;
 
+  /** Output token limit per inference call. Also used for compaction threshold.
+   *  Resolved from model registry by the caller (run-worker). */
+  limitOutputTokens?: number;
+
   /** Returns queued injected messages (drains the queue). Used for mid-run user messages. */
   getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
 }
@@ -41,12 +46,13 @@ function isTransientError(err: any): boolean {
 /**
  * The core TAOR loop: Think → Act → Observe → Repeat.
  *
- * Reusable by any agent. ~50 lines of actual logic.
+ * Reusable by any agent.
  * Yields AgentEvents that the UI (or any consumer) can render.
  */
 export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentEvent> {
-  const { chatml, inference, tools, allowedTools, cwd, requestApproval = async () => true, maxTurns = 0, signal, model, getInjectedMessages } = params;
+  const { chatml, inference, tools, allowedTools, cwd, requestApproval = async () => true, maxTurns = 0, signal, model, limitOutputTokens, getInjectedMessages } = params;
   let turns = 0;
+  chatml.setTools(tools.getToolDefinitions(allowedTools));
 
   while (true) {
     if (signal?.aborted) {
@@ -67,40 +73,34 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
 
       // Build content blocks for the injected message
       const blocks: ContentBlock[] = [];
-      if (combinedText) blocks.push({ type: 'text', text: `[User message]: ${combinedText}` });
+      if (combinedText) blocks.push({ type: 'text', text: `[User message mid-turn]: ${combinedText}` });
       for (const img of allImages) {
         blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
       }
 
-      const messages = chatml.getMessages();
-      const last = messages[messages.length - 1];
+      chatml.appendUser(blocks);
+    }
 
-      if (last?.role === 'user' && Array.isArray(last.content)) {
-        // Last message is user with content blocks (e.g. tool_results) — append
-        (last.content as ContentBlock[]).push(...blocks);
-      } else if (last?.role === 'user' && typeof last.content === 'string') {
-        if (allImages.length > 0) {
-          // Convert string content to blocks so we can add images
-          last.content = [{ type: 'text', text: last.content }, ...blocks];
-        } else {
-          last.content += `\n\n[User message]: ${combinedText}`;
-        }
-      } else {
-        if (allImages.length > 0) {
-          chatml.addUser(blocks);
-        } else {
-          chatml.addUser(`[User message]: ${combinedText}`);
-        }
+    // ── Pre-inference compaction: compact before a call that would overflow ──
+    if (model && limitOutputTokens) {
+      const currentTokens = await inference.countTokens(chatml);
+      if (shouldCompact(model, currentTokens, limitOutputTokens)) {
+        yield { type: 'context_compacting' };
+      }
+      const compactResult = await maybeCompact({
+        chatml, inference, model, limitOutputTokens, signal, currentTokens,
+      });
+      if (compactResult.compacted) {
+        yield { type: 'context_compacted', tokensBefore: compactResult.tokensBefore!, summary: compactResult.summary!, messagesCompacted: compactResult.messagesCompacted!, usage: compactResult.usage };
       }
     }
 
     // ── Think: stream inference (with retry for transient errors) ──
-    const toolDefs = tools.getToolDefinitions(allowedTools);
     let stopReason = '';
 
     for (let attempt = 0; ; attempt++) {
       try {
-        for await (const event of inference.complete(chatml, toolDefs, model ? { model } : undefined)) {
+        for await (const event of inference.complete(chatml, { model, limitOutputTokens })) {
           yield { type: 'stream', event };
 
           if (event.type === 'message_complete') {

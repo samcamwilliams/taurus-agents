@@ -71,9 +71,9 @@ Open `http://localhost:7777` in your browser.
 Specify the provider as a prefix on the model ID:
 
 ```
-claude-sonnet-4-20250514          # Anthropic (default, no prefix needed)
-openai/gpt-4o                     # OpenAI
-openrouter/deepseek/deepseek-r1   # OpenRouter
+anthropic/claude-sonnet-4-20250514   # Anthropic
+openai/gpt-4o                        # OpenAI
+openrouter/deepseek/deepseek-r1      # OpenRouter
 ```
 
 Set the corresponding API key in `.env` for each provider you use.

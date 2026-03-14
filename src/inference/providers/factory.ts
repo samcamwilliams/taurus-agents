@@ -1,4 +1,4 @@
-import { InferenceProvider } from './base.js';
+import type { InferenceProvider } from './base.js';
 import { AnthropicProvider } from './anthropic.js';
 import { OpenAIProvider } from './openai.js';
 import { OpenAICompatProvider } from './openai-compat.js';
@@ -6,80 +6,64 @@ import { OpenAICompatProvider } from './openai-compat.js';
 /**
  * Resolve a provider from a model string.
  *
- * Model format: [backend/]model-id
- *   - "claude-sonnet-4-20250514"           → anthropic (default)
- *   - "anthropic/claude-sonnet-4-20250514" → anthropic
- *   - "openai/gpt-4o"                     → openai (Responses API)
- *   - "openrouter/deepseek/deepseek-r1"   → openrouter (Chat Completions)
- *   - "custom/model-name"                 → custom OpenAI-compatible provider
+ * Model format: provider/model-id (provider prefix is REQUIRED)
+ *   - "anthropic/claude-sonnet-4-20250514" → AnthropicProvider
+ *   - "openai/gpt-4o"                     → OpenAIProvider (Responses API)
+ *   - "openrouter/deepseek/deepseek-r1"   → OpenAICompatProvider (Chat Completions)
+ *   - "custom/model-name"                 → OpenAICompatProvider (custom endpoint)
  *
- * Custom provider is configured via env vars:
- *   CUSTOM_PROVIDER_BASE_URL — required, e.g. https://api.example.com/v1
- *   CUSTOM_PROVIDER_API_KEY  — required
- *
- * Returns { provider, model } where model is the string to send to the API
- * (with the backend prefix stripped).
+ * The full prefixed model string is passed through to the provider in each
+ * InferenceRequest — providers strip the prefix before calling their API.
  */
-export function resolveProvider(model: string): { provider: InferenceProvider; model: string } {
+export function resolveProvider(model: string): InferenceProvider {
   const firstSlash = model.indexOf('/');
-  const backend = firstSlash === -1 ? null : model.slice(0, firstSlash);
+  if (firstSlash === -1) {
+    throw new Error(
+      `Model "${model}" is missing a provider prefix. Use "anthropic/${model}", "openai/${model}", etc.`,
+    );
+  }
+
+  const backend = model.slice(0, firstSlash);
 
   switch (backend) {
     case 'openai': {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) throw new Error('OPENAI_API_KEY is required for openai/ models');
-      return {
-        provider: new OpenAIProvider({ apiKey, defaultModel: 'gpt-4o' }),
-        model: model.slice(firstSlash + 1),
-      };
+      return new OpenAIProvider({ apiKey });
     }
 
     case 'openrouter': {
       const apiKey = process.env.OPENROUTER_API_KEY;
       if (!apiKey) throw new Error('OPENROUTER_API_KEY is required for openrouter/ models');
-      return {
-        provider: new OpenAICompatProvider({
-          apiKey,
-          baseURL: 'https://openrouter.ai/api/v1',
-          name: 'openrouter',
-          defaultHeaders: {
-            'HTTP-Referer': 'https://github.com/taurus-agents',
-            'X-OpenRouter-Title': 'Taurus Agents',
-          },
-        }),
-        // "openrouter/deepseek/deepseek-r1" → "deepseek/deepseek-r1"
-        model: model.slice(firstSlash + 1),
-      };
+      return new OpenAICompatProvider({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        name: 'openrouter',
+        defaultHeaders: {
+          'HTTP-Referer': 'https://github.com/taurus-agents',
+          'X-OpenRouter-Title': 'Taurus Agents',
+        },
+      });
     }
 
-    case 'anthropic': {
-      return {
-        provider: new AnthropicProvider(),
-        model: model.slice(firstSlash + 1),
-      };
-    }
+    case 'anthropic':
+      return new AnthropicProvider();
 
     case 'custom': {
       const apiKey = process.env.CUSTOM_PROVIDER_API_KEY;
       const baseURL = process.env.CUSTOM_PROVIDER_BASE_URL;
       if (!apiKey) throw new Error('CUSTOM_PROVIDER_API_KEY is required for custom/ models');
       if (!baseURL) throw new Error('CUSTOM_PROVIDER_BASE_URL is required for custom/ models');
-      return {
-        provider: new OpenAICompatProvider({
-          apiKey,
-          baseURL,
-          name: 'custom',
-        }),
-        model: model.slice(firstSlash + 1),
-      };
+      return new OpenAICompatProvider({
+        apiKey,
+        baseURL,
+        name: 'custom',
+      });
     }
 
-    default: {
-      // No prefix — default to anthropic
-      return {
-        provider: new AnthropicProvider(),
-        model,
-      };
-    }
+    default:
+      throw new Error(
+        `Unknown provider "${backend}" in model "${model}". Supported: anthropic, openai, openrouter, custom.`,
+      );
   }
 }

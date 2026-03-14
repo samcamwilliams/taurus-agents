@@ -30,7 +30,7 @@ POST /api/agents
 | `system_prompt` | string | yes | — | System prompt. Supports `{{datetime}}`, `{{date}}`, `{{time}}`, `{{year}}`, `{{timezone}}` |
 | `tools` | string[] | no | `["Read", "Glob", "Grep"]` | Tool names to enable |
 | `cwd` | string | no | daemon cwd | Working directory (mapped to `/workspace` in container) |
-| `model` | string | no | `claude-sonnet-4-20250514` | LLM model ID |
+| `model` | string | no | `anthropic/claude-sonnet-4-20250514` | LLM model ID (provider-prefixed) |
 | `docker_image` | string | no | `taurus-base` | Docker image for the agent's container |
 | `schedule` | string | no | — | Cron expression for scheduled runs |
 | `schedule_overlap` | string | no | `"skip"` | `"skip"`, `"queue"`, or `"kill"` |
@@ -253,7 +253,7 @@ Returns:
     ...
   ],
   "defaults": {
-    "model": "claude-sonnet-4-20250514",
+    "model": "anthropic/claude-sonnet-4-20250514",
     "docker_image": "taurus-base",
     "tools": ["Read", "Glob", "Grep"],
     "max_turns": 0,

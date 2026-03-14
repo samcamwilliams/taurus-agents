@@ -56,13 +56,14 @@ export interface MessageRecord {
   id: string;
   run_id: string;
   seq: number;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'compaction';
   content: unknown;
   stop_reason: string | null;
   input_tokens: number;
   output_tokens: number;
   usage?: MessageUsage;
   cost?: number;
+  compaction?: { tokensBefore: number; messagesCompacted: number; compactedAt: string };
   created_at: string;
 }
 

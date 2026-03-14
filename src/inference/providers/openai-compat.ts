@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock, ToolDef } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
 import { assembleContent, estimateTokens } from './openai-helpers.js';
+import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
 
 type OAIMessage = OpenAI.ChatCompletionMessageParam;
 type OAITool = OpenAI.ChatCompletionTool;
@@ -16,13 +17,11 @@ export class OpenAICompatProvider extends InferenceProvider {
   readonly name: string;
   readonly baseURL?: string;
   private client: OpenAI;
-  private defaultModel: string;
 
-  constructor(opts: { apiKey: string; baseURL?: string; name?: string; defaultModel?: string; defaultHeaders?: Record<string, string> }) {
+  constructor(opts: { apiKey: string; baseURL?: string; name?: string; defaultHeaders?: Record<string, string> }) {
     super();
     this.name = opts.name ?? 'openai-compat';
     this.baseURL = opts.baseURL;
-    this.defaultModel = opts.defaultModel ?? 'gpt-4o';
     this.client = new OpenAI({
       apiKey: opts.apiKey,
       baseURL: opts.baseURL,
@@ -31,11 +30,11 @@ export class OpenAICompatProvider extends InferenceProvider {
   }
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
-    const model = params.model || this.defaultModel;
+    const model = this.stripPrefix(params.model!);
     const messages = this.convertMessages(params.system, params.messages);
     const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
 
-    const maxTokens = params.maxTokens ?? 16000;
+    const maxTokens = params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;
     const requestBody: Record<string, any> = {
       model,
       messages,

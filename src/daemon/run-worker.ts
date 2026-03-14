@@ -16,6 +16,7 @@ import Message from '../db/models/Message.js';
 import AgentLog from '../db/models/AgentLog.js';
 import type { ChatMessage, ContentBlock } from '../core/types.js';
 import { agentLoop } from '../agents/agent-loop.js';
+import { KEEP_RECENT_MESSAGES } from '../agents/compaction.js';
 import { ChatML } from '../core/chatml.js';
 import { InferenceService } from '../inference/service.js';
 import { resolveProvider } from '../inference/providers/factory.js';
@@ -151,6 +152,11 @@ function registerTools(registry: ToolRegistry, toolNames: string[], shell: Persi
   return tracker;
 }
 
+/** Does this message's content contain any tool_result blocks? */
+function hasToolResults(msg: Message): boolean {
+  return Array.isArray(msg.content) && msg.content.some((b: any) => b.type === 'tool_result');
+}
+
 /**
  * Hydrate a FileTracker from Message.meta fields.
  * Each meta is a map of tool_use_id → { file_path, mtime }.
@@ -165,6 +171,80 @@ function hydrateTrackerFromMessages(tracker: FileTracker, messages: Message[]): 
       }
     }
   }
+}
+
+/**
+ * Build (or rebuild) a ChatML from persisted message history.
+ *
+ * Single source of truth for history construction — called both on resume
+ * and after compaction to ensure the two paths produce identical results.
+ */
+function buildChatMLFromHistory(chatml: ChatML, history: Message[], fileTracker: FileTracker): void {
+  chatml.clearMessages();
+
+  const systemMsg = history.find(m => m.role === 'system');
+  if (systemMsg) {
+    chatml.setSystem(typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content));
+  }
+
+  // Find last compaction boundary
+  let lastBoundaryIdx = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === 'compaction') { lastBoundaryIdx = i; break; }
+  }
+
+  let postBoundaryHistory: Message[];
+  let replay: Message[] = [];
+
+  if (lastBoundaryIdx >= 0) {
+    const boundary = history[lastBoundaryIdx];
+    chatml.addUser(boundary.content as string);
+
+    // Replay recent pre-boundary messages — matches what compact(keepRecent) would keep.
+    // These are ephemeral (like the ack) — present in chatml but before the boundary in DB.
+    const preBoundary = history.slice(0, lastBoundaryIdx)
+      .filter(m => m.role !== 'system' && m.role !== 'compaction');
+    replay = preBoundary.slice(-KEEP_RECENT_MESSAGES);
+
+    // If replay starts with a user message containing tool_results, the paired
+    // assistant (tool_use) fell just outside the window — pull it in to avoid
+    // orphaned tool_result references that the API would reject.
+    if (replay.length > 0 && replay[0].role === 'user' && hasToolResults(replay[0])) {
+      const extraIdx = preBoundary.length - KEEP_RECENT_MESSAGES - 1;
+      if (extraIdx >= 0) {
+        replay = [preBoundary[extraIdx], ...replay];
+      } else {
+        replay = replay.slice(1); // nothing before it — drop the orphan
+      }
+    }
+
+    // After the compaction summary (user message), next must be assistant.
+    // If replay starts with assistant, it fills that role naturally.
+    // Otherwise, add a synthetic ack so the model knows to continue.
+    if (replay.length === 0 || replay[0].role !== 'assistant') {
+      chatml.addAssistant(ChatML.COMPACTION_ACK);
+    }
+
+    for (const msg of replay.map(m => m.toChatMLMessage())) {
+      if (msg.role === 'user') chatml.addUser(msg.content);
+      else chatml.addAssistant(msg.content);
+    }
+
+    postBoundaryHistory = history.slice(lastBoundaryIdx + 1).filter(m => m.role !== 'system' && m.role !== 'compaction');
+  } else {
+    postBoundaryHistory = history.filter(m => m.role !== 'system');
+  }
+
+  if (postBoundaryHistory.length > 0) {
+    const chatHistory = postBoundaryHistory.map(m => m.toChatMLMessage());
+    patchIncompleteToolCalls(chatHistory);
+    for (const msg of chatHistory) {
+      if (msg.role === 'user') chatml.addUser(msg.content);
+      else chatml.addAssistant(msg.content);
+    }
+  }
+
+  hydrateTrackerFromMessages(fileTracker, [...replay, ...postBoundaryHistory]);
 }
 
 // ── Build input message for the agent ──
@@ -184,17 +264,24 @@ function buildInputMessage(trigger: TriggerType, input?: string): string {
   return 'Execute your task.';
 }
 
-// ── Persist a message to the DB ──
+// ── Build user content from text + optional images ──
 
-async function persistMessage(run: Run, role: string, content: any, opts?: {
-  stopReason?: string; inputTokens?: number; outputTokens?: number; meta?: Record<string, any>;
-}): Promise<void> {
-  await run.addMessage(role, content, opts);
+function buildUserContent(text: string, imgs?: IpcImage[]): string | ContentBlock[] {
+  if (imgs && imgs.length > 0) {
+    return [
+      { type: 'text' as const, text },
+      ...imgs.map(img => ({
+        type: 'image' as const,
+        source: { type: 'base64' as const, media_type: img.mediaType, data: img.base64 },
+      })),
+    ];
+  }
+  return text;
 }
 
 // ── Load run history from DB ──
 
-async function loadRunHistory(runId: string): Promise<Message[]> {
+async function loadFullRunHistory(runId: string): Promise<Message[]> {
   return Message.findAll({
     where: { run_id: runId },
     order: [['created_at', 'ASC']],
@@ -297,7 +384,7 @@ function expandSystemPrompt(prompt: string, asOf?: Date): string {
 // ── Main run function ──
 
 async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[], toolOverride?: string[]): Promise<void> {
-  // 0. Load agent and run from DB
+  // 1. Load agent and run from DB
   const agent = await Agent.findByPk(agentId);
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
 
@@ -307,11 +394,13 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   log('info', 'run.started', `Agent "${agent.name}" started (trigger: ${trigger})`);
   send({ type: 'status', status: 'running' });
 
-  // 1. Initialize inference — resolve provider from model string
-  const { provider, model: resolvedModel } = resolveProvider(agent.model);
+  // 2. Initialize inference
+  const provider = resolveProvider(agent.model);
   const inference = new InferenceService(provider);
+  const { getLimitOutputTokens } = await import('../core/models.js');
+  const limitOutputTokens = getLimitOutputTokens(agent.model);
 
-  // 2. Initialize persistent shell
+  // 3. Initialize persistent shell
   const shell = new PersistentShell({
     mode: 'docker',
     container_id: agent.container_id,
@@ -319,7 +408,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   });
   await shell.spawn();
 
-  // 3. Register tools
+  // 4. Register tools
   // Pause is the agent's safety valve to ask for human input.
   // Spawn/delegate children never get Pause (nobody can resume them — deadlock).
   const ALWAYS_ON_TOOLS = (trigger === 'spawn' || trigger === 'delegate') ? [] : ['Pause'];
@@ -332,78 +421,18 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const toolNames = [...new Set([...baseTools, ...ALWAYS_ON_TOOLS])];
   const fileTracker = registerTools(tools, toolNames, shell);
 
-  // 4. Build ChatML — system prompt comes from DB on resume, freshly rendered on new runs
+  // 5. Build ChatML
   const chatml = new ChatML();
 
-  // Helper: build user content from text + optional images
-  function buildUserContent(text: string, imgs?: IpcImage[]): string | ContentBlock[] {
-    if (imgs && imgs.length > 0) {
-      return [
-        { type: 'text' as const, text },
-        ...imgs.map(img => ({
-          type: 'image' as const,
-          source: { type: 'base64' as const, media_type: img.mediaType, data: img.base64 },
-        })),
-      ];
-    }
-    return text;
-  }
-
+  // 5a. System prompt + history
   if (resume) {
-    // Restore conversation from this run's persisted messages.
-    // The system prompt is loaded from the persisted 'system' message — exact match to original run.
-    const history = await loadRunHistory(runId);
-    const systemMsg = history.find(m => m.role === 'system');
-    if (systemMsg) {
-      chatml.setSystem(typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content));
-    } else {
-      // Fallback for runs created before system message persistence
+    const history = await loadFullRunHistory(runId);
+    if (!history.some((m: Message) => m.role === 'system')) {
       chatml.setSystem(expandSystemPrompt(agent.system_prompt));
     }
-    const conversationHistory = history.filter(m => m.role !== 'system');
-    if (conversationHistory.length > 0) {
-      const chatHistory = conversationHistory.map(m => m.toChatMLMessage());
-      patchIncompleteToolCalls(chatHistory);
-      hydrateTrackerFromMessages(fileTracker, conversationHistory);
-      for (const msg of chatHistory) {
-        if (msg.role === 'user') chatml.addUser(msg.content);
-        else chatml.addAssistant(msg.content);
-      }
-    }
-
-    // Add new input if provided, respecting message alternation
-    const msgs = chatml.getMessages();
-    const last = msgs[msgs.length - 1];
-
-    if (input) {
-      const content = buildUserContent(input, images);
-
-      if (last?.role === 'user' && Array.isArray(last.content)) {
-        // Last is user with content blocks (e.g. tool_results) — append
-        const blocks = typeof content === 'string'
-          ? [{ type: 'text' as const, text: content }]
-          : content;
-        (last.content as ContentBlock[]).push(...blocks);
-      } else if (last?.role === 'user' && typeof last.content === 'string') {
-        if (typeof content === 'string') {
-          last.content += `\n\n${content}`;
-        } else {
-          // Convert string to blocks so we can add images
-          last.content = [{ type: 'text' as const, text: last.content + `\n\n${input}` }, ...content.slice(1)];
-        }
-      } else {
-        chatml.addUser(content);
-      }
-      await persistMessage(run, 'user', content);
-    } else if (!last || last.role === 'assistant') {
-      const contMsg = 'Continue from where you left off.';
-      chatml.addUser(contMsg);
-      await persistMessage(run, 'user', contMsg);
-    }
-
+    buildChatMLFromHistory(chatml, history, fileTracker);
     log('info', 'run.resumed', `Loaded ${history.length} messages, resuming run`);
   } else {
-    // Fresh run — render system prompt, inject children list, persist it
     let systemPrompt = expandSystemPrompt(agent.system_prompt);
     const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
     if (children.length > 0) {
@@ -414,14 +443,22 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
       systemPrompt += `\n\n## Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool:\n${childList}`;
     }
     chatml.setSystem(systemPrompt);
-    await persistMessage(run, 'system', systemPrompt);
-
-    const content = buildUserContent(buildInputMessage(trigger, input), images);
-    chatml.addUser(content);
-    await persistMessage(run, 'user', content);
+    await run.persistMessage('system', systemPrompt);
   }
 
-  // 6. Run agent loop
+  // 5b. Add user input
+  const inputText = resume ? input : buildInputMessage(trigger, input);
+  if (inputText) {
+    const content = buildUserContent(inputText, images);
+    chatml.appendUser(content);
+    await run.persistMessage('user', content);
+  } else if (!chatml.getMessages().length || chatml.getMessages().at(-1)?.role === 'assistant') {
+    const contMsg = 'Continue from where you left off.';
+    chatml.addUser(contMsg);
+    await run.persistMessage('user', contMsg);
+  }
+
+  // 6. Agent loop
   try {
     for await (const event of agentLoop({
       chatml,
@@ -431,7 +468,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
       cwd: '/workspace',
       maxTurns: agent.max_turns,
       signal: abortController.signal,
-      model: resolvedModel,
+      model: agent.model,
+      limitOutputTokens,
       getInjectedMessages: () => injectQueue.splice(0),
     })) {
       switch (event.type) {
@@ -446,7 +484,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
             const u = event.event.usage;
             // Persist normalized usage in meta (see TokenUsage docs in types.ts).
             // input = total input tokens (cached + uncached + cache writes).
-            await persistMessage(run, 'assistant', event.event.message.content, {
+            await run.persistMessage('assistant', event.event.message.content, {
               stopReason: event.event.stopReason,
               inputTokens: u.inputTokens,
               outputTokens: u.outputTokens,
@@ -461,7 +499,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
                 },
                 provider: provider.name,
                 ...(provider.baseURL ? { baseURL: provider.baseURL } : {}),
-                model: resolvedModel,
+                model: agent.model,
               },
             });
             log('info', 'message.saved', 'assistant');
@@ -485,9 +523,47 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           break;
 
         case 'user_message':
-          await persistMessage(run, 'user', event.message.content, { meta: event.meta });
+          await run.persistMessage('user', event.message.content, { meta: event.meta });
           log('info', 'message.saved', 'user');
           break;
+
+        case 'context_compacting':
+          log('info', 'context.compacting', 'Compacting context...');
+          break;
+
+        case 'context_compacted': {
+          // Persist compaction boundary — on resume, only messages after this point are loaded.
+          // Content is the wrapped summary, directly usable as a user message on resume.
+          const u = event.usage;
+          await run.persistMessage('compaction', ChatML.wrapCompactionSummary(event.summary), {
+            inputTokens: u?.inputTokens ?? 0,
+            outputTokens: u?.outputTokens ?? 0,
+            meta: {
+              compactedAt: new Date().toISOString(),
+              tokensBefore: event.tokensBefore,
+              messagesCompacted: event.messagesCompacted,
+              ...(u ? {
+                usage: {
+                  input: u.inputTokens,
+                  output: u.outputTokens,
+                  cacheRead: u.cacheRead ?? 0,
+                  cacheWrite: u.cacheWrite ?? 0,
+                  ...(u.reasoningTokens ? { reasoningTokens: u.reasoningTokens } : {}),
+                  ...(u.nativeCost != null ? { nativeCost: u.nativeCost } : {}),
+                },
+                provider: provider.name,
+                ...(provider.baseURL ? { baseURL: provider.baseURL } : {}),
+                model: agent.model,
+              } : {}),
+            },
+          });
+          // Rebuild chatml from DB — unified path with resume, guarantees identical state
+          fileTracker.clear();
+          const history = await loadFullRunHistory(runId);
+          buildChatMLFromHistory(chatml, history, fileTracker);
+          log('info', 'context.compacted', `Compacted ${event.messagesCompacted} messages (was ${event.tokensBefore.toLocaleString()} tokens)`);
+          break;
+        }
 
         case 'retry':
           log('warn', 'inference.retry', `Transient error, retry ${event.attempt}/${event.maxRetries} in ${event.delayMs}ms: ${event.error}`);
@@ -529,7 +605,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     cacheRead: usage.cacheRead ?? 0,
     cacheWrite: usage.cacheWrite ?? 0,
     reasoningTokens: usage.reasoningTokens ?? 0,
-    cost: computeCost(resolvedModel, {
+    cost: computeCost(agent.model, {
       input: usage.inputTokens,
       output: usage.outputTokens,
       cacheRead: usage.cacheRead ?? 0,

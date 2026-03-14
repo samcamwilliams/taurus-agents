@@ -70,6 +70,7 @@ export function AgentsPage() {
   const [streamingText, setStreamingText] = useState('');
   const [streamingThinking, setStreamingThinking] = useState('');
   const [streamingToolOutput, setStreamingToolOutput] = useState('');
+  const [isCompacting, setIsCompacting] = useState(false);
   const [runActivity, setRunActivity] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
@@ -244,6 +245,7 @@ export function AgentsPage() {
     setStreamingText('');
     setStreamingThinking('');
     setStreamingToolOutput('');
+    setIsCompacting(false);
     setRunActivity({});
 
     const es = new EventSource(`/api/agents/${agentId}/stream`);
@@ -278,6 +280,7 @@ export function AgentsPage() {
             setStreamingText('');
             setStreamingThinking('');
             setStreamingToolOutput('');
+            setIsCompacting(false);
             fetchNewMessages();
             api.listRuns(agentIdRef.current!).then(setRuns);
             loadAgents();
@@ -324,6 +327,9 @@ export function AgentsPage() {
             break;
 
           case 'log':
+            if (data.event === 'context.compacting' && data.runId === runIdRef.current) {
+              setIsCompacting(true);
+            }
             if (data.event === 'message.saved') {
               // Snapshot accumulated text as run activity
               if (data.message === 'assistant' && runStreamingRef.current[data.runId]) {
@@ -334,6 +340,7 @@ export function AgentsPage() {
               delete runStreamingRef.current[data.runId];
               // Selected run: clear streaming and fetch persisted messages
               if (data.runId === runIdRef.current) {
+                setIsCompacting(false);
                 streamingTextRef.current = '';
                 streamingThinkingRef.current = '';
                 streamingToolOutputRef.current = '';
@@ -583,7 +590,7 @@ export function AgentsPage() {
                   <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage}>
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage}>
                     <RunFooter
                       run={selectedRun}
                       messages={messages}

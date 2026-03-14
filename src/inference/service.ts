@@ -1,10 +1,11 @@
-import type { StreamEvent, TokenUsage, ToolDef } from '../core/types.js';
+import type { StreamEvent, TokenUsage } from '../core/types.js';
 import type { ChatML } from '../core/chatml.js';
 import type { InferenceProvider } from './providers/base.js';
 
 export interface CompletionOpts {
   model?: string;
-  maxTokens?: number;
+  /** Output token limit per inference call. Maps to max_tokens / max_output_tokens at the provider. */
+  limitOutputTokens?: number;
   temperature?: number;
 }
 
@@ -26,12 +27,12 @@ export class InferenceService {
    * Send a ChatML to the LLM and stream events back.
    * This is the main API agents use.
    */
-  async *complete(chatml: ChatML, tools?: ToolDef[], opts?: CompletionOpts): AsyncGenerator<StreamEvent> {
+  async *complete(chatml: ChatML, opts?: CompletionOpts): AsyncGenerator<StreamEvent> {
     const params = {
       system: chatml.getSystemPrompt(),
       messages: chatml.getMessages(),
-      tools,
-      maxTokens: opts?.maxTokens,
+      tools: chatml.getTools(),
+      maxTokens: opts?.limitOutputTokens,
       temperature: opts?.temperature,
       model: opts?.model,
     };
@@ -57,11 +58,11 @@ export class InferenceService {
   /**
    * Count tokens for a ChatML (useful for context budget checks).
    */
-  async countTokens(chatml: ChatML, tools?: ToolDef[]): Promise<number> {
+  async countTokens(chatml: ChatML): Promise<number> {
     return this.provider.countTokens({
       system: chatml.getSystemPrompt(),
       messages: chatml.getMessages(),
-      tools,
+      tools: chatml.getTools(),
     });
   }
 

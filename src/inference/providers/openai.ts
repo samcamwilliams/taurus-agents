@@ -3,6 +3,7 @@ import type { Responses } from 'openai/resources/responses/responses';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock, ToolDef } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
 import { assembleContent, estimateTokens } from './openai-helpers.js';
+import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
 
 /**
  * OpenAI Responses API provider.
@@ -13,19 +14,17 @@ import { assembleContent, estimateTokens } from './openai-helpers.js';
 export class OpenAIProvider extends InferenceProvider {
   readonly name = 'openai';
   private client: OpenAI;
-  private defaultModel: string;
 
-  constructor(opts: { apiKey: string; defaultModel?: string }) {
+  constructor(opts: { apiKey: string }) {
     super();
-    this.defaultModel = opts.defaultModel ?? 'gpt-4o';
     this.client = new OpenAI({ apiKey: opts.apiKey });
   }
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
-    const model = params.model || this.defaultModel;
+    const model = this.stripPrefix(params.model!);
     const input = this.convertInput(params.messages);
     const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
-    const maxTokens = params.maxTokens ?? 16000;
+    const maxTokens = params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;
 
     const stream = await this.client.responses.create({
       model,
@@ -127,7 +126,20 @@ export class OpenAIProvider extends InferenceProvider {
   }
 
   async countTokens(params: InferenceRequest): Promise<number> {
-    return estimateTokens(params.messages);
+    try {
+      const model = this.stripPrefix(params.model!);
+      const input = this.convertInput(params.messages);
+      const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
+      const result = await this.client.responses.inputTokens.count({
+        model,
+        input,
+        instructions: params.system || undefined,
+        tools,
+      });
+      return result.input_tokens;
+    } catch {
+      return estimateTokens(params.messages);
+    }
   }
 
   // ── Format conversion: our internal (Anthropic-shaped) → Responses API ──

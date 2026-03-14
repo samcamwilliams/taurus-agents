@@ -6,7 +6,7 @@ import type { FileTracker } from './file-tracker.js';
 export class ShellWriteTool extends Tool {
   readonly name = 'Write';
   readonly group = 'File';
-  readonly description = 'Write content to a file. Creates parent directories if needed. Overwrites existing files. If overwriting, you must Read the file first.';
+  readonly description = 'Write content to a file. Creates parent directories if needed. WARNING: this OVERWRITES the entire file. To modify or append to an existing file, use the Edit tool instead. Only use Write for new files or complete rewrites.';
   readonly requiresApproval = true;
   readonly inputSchema = {
     type: 'object' as const,

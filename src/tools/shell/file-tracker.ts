@@ -31,6 +31,11 @@ export class FileTracker {
     this.readFiles.set(this.norm(filePath), { mtime, readAt: Date.now() });
   }
 
+  /** Clear all tracked reads. Called before rebuilding history (compaction, resume). */
+  clear(): void {
+    this.readFiles.clear();
+  }
+
   /** Check if a file is safe to edit. Returns null if OK, or an error message. */
   checkFreshness(filePath: string, currentMtime: number): string | null {
     const entry = this.readFiles.get(this.norm(filePath));

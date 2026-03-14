@@ -19,10 +19,10 @@ class Message extends Model {
   declare created_at: Date;
 
   toChatMLMessage(): ChatMessage {
-    return {
-      role: this.role as 'user' | 'assistant',
-      content: this.content,
-    };
+    if (this.role !== 'user' && this.role !== 'assistant') {
+      throw new Error(`Cannot convert message with role "${this.role}" to ChatML — filter before calling toChatMLMessage()`);
+    }
+    return { role: this.role, content: this.content };
   }
 
   toApi() {
@@ -32,11 +32,15 @@ class Message extends Model {
     //   input = total tokens, cacheRead/cacheWrite are subsets, nativeCost is authoritative (OpenRouter).
     let cost: number | undefined;
     let usage: Record<string, number> | undefined;
-    if (role === 'assistant' && meta?.usage && meta?.model) {
+    if ((role === 'assistant' || role === 'compaction') && meta?.usage && meta?.model) {
       usage = meta.usage;
       cost = computeCost(meta.model, meta.usage);
     }
-    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, created_at };
+    // Include compaction stats for UI rendering (tokensBefore, messagesCompacted, compactedAt)
+    const compaction = role === 'compaction' && meta
+      ? { tokensBefore: meta.tokensBefore, messagesCompacted: meta.messagesCompacted, compactedAt: meta.compactedAt }
+      : undefined;
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, compaction, created_at };
   }
 }
 

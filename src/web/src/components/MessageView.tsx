@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Terminal, FileText, FilePen, FolderSearch, Search,
   Pause, Globe, Download, MonitorPlay, Eye,
-  Wrench,
+  Wrench, Minimize2,
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
@@ -54,6 +54,38 @@ function SystemPromptBlock({ text }: { text: string }) {
       </div>
       {!collapsed && (
         <div className="system-prompt-block__content"><Markdown>{text}</Markdown></div>
+      )}
+    </div>
+  );
+}
+
+// ── Collapsible compaction block ──
+
+function CompactionBlock({ msg }: { msg: MessageRecord }) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  const { tokensBefore, messagesCompacted } = msg.compaction ?? {};
+
+  // Extract summary text from the wrapped content
+  const raw = typeof msg.content === 'string' ? msg.content : '';
+  const summaryMatch = raw.match(/<compaction_summary>([\s\S]*?)<\/compaction_summary>/);
+  const summaryText = summaryMatch ? summaryMatch[1].trim() : raw;
+
+  const statParts: string[] = [];
+  if (tokensBefore) statParts.push(`${tokensBefore.toLocaleString()} tokens`);
+  if (messagesCompacted) statParts.push(`${messagesCompacted} messages`);
+  const statLine = statParts.length > 0 ? statParts.join(', ') : '';
+
+  return (
+    <div className={`compaction-block ${collapsed ? 'compaction-block--collapsed' : ''}`}>
+      <div className="compaction-block__header" onClick={() => setCollapsed(!collapsed)}>
+        <Minimize2 size={11} className="compaction-block__icon" />
+        <span className="compaction-block__label">Context compacted</span>
+        {statLine && <span className="compaction-block__stats">{statLine}</span>}
+        <span className="compaction-block__toggle">{collapsed ? '\u25b6' : '\u25bc'}</span>
+      </div>
+      {!collapsed && (
+        <div className="compaction-block__content"><Markdown>{summaryText}</Markdown></div>
       )}
     </div>
   );
@@ -232,13 +264,14 @@ interface MessageViewProps {
   streamingText?: string;
   streamingThinking?: string;
   streamingToolOutput?: string;
+  isCompacting?: boolean;
   runStatus?: string;
   showMetadata?: boolean;
   onInspect?: (message: MessageRecord) => void;
   children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, runStatus, showMetadata, onInspect, children }: MessageViewProps) {
+export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, showMetadata, onInspect, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -299,6 +332,18 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
             </div>
           );
         }
+        if (msg.role === 'compaction') {
+          return (
+            <div key={msg.id} className="message message--compaction">
+              <CompactionBlock msg={msg} />
+              {showMetadata && msg.usage && (
+                <div className="message__footer">
+                  <UsageSummary usage={msg.usage} cost={msg.cost} />
+                </div>
+              )}
+            </div>
+          );
+        }
         const isOptimistic = msg.id.startsWith('_optimistic_');
         return (
         <div key={msg.id} className={`message message--${msg.role}${isOptimistic ? ' message--optimistic' : ''}`}>
@@ -323,6 +368,16 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
         </div>
         );
       })}
+      {isCompacting && (
+        <div className="message message--compaction">
+          <div className="compaction-block">
+            <div className="compaction-block__header compaction-block__header--live">
+              <Minimize2 size={11} className="compaction-block__icon" />
+              <span className="compaction-block__label">Compacting context...</span>
+            </div>
+          </div>
+        </div>
+      )}
       {streamingToolOutput && (
         <div className="message message--user">
           <div className="message__header">

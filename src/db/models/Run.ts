@@ -34,7 +34,7 @@ class Run extends Model {
     });
   }
 
-  async addMessage(role: string, content: any, opts?: { stopReason?: string; inputTokens?: number; outputTokens?: number; meta?: Record<string, any> }) {
+  async persistMessage(role: string, content: any, opts?: { stopReason?: string; inputTokens?: number; outputTokens?: number; meta?: Record<string, any> }) {
     const { default: Message } = await import('./Message.js');
     const maxSeq = await Message.max('seq', { where: { run_id: this.id } }) as number || 0;
     return Message.create({

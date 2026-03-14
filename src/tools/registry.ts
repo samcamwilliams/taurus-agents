@@ -65,6 +65,19 @@ export class ToolRegistry {
       };
     }
 
+    // Validate required parameters
+    const schema = tool.inputSchema as Record<string, any>;
+    const required: string[] = schema.required ?? [];
+    const missing = required.filter(k => input?.[k] === undefined || input?.[k] === null);
+    if (missing.length > 0) {
+      const available = input ? Object.keys(input).filter(k => k !== 'description').join(', ') : 'none';
+      return {
+        output: `Missing required parameter${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}. You provided: ${available}. Check the tool schema and retry.`,
+        isError: true,
+        durationMs: 0,
+      };
+    }
+
     const start = Date.now();
     try {
       const result = await tool.execute(input, context);

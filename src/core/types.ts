@@ -32,6 +32,8 @@ export type AgentEvent =
   | { type: 'tool_end'; name: string; result: ToolResult }
   | { type: 'tool_denied'; name: string }
   | { type: 'user_message'; message: ChatMessage; meta?: Record<string, any> }
+  | { type: 'context_compacting' }
+  | { type: 'context_compacted'; tokensBefore: number; summary: string; messagesCompacted: number; usage?: TokenUsage }
   | { type: 'max_turns_reached' }
   | { type: 'retry'; attempt: number; maxRetries: number; error: string; delayMs: number }
   | { type: 'done' };

@@ -1,4 +1,4 @@
-import type { ChatMessage, ContentBlock, ToolUseBlock, ImageData, TextBlock, ImageBlock } from './types.js';
+import type { ChatMessage, ContentBlock, ToolUseBlock, ImageData, TextBlock, ImageBlock, ToolDef } from './types.js';
 
 /**
  * ChatML — the fundamental conversation primitive.
@@ -9,6 +9,7 @@ import type { ChatMessage, ContentBlock, ToolUseBlock, ImageData, TextBlock, Ima
 export class ChatML {
   private systemPrompt: string = '';
   private messages: ChatMessage[] = [];
+  private tools: ToolDef[] = [];
 
   // ─── Building ───
 
@@ -17,8 +18,38 @@ export class ChatML {
     return this;
   }
 
+  setTools(tools: ToolDef[]): this {
+    this.tools = tools;
+    return this;
+  }
+
   addUser(content: string | ContentBlock[]): this {
     this.messages.push({ role: 'user', content });
+    return this;
+  }
+
+  /**
+   * Append user content, merging with the last message if it's already a user message.
+   * Handles string + string, blocks + blocks, and string-to-blocks conversion for images.
+   */
+  appendUser(content: string | ContentBlock[]): this {
+    const last = this.messages[this.messages.length - 1];
+
+    if (last?.role === 'user' && Array.isArray(last.content)) {
+      const blocks = typeof content === 'string'
+        ? [{ type: 'text' as const, text: content }]
+        : content;
+      (last.content as ContentBlock[]).push(...blocks);
+    } else if (last?.role === 'user' && typeof last.content === 'string') {
+      if (typeof content === 'string') {
+        last.content += `\n\n${content}`;
+      } else {
+        // Convert existing string to text block so we can mix with new content blocks
+        last.content = [{ type: 'text' as const, text: last.content }, ...content];
+      }
+    } else {
+      this.messages.push({ role: 'user', content });
+    }
     return this;
   }
 
@@ -73,6 +104,15 @@ export class ChatML {
 
   getMessages(): ChatMessage[] {
     return this.messages;
+  }
+
+  clearMessages(): this {
+    this.messages = [];
+    return this;
+  }
+
+  getTools(): ToolDef[] {
+    return this.tools;
   }
 
   getMessageCount(): number {
@@ -144,32 +184,29 @@ export class ChatML {
     return this;
   }
 
-  /**
-   * Replace all history with a summary + keep the N most recent messages.
-   */
-  compact(summary: string, keepRecent: number = 4): this {
-    const recent = this.messages.slice(-keepRecent);
-    this.messages = [
-      { role: 'user', content: `[Previous conversation summary: ${summary}]` },
-      { role: 'assistant', content: 'Understood. I have the context from our previous conversation.' },
-      ...recent,
-    ];
-    return this;
+  // ─── Compaction ───
+
+  static readonly COMPACTION_ACK = 'Understood. I have the context from the previous conversation and will continue where it left off.';
+
+  static wrapCompactionSummary(summary: string): string {
+    return `[This conversation ran out of context. The summary below covers the earlier portion of the conversation]\n\n<compaction_summary>\n${summary}\n</compaction_summary>`;
   }
 
   // ─── Serialization ───
 
-  toJSON(): { systemPrompt: string; messages: ChatMessage[] } {
+  toJSON(): { systemPrompt: string; messages: ChatMessage[]; tools: ToolDef[] } {
     return {
       systemPrompt: this.systemPrompt,
       messages: this.messages,
+      tools: this.tools,
     };
   }
 
-  static fromJSON(data: { systemPrompt: string; messages: ChatMessage[] }): ChatML {
+  static fromJSON(data: { systemPrompt: string; messages: ChatMessage[]; tools?: ToolDef[] }): ChatML {
     const chatml = new ChatML();
     chatml.systemPrompt = data.systemPrompt;
     chatml.messages = data.messages;
+    chatml.tools = data.tools ?? [];
     return chatml;
   }
 

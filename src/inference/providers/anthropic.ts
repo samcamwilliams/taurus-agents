@@ -1,13 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
-import { DEFAULT_MODEL } from '../../core/defaults.js';
-import { getModel } from '../../core/models.js';
-
-// Models that support server-side context management betas.
-const COMPACTION_MODELS = new Set(['claude-opus-4-6', 'claude-sonnet-4-6']);
-const COMPACTION_BETA = 'compact-2026-01-12';
-const CONTEXT_EDIT_BETA = 'context-management-2025-06-27';
+import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
+// Server-side context management betas — disabled, kept for reference.
+// const COMPACTION_MODELS = new Set(['claude-opus-4-6', 'claude-sonnet-4-6']);
+// const COMPACTION_BETA = 'compact-2026-01-12';
+// const CONTEXT_EDIT_BETA = 'context-management-2025-06-27';
 
 export class AnthropicProvider extends InferenceProvider {
   readonly name = 'anthropic';
@@ -21,17 +19,15 @@ export class AnthropicProvider extends InferenceProvider {
   }
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
-    const model = params.model || DEFAULT_MODEL;
-    const modelDef = getModel(model);
-    const useContextMgmt = COMPACTION_MODELS.has(model);
+    const model = this.stripPrefix(params.model!);
 
-    // Base request params shared by both regular and beta API
+    // Base request params
     const baseParams: any = {
       model,
       system: params.system,
       messages: params.messages as Anthropic.MessageParam[],
       tools: params.tools as Anthropic.Tool[] | undefined,
-      max_tokens: params.maxTokens ?? 16000,
+      max_tokens: params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS,
       // Extended thinking — temperature must be omitted (defaults to 1)
       thinking: { type: 'enabled', budget_tokens: 10000 },
       // Prompt caching — the API automatically places a breakpoint on the last
@@ -42,37 +38,30 @@ export class AnthropicProvider extends InferenceProvider {
 
     let response: any;
 
-    if (useContextMgmt && modelDef) {
-      // Server-side context management (two separate betas):
-      //   - compact: summarize old messages when approaching context limit
-      //   - clear_thinking: drop thinking blocks from older turns (signatures expire anyway)
-      //   - clear_tool_uses: trim old tool results to save context space
-      const triggerTokens = Math.round(modelDef.contextTokens * 0.75);
-
-      response = this.client.beta.messages.stream({
-        ...baseParams,
-        betas: [COMPACTION_BETA, CONTEXT_EDIT_BETA],
-        context_management: {
-          edits: [
-            {
-              type: 'clear_thinking_20251015' as const,
-              keep: { type: 'thinking_turns' as const, value: 2 },
-            },
-            {
-              type: 'clear_tool_uses_20250919' as const,
-              keep: { type: 'tool_uses' as const, value: 10 },
-              trigger: { type: 'input_tokens' as const, value: Math.round(triggerTokens * 0.6) },
-            },
-            {
-              type: 'compact_20260112' as const,
-              trigger: { type: 'input_tokens' as const, value: triggerTokens },
-            },
-          ],
-        },
-      });
-    } else {
-      response = this.client.messages.stream(baseParams);
-    }
+    // Server-side context management betas — all disabled for now.
+    // Compaction is handled client-side in agent-loop.ts (provider-agnostic).
+    //
+    // clear_thinking: CC doesn't use this — they keep all thinking blocks and let
+    // compaction handle cleanup. Clearing after 2 turns loses the model's plan/reasoning
+    // too early. Better to let thinking accumulate and compact the whole conversation
+    // when context gets full.
+    //
+    // compact / clear_tool_uses: replaced by client-side compaction.
+    //
+    // if (useContextMgmt && modelDef) {
+    //   response = this.client.beta.messages.stream({
+    //     ...baseParams,
+    //     betas: [CONTEXT_EDIT_BETA],
+    //     context_management: {
+    //       edits: [
+    //         { type: 'clear_thinking_20251015', keep: { type: 'thinking_turns', value: 2 } },
+    //         { type: 'compact_20260112', trigger: { type: 'input_tokens', value: ... } },
+    //         { type: 'clear_tool_uses_20250919', keep: { type: 'tool_uses', value: 10 }, trigger: ... },
+    //       ],
+    //     },
+    //   });
+    // }
+    response = this.client.messages.stream(baseParams);
 
     // Track tool state for streaming tool_use_end events
     let currentToolId = '';
@@ -154,7 +143,7 @@ export class AnthropicProvider extends InferenceProvider {
   async countTokens(params: InferenceRequest): Promise<number> {
     try {
       const result = await this.client.messages.countTokens({
-        model: params.model || DEFAULT_MODEL,
+        model: this.stripPrefix(params.model!),
         system: params.system,
         messages: params.messages as Anthropic.MessageParam[],
         tools: params.tools as Anthropic.Tool[] | undefined,
