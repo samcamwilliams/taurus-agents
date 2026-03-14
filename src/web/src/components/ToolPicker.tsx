@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 
 interface ToolDef {
@@ -33,7 +33,7 @@ export function ToolPicker({ selected, onChange }: ToolPickerProps) {
   return (
     <div className="tool-picker">
       {groups.map(group => (
-        <div key={group} className="tool-picker__group">
+        <React.Fragment key={group}>
           <span className="tool-picker__group-label">{group}</span>
           <div className="tool-picker__pills">
             {tools.filter(t => t.group === group).map(tool => (
@@ -48,7 +48,7 @@ export function ToolPicker({ selected, onChange }: ToolPickerProps) {
               </button>
             ))}
           </div>
-        </div>
+        </React.Fragment>
       ))}
     </div>
   );

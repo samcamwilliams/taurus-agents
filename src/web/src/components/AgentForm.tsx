@@ -32,6 +32,17 @@ interface AgentFormProps {
   submitLabel?: string;
 }
 
+/** Build breadcrumb path for an agent: "grandparent / parent / name" */
+function agentPath(agent: Agent, all: Agent[]): string {
+  const parts: string[] = [];
+  let cur: Agent | undefined = agent;
+  while (cur) {
+    parts.unshift(cur.name);
+    cur = cur.parent_agent_id ? all.find(a => a.id === cur!.parent_agent_id) : undefined;
+  }
+  return parts.join(' \u25B8 ');
+}
+
 export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = 'Create' }: AgentFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [systemPrompt, setSystemPrompt] = useState(initial?.system_prompt ?? 'You are a helpful agent. Today\'s date is {{date}}.');
@@ -98,7 +109,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
             {agents
               .filter(a => a.id !== initial?.id)
               .map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>{agentPath(a, agents)}</option>
               ))
             }
           </select>
@@ -108,14 +119,14 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <label>System Prompt</label>
       <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} placeholder="You are a..." />
 
-      <label className="label-with-actions">
-        Tools
+      <div className="label-with-actions">
+        <label>Tools</label>
         <span className="label-actions">
           <button type="button" className="label-action-btn" onClick={() => setSelectedTools(new Set(allToolNames))}>All</button>
           <button type="button" className="label-action-btn" onClick={() => setSelectedTools(new Set(readonlyTools))}>Read-only</button>
           <button type="button" className="label-action-btn" onClick={() => setSelectedTools(new Set())}>None</button>
         </span>
-      </label>
+      </div>
       <ToolPicker selected={selectedTools} onChange={setSelectedTools} />
 
       <label>Working Directory</label>
@@ -127,12 +138,12 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
 
-      <label className="label-with-actions">
-        Bind Mounts
+      <div className="label-with-actions">
+        <label>Bind Mounts</label>
         <span className="label-actions">
           <button type="button" className="label-action-btn" onClick={() => setMounts([...mounts, { host: '', container: '', readonly: false }])}>+ Add</button>
         </span>
-      </label>
+      </div>
       <div className="mounts-group">
         {mounts.length === 0 ? (
           <div className="field-hint">No host directories mounted</div>
@@ -186,25 +197,6 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
         )}
       </div>
 
-      <label>Max Turns</label>
-      <input
-        type="number"
-        min="0"
-        value={maxTurns}
-        onChange={e => setMaxTurns(e.target.value)}
-        placeholder={defaults ? String(defaults.max_turns) : '0'}
-      />
-      <div className="field-hint">0 = unlimited</div>
-
-      <label>Timeout (seconds)</label>
-      <input
-        type="number"
-        min="0"
-        value={timeoutMs}
-        onChange={e => setTimeoutMs(e.target.value)}
-        placeholder={defaults ? String(defaults.timeout_ms / 1000) : '300'}
-      />
-
       <label>Schedule (optional)</label>
       <input
         type="text"
@@ -226,6 +218,25 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
           </select>
         </>
       )}
+
+      <label>Max Turns</label>
+      <input
+        type="number"
+        min="0"
+        value={maxTurns}
+        onChange={e => setMaxTurns(e.target.value)}
+        placeholder={defaults ? String(defaults.max_turns) : '0'}
+      />
+      <div className="field-hint">0 = unlimited</div>
+
+      <label>Timeout (seconds)</label>
+      <input
+        type="number"
+        min="0"
+        value={timeoutMs}
+        onChange={e => setTimeoutMs(e.target.value)}
+        placeholder={defaults ? String(defaults.timeout_ms / 1000) : '300'}
+      />
 
       <div className="modal__actions">
         <button className="btn" onClick={onCancel}>Cancel</button>
