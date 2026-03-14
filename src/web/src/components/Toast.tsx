@@ -114,7 +114,7 @@ function Toast({
       await navigator.clipboard.writeText(toast.message);
       setCopied(true);
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
-      copiedTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+      copiedTimeoutRef.current = setTimeout(() => onDismiss(), 1500);
     } catch {
       // Clipboard API failed (e.g. not in secure context) — just dismiss
       onDismiss();
