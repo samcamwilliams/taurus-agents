@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { api } from '../api';
 import { ToolPicker } from './ToolPicker';
+import { ModelPicker } from './ModelPicker';
 import type { Agent } from '../types';
 
 export type MountEntry = { host: string; container: string; readonly?: boolean };
@@ -121,7 +122,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <input type="text" value={cwd} onChange={e => setCwd(e.target.value)} placeholder="/path/to/project" />
 
       <label>Model (optional)</label>
-      <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder={defaults?.model ?? ''} />
+      <ModelPicker value={model} onChange={setModel} placeholder={defaults?.model} />
 
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />

@@ -94,7 +94,7 @@ export const api = {
     return request('/api/tools');
   },
 
-  listModels(): Promise<Record<string, { id: string; contextTokens: number; maxOutputTokens: number }[]>> {
+  listModels(): Promise<Record<string, { id: string; title: string; description: string; contextTokens: number; maxOutputTokens: number }[]>> {
     return request('/api/models');
   },
 };
