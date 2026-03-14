@@ -188,6 +188,21 @@
     font-style: italic;
   }
 
+  &__option-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__price {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--c-green);
+    opacity: 0.6;
+    white-space: nowrap;
+  }
+
   &__badge {
     font-size: 10px;
     font-weight: 600;

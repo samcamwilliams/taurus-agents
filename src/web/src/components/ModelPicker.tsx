@@ -3,12 +3,18 @@ import { ChevronDown, X } from 'lucide-react';
 import { api } from '../api';
 import { fmtTokens } from '../utils/format';
 
+interface ModelPricing {
+  input: number;
+  output: number;
+}
+
 interface ModelInfo {
   id: string;
   title: string;
   description: string;
   contextTokens: number;
   maxOutputTokens: number;
+  pricing?: ModelPricing;
 }
 
 interface ModelPickerProps {
@@ -36,6 +42,11 @@ function modelIcon(id: string): string {
   if (sub === 'google') return '/icons/gemini.png';
   if (sub === 'x-ai') return '/icons/grok.png';
   return '/icons/openrouter.png';
+}
+
+/** Format pricing as compact "$in / $out" per MTok. */
+function fmtPrice(p: ModelPricing): string {
+  return `$${p.input} / $${p.output}`;
 }
 
 /** Highlight matching substring in text with a <mark>. */
@@ -217,8 +228,10 @@ export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) 
                         <span className="model-picker__option-id">{highlight(m.id, q)}</span>
                       </span>
                       <span className="model-picker__option-row2">
-                        <span className="model-picker__option-desc">{m.description}</span>
-                        <span className="model-picker__badge">{fmtTokens(m.contextTokens)} ctx</span>
+                        <span className="model-picker__option-meta">
+                          {m.pricing && <span className="model-picker__price">{fmtPrice(m.pricing)}</span>}
+                          <span className="model-picker__badge">{fmtTokens(m.contextTokens)} ctx</span>
+                        </span>
                       </span>
                     </span>
                   </button>
