@@ -157,6 +157,21 @@ export function AgentsPage() {
     }
     let stale = false;
     setMessages([]); // clear immediately so we don't show previous run's messages
+
+    // Reset streaming state from previous run, restore accumulated text for the new run
+    streamingThinkingRef.current = '';
+    streamingToolOutputRef.current = '';
+    setStreamingThinking('');
+    setStreamingToolOutput('');
+    setIsCompacting(false);
+    if (runStreamingRef.current[runId]) {
+      streamingTextRef.current = runStreamingRef.current[runId];
+      setStreamingText(streamingTextRef.current);
+    } else {
+      streamingTextRef.current = '';
+      setStreamingText('');
+    }
+
     api.getRunMessages(agentId, runId).then(msgs => {
       if (!stale) setMessages(msgs);
     });
@@ -184,6 +199,18 @@ export function AgentsPage() {
   // ── Optimistic user message helper ──
 
   function appendOptimisticUserMessage(text: string, images?: import('../components/InputBar').ImageAttachment[]) {
+    // If the assistant is streaming, clear it — the current turn will be interrupted by the inject,
+    // so the streaming content will reappear as a saved message via fetchNewMessages.
+    // This prevents the optimistic user message from rendering above the streaming block.
+    if (streamingTextRef.current || streamingThinkingRef.current) {
+      streamingTextRef.current = '';
+      streamingThinkingRef.current = '';
+      streamingToolOutputRef.current = '';
+      setStreamingText('');
+      setStreamingThinking('');
+      setStreamingToolOutput('');
+    }
+
     let content: string | any[] = text;
     if (images && images.length > 0) {
       content = [
