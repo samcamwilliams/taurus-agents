@@ -325,9 +325,21 @@ export function getModelPricing(model: string): ModelPricing | null {
   if (exact?.pricing) return exact.pricing;
 
   // Prefix match — "anthropic/claude-sonnet-4-20250514" → try "anthropic/claude-sonnet-4"
+  // Require the next char after the prefix to be '-' or end-of-string to avoid
+  // false matches like "gpt-4o" matching "gpt-4". Longest match wins.
+  let best: ModelPricing | null = null;
+  let bestLen = 0;
   for (const def of MODEL_REGISTRY) {
-    if (def.pricing && model.startsWith(def.id)) return def.pricing;
+    if (!def.pricing || def.id.length <= bestLen) continue;
+    if (model.startsWith(def.id)) {
+      const next = model[def.id.length];
+      if (next === undefined || next === '-') {
+        best = def.pricing;
+        bestLen = def.id.length;
+      }
+    }
   }
+  if (best) return best;
   return null;
 }
 
