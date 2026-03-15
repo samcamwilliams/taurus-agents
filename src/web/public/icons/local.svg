@@ -1,17 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640">
-  <rect width="640" height="640" rx="96" fill="#2d2d2d"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
   <!-- Monitor -->
-  <rect x="120" y="120" width="400" height="280" rx="24" fill="#1a1a1a" stroke="#555" stroke-width="12"/>
-  <!-- Screen -->
-  <rect x="148" y="148" width="344" height="224" rx="8" fill="#0d1117"/>
-  <!-- Terminal prompt lines -->
-  <text x="180" y="220" font-family="monospace" font-size="48" font-weight="bold" fill="#4ec9b0">&gt;_</text>
-  <rect x="180" y="260" width="200" height="6" rx="3" fill="#555"/>
-  <rect x="180" y="290" width="140" height="6" rx="3" fill="#444"/>
-  <rect x="180" y="320" width="240" height="6" rx="3" fill="#444"/>
+  <rect x="2" y="3" width="20" height="14" rx="2"/>
   <!-- Stand -->
-  <rect x="270" y="400" width="100" height="40" rx="4" fill="#555"/>
-  <rect x="220" y="440" width="200" height="16" rx="8" fill="#555"/>
-  <!-- Label -->
-  <text x="320" y="540" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" fill="#ccc" text-anchor="middle">LOCAL</text>
+  <line x1="8" y1="21" x2="16" y2="21"/>
+  <line x1="12" y1="17" x2="12" y2="21"/>
+  <!-- Terminal prompt -->
+  <polyline points="7,8 10,10.5 7,13" stroke="#4ec9b0" stroke-width="2"/>
+  <line x1="12" y1="13" x2="17" y2="13" stroke="#4ec9b0" stroke-width="2"/>
 </svg>
