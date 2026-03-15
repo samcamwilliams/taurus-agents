@@ -38,6 +38,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   return (
     <div className="login-page">
+      <div className="login-bg" aria-hidden="true" />
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-card__header">
           <h1>Taurus</h1>
