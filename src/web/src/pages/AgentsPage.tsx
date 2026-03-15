@@ -602,7 +602,7 @@ export function AgentsPage() {
                 ) : (
                   <div className="empty-state">Select a run</div>
                 )}
-                <InputBar onSend={handleSend} />
+                <InputBar key={agentId} onSend={handleSend} />
               </div>
             </div>
 

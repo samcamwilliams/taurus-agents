@@ -276,6 +276,15 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
   const toolOutputNearBottom = useRef(true);
+  const prevMessageCount = useRef(messages.length);
+
+  // When a new message is added (user sends or assistant responds), always scroll to bottom
+  useEffect(() => {
+    if (messages.length > prevMessageCount.current) {
+      wasNearBottom.current = true;
+    }
+    prevMessageCount.current = messages.length;
+  }, [messages.length]);
 
   // After new messages or streaming text render, scroll to bottom if we were already near it
   useEffect(() => {
@@ -298,6 +307,19 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
   useEffect(() => {
     if (streamingToolOutput) toolOutputNearBottom.current = true;
   }, [!streamingToolOutput]);
+
+  // When the container is resized (e.g. textarea grows/shrinks), keep scroll at bottom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (wasNearBottom.current) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // On scroll, record whether we're near the bottom
   function handleScroll() {
