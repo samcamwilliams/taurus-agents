@@ -28,6 +28,7 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
         max_turns: data.max_turns,
         timeout_ms: data.timeout_ms,
         mounts: data.mounts,
+        ...(data.propagate_children ? { propagate_children: true } : {}),
       });
       setEditing(false);
       onUpdated();

@@ -48,6 +48,7 @@ export const api = {
     max_turns: number;
     timeout_ms: number;
     mounts: { host: string; container: string; readonly?: boolean }[];
+    propagate_children: boolean;
   }>): Promise<Agent> {
     return request(`/api/agents/${id}`, { method: 'PUT', body: data });
   },

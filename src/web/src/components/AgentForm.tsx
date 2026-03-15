@@ -20,6 +20,7 @@ export interface AgentFormData {
   timeout_ms: number;
   mounts: MountEntry[];
   parent_agent_id: string;
+  propagate_children: boolean;
 }
 
 interface AgentFormProps {
@@ -43,6 +44,22 @@ function agentPath(agent: Agent, all: Agent[]): string {
   return parts.join(' \u25B8 ');
 }
 
+/** Count all descendants of an agent recursively. */
+function countDescendants(agentId: string, all: Agent[]): number {
+  let count = 0;
+  const stack = [agentId];
+  while (stack.length > 0) {
+    const parentId = stack.pop()!;
+    for (const a of all) {
+      if (a.parent_agent_id === parentId) {
+        count++;
+        stack.push(a.id);
+      }
+    }
+  }
+  return count;
+}
+
 export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = 'Create' }: AgentFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [systemPrompt, setSystemPrompt] = useState(initial?.system_prompt ?? 'You are a helpful agent. Today\'s date is {{date}}.');
@@ -56,6 +73,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
   const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
   const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
   const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
+  const [propagateChildren, setPropagateChildren] = useState(false);
   const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number } | null>(null);
   const [allToolNames, setAllToolNames] = useState<string[]>([]);
   const [readonlyTools, setReadonlyTools] = useState<string[]>([]);
@@ -110,6 +128,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       timeout_ms: resolvedTimeoutS * 1000,
       mounts: mounts.filter(m => m.host && m.container),
       parent_agent_id: parentAgentId || '',
+      propagate_children: propagateChildren,
     });
   }
 
@@ -151,6 +170,16 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
 
       <label>Model (optional)</label>
       <ModelPicker value={model} onChange={setModel} placeholder={defaults?.model} />
+      {initial && agents && (() => {
+        const n = countDescendants(initial.id, agents);
+        const modelChanged = model !== (initial.model ?? '');
+        return n > 0 && modelChanged ? (
+          <label className="field-checkbox">
+            <input type="checkbox" checked={propagateChildren} onChange={e => setPropagateChildren(e.target.checked)} />
+            Apply to all {n} {n === 1 ? 'child' : 'children'} recursively
+          </label>
+        ) : null;
+      })()}
 
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />

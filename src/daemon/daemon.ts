@@ -290,6 +290,15 @@ export class Daemon {
       await this.docker.destroyContainer(managed.agent.container_id);
     }
 
+    // Propagate model to all descendants if requested
+    if ('model' in updates && updates.model && (updates as any).propagate_children) {
+      const descendants = this.collectDescendants(id);
+      for (const childId of descendants) {
+        const child = this.agents.get(childId);
+        if (child) await child.agent.update({ model: updates.model });
+      }
+    }
+
     return managed.agent.toApi();
   }
 
