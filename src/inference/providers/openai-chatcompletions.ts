@@ -209,8 +209,12 @@ export class OpenAIChatCompletionsProvider extends InferenceProvider {
           const textParts: string[] = [];
           const toolCalls: OpenAI.ChatCompletionMessageToolCall[] = [];
 
+          let reasoning = '';
+
           for (const block of msg.content) {
-            if (block.type === 'text') {
+            if (block.type === 'thinking') {
+              reasoning += block.thinking;
+            } else if (block.type === 'text') {
               textParts.push(block.text);
             } else if (block.type === 'tool_use') {
               // Ensure arguments is always a JSON object string.
@@ -228,14 +232,19 @@ export class OpenAIChatCompletionsProvider extends InferenceProvider {
             }
           }
 
-          const assistantMsg: OpenAI.ChatCompletionAssistantMessageParam = {
+          const assistantMsg: Record<string, any> = {
             role: 'assistant',
             content: textParts.join('\n') || null,
           };
           if (toolCalls.length > 0) {
             assistantMsg.tool_calls = toolCalls;
           }
-          result.push(assistantMsg);
+          // Pass reasoning back — OpenRouter and Fireworks use it for multi-turn
+          // continuity. Providers that don't understand it ignore the extra field.
+          if (reasoning) {
+            assistantMsg.reasoning_content = reasoning;
+          }
+          result.push(assistantMsg as OAIMessage);
         }
       }
     }
