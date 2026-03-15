@@ -128,6 +128,48 @@
 
 }
 
+// ── User Menu ──
+
+.user-menu {
+  position: relative;
+  display: inline-flex;
+
+  &__trigger {
+    gap: 2px;
+  }
+
+  &__dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    margin-top: 4px;
+    min-width: 140px;
+    background: var(--c-bg2);
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--c-text);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { background: var(--c-hover); }
+  }
+}
+
 .agent-item {
   &__name {
     font-weight: 500;

@@ -16,6 +16,7 @@ import { useToast, ToastContainer } from '../components/Toast';
 import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import { UserMenu } from '../components/UserMenu';
 import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings } from 'lucide-react';
 import '../styles/components.scss';
 
@@ -60,7 +61,12 @@ function formatRunDate(iso: string): string {
   return `${monthDay}, ${date.getFullYear()}, ${timeStr}`;
 }
 
-export function AgentsPage() {
+interface AgentsPageProps {
+  authEnabled: boolean;
+  onLogout: () => void;
+}
+
+export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const { agentId, runId } = useParams();
   const navigate = useNavigate();
 
@@ -536,7 +542,17 @@ export function AgentsPage() {
 
       <div className="main">
         {!selectedAgent ? (
-          <div className="empty-state">Select or create an agent</div>
+          <>
+            {authEnabled && (
+              <div className="panel-header">
+                <div className="panel-header__info" />
+                <div className="panel-header__actions">
+                  <UserMenu onLogout={onLogout} />
+                </div>
+              </div>
+            )}
+            <div className="empty-state">Select or create an agent</div>
+          </>
         ) : (
           <>
             {/* Agent header */}
@@ -558,6 +574,7 @@ export function AgentsPage() {
                 {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
                 <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
                 <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
+                {authEnabled && <UserMenu onLogout={onLogout} />}
               </div>
             </div>
 
