@@ -163,6 +163,13 @@ export class OpenAIProvider extends InferenceProvider {
                   .map(b => b.text)
                   .join('\n');
               }
+              // Unlike Anthropic's API, OpenAI Responses API has no is_error field
+              // on function_call_output. Without this prefix, the model has no signal
+              // that the tool call failed and may ignore or rationalize the error.
+              // Any new provider that lacks native is_error support needs this too.
+              if (block.is_error) {
+                outputStr = `ERROR: ${outputStr}`;
+              }
               input.push({
                 type: 'function_call_output',
                 call_id: block.tool_use_id,

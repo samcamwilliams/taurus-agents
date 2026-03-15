@@ -177,6 +177,13 @@ export class OpenAICompatProvider extends InferenceProvider {
                   .map(b => b.text)
                   .join('\n');
               }
+              // Unlike Anthropic's API, OpenAI Chat Completions has no is_error field
+              // on tool messages. Without this prefix, the model has no signal that
+              // the tool call failed and may ignore or rationalize the error.
+              // Any new provider that lacks native is_error support needs this too.
+              if (block.is_error) {
+                content = `ERROR: ${content}`;
+              }
               result.push({ role: 'tool', tool_call_id: block.tool_use_id, content });
             }
           }
@@ -199,10 +206,17 @@ export class OpenAICompatProvider extends InferenceProvider {
             if (block.type === 'text') {
               textParts.push(block.text);
             } else if (block.type === 'tool_use') {
+              // Ensure arguments is always a JSON object string.
+              // Models sometimes emit malformed args (e.g. bare "" instead of {}).
+              // Non-object inputs break Llama 4 Harmony template, causing it to
+              // silently drop the entire conversation from the formatted prompt.
+              const input = (typeof block.input === 'object' && block.input !== null)
+                ? block.input
+                : {};
               toolCalls.push({
                 id: block.id,
                 type: 'function',
-                function: { name: block.name, arguments: JSON.stringify(block.input) },
+                function: { name: block.name, arguments: JSON.stringify(input) },
               });
             }
           }

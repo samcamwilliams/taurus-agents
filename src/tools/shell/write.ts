@@ -22,16 +22,11 @@ export class ShellWriteTool extends Tool {
   async execute(input: { file_path: string; content: string }, context: ToolContext): Promise<ToolResult> {
     const fp = input.file_path.startsWith('/') ? input.file_path : `${context.cwd}/${input.file_path}`;
 
-    // Freshness check: if file exists, must have been Read first
+    // Check if file already exists (for warning, not blocking)
+    let existed = false;
     if (this.tracker) {
       const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
-      if (stat.exitCode === 0) {
-        // File exists — check freshness
-        const currentMtime = parseInt(stat.stdout.trim(), 10);
-        const err = this.tracker.checkFreshness(fp, currentMtime);
-        if (err) return { output: err, isError: true, durationMs: stat.durationMs };
-      }
-      // File doesn't exist — new file, no freshness check needed
+      existed = stat.exitCode === 0;
     }
 
     // Ensure parent directory exists, then write via base64 to avoid escaping issues
@@ -50,8 +45,13 @@ export class ShellWriteTool extends Tool {
       this.tracker.updateMtime(fp, newMtime);
     }
 
+    let output = `File written: ${fp} (${input.content.length} bytes)`;
+    if (existed && this.tracker && !this.tracker.hasRead(fp)) {
+      output += `\nNote: this file already existed and was overwritten without being read first.`;
+    }
+
     return {
-      output: `File written: ${fp} (${input.content.length} bytes)`,
+      output,
       isError: false,
       durationMs: result.durationMs,
       metadata: { file_path: fp, mtime: newMtime },

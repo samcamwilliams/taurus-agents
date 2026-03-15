@@ -36,6 +36,11 @@ export class FileTracker {
     this.readFiles.clear();
   }
 
+  /** Check if a file has been read in this session. */
+  hasRead(filePath: string): boolean {
+    return this.readFiles.has(this.norm(filePath));
+  }
+
   /** Check if a file is safe to edit. Returns null if OK, or an error message. */
   checkFreshness(filePath: string, currentMtime: number): string | null {
     const entry = this.readFiles.get(this.norm(filePath));

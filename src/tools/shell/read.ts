@@ -36,7 +36,10 @@ export class ShellReadTool extends Tool {
 
     // Detect file type via MIME (file command may not be installed in minimal images)
     const probe = await this.shell.exec(`file --mime-type -b ${JSON.stringify(fp)} 2>/dev/null`);
-    const mime = probe.exitCode === 0 ? probe.stdout.trim() : '';
+    const rawMime = probe.exitCode === 0 ? probe.stdout.trim() : '';
+    // file(1) may exit 0 even when the file doesn't exist, putting the error in stdout.
+    // Only trust the output if it looks like a valid MIME type (e.g. "text/plain").
+    const mime = /^[a-z]+\/[a-z0-9.+-]+$/i.test(rawMime) ? rawMime : '';
 
     // If file command failed, check that the file at least exists
     if (!mime) {

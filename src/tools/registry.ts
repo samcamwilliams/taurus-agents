@@ -65,6 +65,15 @@ export class ToolRegistry {
       };
     }
 
+    // Reject malformed input (models sometimes emit a bare string instead of a JSON object)
+    if (typeof input !== 'object' || input === null) {
+      return {
+        output: `Invalid tool input: expected a JSON object but got ${JSON.stringify(input)}. Check the tool schema and retry with correct parameters.`,
+        isError: true,
+        durationMs: 0,
+      };
+    }
+
     // Validate required parameters
     const schema = tool.inputSchema as Record<string, any>;
     const required: string[] = schema.required ?? [];
