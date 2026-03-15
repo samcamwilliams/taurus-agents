@@ -62,6 +62,8 @@ export type ModelDef = {
 //   OpenAI:    varies — gpt-4o 50%, o-series 25%, gpt-5 series 10%.
 //
 // OpenRouter models don't need pricing — they report nativeCost inline.
+// xAI: auto-caching enabled, but no published cache pricing tiers.
+//   Reports cost_in_usd_ticks inline → nativeCost is authoritative (like OpenRouter).
 
 // Anthropic
 const OPUS_46: ModelPricing = { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 };
@@ -79,6 +81,13 @@ const GPT5_NANO: ModelPricing = { input: 0.05, output: 0.40, cacheWrite: 0.05, c
 const GPT5_1: ModelPricing = { input: 1.25, output: 10, cacheWrite: 1.25, cacheRead: 0.125 };
 const GPT5_2: ModelPricing = { input: 1.75, output: 14, cacheWrite: 1.75, cacheRead: 0.175 };
 const GPT5_4: ModelPricing = { input: 2.50, output: 15, cacheWrite: 2.50, cacheRead: 0.25 };
+
+// xAI — https://docs.x.ai/docs/models#models-and-pricing
+const GROK4: ModelPricing = { input: 3, output: 15, cacheWrite: 3, cacheRead: 3 };
+const GROK4_FAST: ModelPricing = { input: 0.20, output: 0.50, cacheWrite: 0.20, cacheRead: 0.20 };
+const GROK3: ModelPricing = { input: 3, output: 15, cacheWrite: 3, cacheRead: 3 };
+const GROK3_MINI: ModelPricing = { input: 0.30, output: 0.50, cacheWrite: 0.30, cacheRead: 0.30 };
+const GROK_CODE: ModelPricing = { input: 0.20, output: 1.50, cacheWrite: 0.20, cacheRead: 0.20 };
 
 // ── Registry ──
 
@@ -204,6 +213,38 @@ export const MODEL_REGISTRY: ModelDef[] = [
     title: 'GPT OSS 20B', description: 'Fast open-source GPT, 131K context.',
     contextTokens: 131_072, maxOutputTokens: 65_536,
     pricing: { input: 0.075, output: 0.30, cacheWrite: 0.075, cacheRead: 0.075 },
+  },
+
+  // ── xAI ──
+  {
+    id: 'xai/grok-4-0709',
+    title: 'Grok 4', description: 'Most capable xAI model, 256K context.',
+    contextTokens: 256_000, maxOutputTokens: 128_000, pricing: GROK4,
+  },
+  {
+    id: 'xai/grok-4-fast-non-reasoning',
+    title: 'Grok 4 Fast', description: 'Fast Grok 4, 2M context.',
+    contextTokens: 2_000_000, maxOutputTokens: 128_000, pricing: GROK4_FAST,
+  },
+  {
+    id: 'xai/grok-4-1-fast-non-reasoning',
+    title: 'Grok 4.1 Fast', description: 'Latest fast Grok, 2M context.',
+    contextTokens: 2_000_000, maxOutputTokens: 128_000, pricing: GROK4_FAST,
+  },
+  {
+    id: 'xai/grok-code-fast-1',
+    title: 'Grok Code Fast', description: 'Optimized for coding, 256K context.',
+    contextTokens: 256_000, maxOutputTokens: 128_000, pricing: GROK_CODE,
+  },
+  {
+    id: 'xai/grok-3',
+    title: 'Grok 3', description: 'Previous flagship, 131K context.',
+    contextTokens: 131_072, maxOutputTokens: 131_072, pricing: GROK3,
+  },
+  {
+    id: 'xai/grok-3-mini',
+    title: 'Grok 3 Mini', description: 'Lightweight reasoning, 131K context.',
+    contextTokens: 131_072, maxOutputTokens: 131_072, pricing: GROK3_MINI,
   },
 
   // ── OpenRouter (pricing varies — leave undefined, computed by OR) ──

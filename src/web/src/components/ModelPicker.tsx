@@ -26,6 +26,7 @@ interface ModelPickerProps {
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
+  xai: 'xAI',
   openrouter: 'OpenRouter',
   local: 'Local',
 };
@@ -34,15 +35,18 @@ function providerLabel(key: string): string {
   return PROVIDER_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
+/** Icon overrides for providers that don't match the `${provider}.png` convention. */
+const ICON_OVERRIDES: Record<string, string> = {
+  anthropic: '/icons/claude-color.svg',
+  xai: '/icons/grok.png',
+  local: '/icons/local.svg',
+};
+
 /** Map a model ID to its provider icon filename. */
 function modelIcon(id: string): string {
   const provider = id.split('/')[0];
-  if (provider !== 'openrouter') return `/icons/${provider}.png`;
-  // OpenRouter: check sub-provider for known icons
-  const sub = id.split('/')[1] ?? '';
-  if (sub === 'google') return '/icons/gemini.png';
-  if (sub === 'x-ai') return '/icons/grok.png';
-  return '/icons/openrouter.png';
+  if (ICON_OVERRIDES[provider]) return ICON_OVERRIDES[provider];
+  return `/icons/${provider}.png`;
 }
 
 /** Format pricing as compact "$in / $out" per MTok. */
@@ -69,6 +73,7 @@ export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) 
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('');
   const [highlightIdx, setHighlightIdx] = useState(-1);
+  const [kbNav, setKbNav] = useState(false);
   // Value when dropdown opened — for Escape revert
   const valueOnOpenRef = useRef('');
   const ref = useRef<HTMLDivElement>(null);
@@ -154,9 +159,11 @@ export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) 
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
+      setKbNav(true);
       setHighlightIdx(i => (i < flatIds.length - 1 ? i + 1 : 0));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      setKbNav(true);
       setHighlightIdx(i => (i > 0 ? i - 1 : flatIds.length - 1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -205,7 +212,7 @@ export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) 
       </div>
 
       {open && (
-        <div className="model-picker__dropdown" ref={dropdownRef} tabIndex={-1}>
+        <div className={`model-picker__dropdown${kbNav ? ' model-picker__dropdown--kb' : ''}`} ref={dropdownRef} tabIndex={-1} onMouseMove={() => { if (kbNav) { setKbNav(false); setHighlightIdx(-1); } }}>
           {Object.keys(filtered).length === 0 && (
             <div className="model-picker__empty">No models match</div>
           )}

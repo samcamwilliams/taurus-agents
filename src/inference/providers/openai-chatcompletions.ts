@@ -13,14 +13,14 @@ type OAITool = OpenAI.ChatCompletionTool;
  * Used for OpenRouter, DeepSeek, vLLM, and any OpenAI-compatible API.
  * Thinking output comes via `reasoning_content` in stream deltas (OpenRouter).
  */
-export class OpenAICompatProvider extends InferenceProvider {
+export class OpenAIChatCompletionsProvider extends InferenceProvider {
   readonly name: string;
   readonly baseURL?: string;
   private client: OpenAI;
 
   constructor(opts: { apiKey: string; baseURL?: string; name?: string; defaultHeaders?: Record<string, string> }) {
     super();
-    this.name = opts.name ?? 'openai-compat';
+    this.name = opts.name ?? 'openai-chatcompletions';
     this.baseURL = opts.baseURL;
     this.client = new OpenAI({
       apiKey: opts.apiKey,
@@ -114,13 +114,20 @@ export class OpenAICompatProvider extends InferenceProvider {
     const stopReason = finishReason === 'tool_calls' ? 'tool_use' : 'end_turn';
 
     // Normalize usage — inputTokens is always the TOTAL (see TokenUsage docs in types.ts).
-    // OpenRouter: same shape as OpenAI, plus inline `cost` field and `cache_write_tokens`.
+    // OpenRouter: same shape as OpenAI, plus inline `cost` (USD) and `cache_write_tokens`.
+    // xAI: same shape as OpenAI, plus `cost_in_usd_ticks` (1/10B USD) and auto-caching.
     const promptTokens = usage?.prompt_tokens ?? 0;
     const completionTokens = usage?.completion_tokens ?? 0;
     const cacheRead = usage?.prompt_tokens_details?.cached_tokens ?? 0;
     const cacheWrite = usage?.prompt_tokens_details?.cache_write_tokens ?? 0; // OpenRouter only
     const reasoningTokens = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
-    const nativeCost = typeof usage?.cost === 'number' ? usage.cost : undefined; // OpenRouter only
+    // Native cost: OpenRouter reports `cost` (USD float), xAI reports `cost_in_usd_ticks` (1/10B USD).
+    let nativeCost: number | undefined;
+    if (typeof usage?.cost === 'number') {
+      nativeCost = usage.cost;
+    } else if (typeof usage?.cost_in_usd_ticks === 'number') {
+      nativeCost = usage.cost_in_usd_ticks / 10_000_000_000;
+    }
 
     yield {
       type: 'message_complete',

@@ -8,29 +8,36 @@ import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
 /**
  * OpenAI Responses API provider.
  *
- * Used for direct OpenAI access. Supports reasoning summaries (thinking),
- * which are only available through the Responses API (not Chat Completions).
+ * Used for OpenAI and xAI (any provider implementing the Responses API).
+ * Supports reasoning summaries (thinking) and server-side tools (x_search for xAI).
  */
-export class OpenAIProvider extends InferenceProvider {
-  readonly name = 'openai';
+export class OpenAIResponsesProvider extends InferenceProvider {
+  readonly name: string;
+  readonly baseURL?: string;
+  /** Server-side tools injected by the factory (e.g. x_search for xAI). */
+  private serverTools: Responses.Tool[];
   private client: OpenAI;
 
-  constructor(opts: { apiKey: string }) {
+  constructor(opts: { apiKey: string; baseURL?: string; name?: string; serverTools?: Responses.Tool[] }) {
     super();
-    this.client = new OpenAI({ apiKey: opts.apiKey });
+    this.name = opts.name ?? 'openai';
+    this.baseURL = opts.baseURL;
+    this.serverTools = opts.serverTools ?? [];
+    this.client = new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL });
   }
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
     const model = this.stripPrefix(params.model!);
     const input = this.convertInput(params.messages);
-    const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
+    const functionTools = params.tools?.length ? this.convertTools(params.tools) : [];
+    const tools: Responses.Tool[] = [...this.serverTools, ...functionTools];
     const maxTokens = params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;
 
     const stream = await this.client.responses.create({
       model,
       instructions: params.system || undefined,
       input,
-      tools,
+      tools: tools.length ? tools : undefined,
       max_output_tokens: maxTokens,
       reasoning: { summary: 'auto' },
       stream: true,
@@ -111,6 +118,10 @@ export class OpenAIProvider extends InferenceProvider {
     const outputTokens = usage?.output_tokens ?? 0;
     const cacheRead = usage?.input_tokens_details?.cached_tokens ?? 0;
     const reasoningTokens = usage?.output_tokens_details?.reasoning_tokens ?? 0;
+    // xAI reports cost_in_usd_ticks (1/10B USD) — convert to USD float.
+    const nativeCost = typeof usage?.cost_in_usd_ticks === 'number'
+      ? usage.cost_in_usd_ticks / 10_000_000_000
+      : undefined;
 
     yield {
       type: 'message_complete',
@@ -120,6 +131,7 @@ export class OpenAIProvider extends InferenceProvider {
         outputTokens,
         cacheRead: cacheRead || undefined,
         reasoningTokens: reasoningTokens || undefined,
+        nativeCost,
       },
       stopReason,
     };

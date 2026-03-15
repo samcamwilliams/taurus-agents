@@ -2,7 +2,7 @@ import type { ChatMessage, ContentBlock } from '../../core/types.js';
 
 /**
  * Assemble our canonical ContentBlock[] from accumulated streaming state.
- * Shared by both OpenAI (Responses API) and OpenAI-compat (Chat Completions) providers.
+ * Shared by both OpenAIResponsesProvider and OpenAIChatCompletionsProvider.
  */
 export function assembleContent(
   text: string,
