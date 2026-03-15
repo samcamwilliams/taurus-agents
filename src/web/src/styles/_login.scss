@@ -6,24 +6,93 @@
   justify-content: center;
   min-height: 100vh;
   background: var(--c-bg);
+  position: relative;
+  overflow: hidden;
+
+  // Layered gradient background
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      // Large soft purple glow — top right (extra stops to reduce banding)
+      radial-gradient(
+        ellipse 80% 60% at 75% 15%,
+        color-mix(in srgb, var(--c-purple) 12%, transparent) 0%,
+        color-mix(in srgb, var(--c-purple) 8%, transparent) 25%,
+        color-mix(in srgb, var(--c-purple) 4%, transparent) 50%,
+        transparent 70%
+      ),
+      // Deep blue wash — bottom left (extra stops)
+      radial-gradient(
+        ellipse 70% 80% at 20% 85%,
+        color-mix(in srgb, #1a3a5c 40%, transparent) 0%,
+        color-mix(in srgb, #1a3a5c 25%, transparent) 25%,
+        color-mix(in srgb, #1a3a5c 10%, transparent) 45%,
+        transparent 60%
+      ),
+      // Subtle warm accent — center left
+      radial-gradient(
+        ellipse 50% 40% at 10% 50%,
+        color-mix(in srgb, var(--c-amber) 6%, transparent),
+        transparent 60%
+      ),
+      // Faint teal touch — bottom right
+      radial-gradient(
+        ellipse 40% 50% at 85% 70%,
+        color-mix(in srgb, var(--c-green) 5%, transparent),
+        transparent 50%
+      );
+    animation: login-bg-drift 25s ease-in-out infinite alternate;
+  }
+
+  // Noise overlay to break up gradient banding
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.12;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 512px 512px;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+}
+
+@keyframes login-bg-drift {
+  0% {
+    filter: hue-rotate(0deg);
+    transform: scale(1);
+  }
+  100% {
+    filter: hue-rotate(12deg);
+    transform: scale(1.08);
+  }
 }
 
 .login-card {
   width: 360px;
-  background: var(--c-bg2);
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--c-bg2) 85%, transparent);
+  backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in srgb, var(--c-purple) 15%, var(--c-border));
+  border-radius: 12px;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--c-purple) 5%, transparent),
+    0 8px 40px -12px rgba(0, 0, 0, 0.5),
+    0 0 80px -20px color-mix(in srgb, var(--c-purple) 10%, transparent);
 
   &__header {
-    padding: 20px 24px 16px;
+    padding: 28px 24px 20px;
     text-align: center;
     position: relative;
 
     background:
       linear-gradient(
         180deg,
-        color-mix(in srgb, var(--c-purple) 6%, transparent) 0%,
+        color-mix(in srgb, var(--c-purple) 8%, transparent) 0%,
         transparent 100%
       );
 
@@ -37,16 +106,18 @@
       background: linear-gradient(
         90deg,
         transparent 0%,
-        color-mix(in srgb, var(--c-purple) 40%, transparent) 20%,
-        color-mix(in srgb, var(--c-purple) 40%, transparent) 80%,
+        color-mix(in srgb, var(--c-purple) 35%, transparent) 20%,
+        color-mix(in srgb, var(--c-purple) 35%, transparent) 80%,
         transparent 100%
       );
     }
 
     h1 {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 20px;
-      font-weight: 300;
-      letter-spacing: 0.08em;
+      font-weight: 100;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
       color: var(--c-text);
     }
   }
@@ -64,7 +135,7 @@
 
     input[type="password"] {
       width: 100%;
-      background: var(--c-bg);
+      background: color-mix(in srgb, var(--c-bg) 80%, transparent);
       border: 1px solid var(--c-border);
       border-radius: 6px;
       padding: 8px 12px;
@@ -72,6 +143,7 @@
       font-family: inherit;
       font-size: 14px;
       outline: none;
+      transition: border-color 0.15s;
 
       &:focus { border-color: var(--c-purple); }
       &::placeholder { color: var(--c-muted); opacity: 0.5; }
