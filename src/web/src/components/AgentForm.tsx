@@ -74,6 +74,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
   const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
   const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
   const [propagateChildren, setPropagateChildren] = useState(false);
+  const [modelTouched, setModelTouched] = useState(false);
   const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number } | null>(null);
   const [allToolNames, setAllToolNames] = useState<string[]>([]);
   const [readonlyTools, setReadonlyTools] = useState<string[]>([]);
@@ -169,11 +170,10 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <input type="text" value={cwd} onChange={e => setCwd(e.target.value)} placeholder="/path/to/project" />
 
       <label>Model (optional)</label>
-      <ModelPicker value={model} onChange={setModel} placeholder={defaults?.model} clearable={!initial} />
+      <ModelPicker value={model} onChange={v => { setModel(v); if (v !== (initial?.model ?? '')) setModelTouched(true); }} placeholder={defaults?.model} clearable={!initial} />
       {initial && agents && (() => {
         const n = countDescendants(initial.id, agents);
-        const modelChanged = model !== (initial.model ?? '');
-        return n > 0 && modelChanged ? (
+        return n > 0 && modelTouched ? (
           <label className="field-checkbox">
             <input type="checkbox" checked={propagateChildren} onChange={e => setPropagateChildren(e.target.checked)} />
             Apply to all {n} {n === 1 ? 'child' : 'children'} recursively

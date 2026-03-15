@@ -110,8 +110,16 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
         }
         break; // success
       } catch (err: any) {
-        // OpenAI SDK buries details in err.error; Anthropic uses err.message directly
-        const errMsg = err?.error?.message || err?.message || String(err);
+        // Extract the most useful error message across providers:
+        // - Anthropic: err.message directly
+        // - OpenAI SDK: err.error.message
+        // - Google/Gemini: err.error is [{ error: { message: "..." } }] (array)
+        const rawError = err?.error;
+        const errMsg =
+          rawError?.message
+          || (Array.isArray(rawError) && rawError[0]?.error?.message)
+          || err?.message
+          || String(err);
         const errDetail = err?.status ? `[${err.status}] ${errMsg}` : errMsg;
 
         if (attempt < MAX_RETRIES && isTransientError(err) && !signal?.aborted) {

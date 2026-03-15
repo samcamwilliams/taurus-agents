@@ -30,6 +30,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   openai: 'OpenAI',
   xai: 'xAI',
   openrouter: 'OpenRouter',
+  gemini: 'Google',
   local: 'Local',
 };
 
@@ -41,6 +42,7 @@ function providerLabel(key: string): string {
 const ICON_OVERRIDES: Record<string, string> = {
   anthropic: '/icons/claude-color.svg',
   xai: '/icons/grok.png',
+  gemini: '/icons/gemini-color.png',
   local: '/icons/local.svg',
 };
 

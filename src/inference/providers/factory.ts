@@ -22,6 +22,11 @@ const CHAT_COMPLETIONS_REGISTRY: Record<string, {
       'X-OpenRouter-Title': 'Taurus Agents',
     },
   },
+  gemini: {
+    envKey: 'GEMINI_API_KEY',
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    headers: { 'x-goog-api-client': 'taurus-agents/1.0' },
+  },
   groq: {
     envKey: 'GROQ_API_KEY',
     baseURL: 'https://api.groq.com/openai/v1',
@@ -43,6 +48,7 @@ const CHAT_COMPLETIONS_REGISTRY: Record<string, {
  *   - "anthropic/claude-sonnet-4-20250514" → AnthropicProvider
  *   - "openai/gpt-4o"                     → OpenAIResponsesProvider
  *   - "xai/grok-4-0709"                   → OpenAIResponsesProvider (+ x_search)
+ *   - "gemini/gemini-2.5-pro"             → OpenAIChatCompletionsProvider
  *   - "openrouter/deepseek/deepseek-r1"   → OpenAIChatCompletionsProvider
  *   - "local/model-name"                  → OpenAIChatCompletionsProvider (local endpoint)
  *   - "custom/model-name"                 → OpenAIChatCompletionsProvider (custom endpoint)

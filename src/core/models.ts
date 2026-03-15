@@ -89,6 +89,16 @@ const GROK3: ModelPricing = { input: 3, output: 15, cacheWrite: 3, cacheRead: 3 
 const GROK3_MINI: ModelPricing = { input: 0.30, output: 0.50, cacheWrite: 0.30, cacheRead: 0.30 };
 const GROK_CODE: ModelPricing = { input: 0.20, output: 1.50, cacheWrite: 0.20, cacheRead: 0.20 };
 
+// Gemini — https://ai.google.dev/pricing
+// cacheWrite = same as input (no separate write fee; storage is per-hour, not per-token)
+// cacheRead = Google's "context caching" price
+const GEMINI_31_PRO: ModelPricing = { input: 2, output: 12, cacheWrite: 2, cacheRead: 0.20 };
+const GEMINI_31_FLASH_LITE: ModelPricing = { input: 0.25, output: 1.50, cacheWrite: 0.25, cacheRead: 0.025 };
+const GEMINI_3_FLASH: ModelPricing = { input: 0.50, output: 3, cacheWrite: 0.50, cacheRead: 0.05 };
+const GEMINI_25_PRO: ModelPricing = { input: 1.25, output: 10, cacheWrite: 1.25, cacheRead: 0.125 };
+const GEMINI_25_FLASH: ModelPricing = { input: 0.30, output: 2.50, cacheWrite: 0.30, cacheRead: 0.03 };
+const GEMINI_25_FLASH_LITE: ModelPricing = { input: 0.10, output: 0.40, cacheWrite: 0.10, cacheRead: 0.01 };
+
 // ── Registry ──
 
 export const MODEL_REGISTRY: ModelDef[] = [
@@ -245,6 +255,38 @@ export const MODEL_REGISTRY: ModelDef[] = [
     id: 'xai/grok-3-mini',
     title: 'Grok 3 Mini', description: 'Lightweight reasoning, 131K context.',
     contextTokens: 131_072, maxOutputTokens: 131_072, pricing: GROK3_MINI,
+  },
+
+  // ── Gemini ──
+  {
+    id: 'gemini/gemini-3.1-pro-preview',
+    title: 'Gemini 3.1 Pro', description: 'Most capable Gemini, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_31_PRO,
+  },
+  {
+    id: 'gemini/gemini-3.1-flash-lite-preview',
+    title: 'Gemini 3.1 Flash Lite', description: 'Fast and affordable, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_31_FLASH_LITE,
+  },
+  {
+    id: 'gemini/gemini-3-flash-preview',
+    title: 'Gemini 3 Flash', description: 'Balanced speed and capability, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_3_FLASH,
+  },
+  {
+    id: 'gemini/gemini-2.5-pro',
+    title: 'Gemini 2.5 Pro', description: 'Thinking model for complex tasks, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_25_PRO,
+  },
+  {
+    id: 'gemini/gemini-2.5-flash',
+    title: 'Gemini 2.5 Flash', description: 'Best price-performance with thinking, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_25_FLASH,
+  },
+  {
+    id: 'gemini/gemini-2.5-flash-lite',
+    title: 'Gemini 2.5 Flash Lite', description: 'Cost-optimized, fast inference, 1M context.',
+    contextTokens: 1_048_576, maxOutputTokens: 65_536, pricing: GEMINI_25_FLASH_LITE,
   },
 
   // ── OpenRouter (pricing varies — leave undefined, computed by OR) ──
