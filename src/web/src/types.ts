@@ -63,6 +63,7 @@ export interface MessageRecord {
   output_tokens: number;
   usage?: MessageUsage;
   cost?: number;
+  model?: string;
   compaction?: { tokensBefore: number; messagesCompacted: number; compactedAt: string };
   created_at: string;
 }

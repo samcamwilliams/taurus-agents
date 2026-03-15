@@ -871,9 +871,17 @@
 // ── Message Footer (per-message metadata) ──
 
 .message__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 6px;
   padding-top: 4px;
   border-top: 1px solid color-mix(in srgb, var(--c-border) 40%, transparent);
+}
+
+.message__model {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--c-muted) 40%, transparent);
 }
 
 // ── Message Menu (hover dropdown) ──

@@ -361,6 +361,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
               {showMetadata && msg.usage && (
                 <div className="message__footer">
                   <UsageSummary usage={msg.usage} cost={msg.cost} />
+                  {msg.model && <span className="message__model">{msg.model}</span>}
                 </div>
               )}
             </div>
@@ -385,6 +386,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
           {showMetadata && msg.usage && (
             <div className="message__footer">
               <UsageSummary usage={msg.usage} cost={msg.cost} />
+                  {msg.model && <span className="message__model">{msg.model}</span>}
             </div>
           )}
         </div>

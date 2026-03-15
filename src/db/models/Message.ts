@@ -40,7 +40,8 @@ class Message extends Model {
     const compaction = role === 'compaction' && meta
       ? { tokensBefore: meta.tokensBefore, messagesCompacted: meta.messagesCompacted, compactedAt: meta.compactedAt }
       : undefined;
-    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, compaction, created_at };
+    const model = meta?.model as string | undefined;
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, model, compaction, created_at };
   }
 }
 
