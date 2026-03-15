@@ -189,8 +189,16 @@ export class OpenAIResponsesProvider extends InferenceProvider {
               });
             } else if (block.type === 'text') {
               input.push({ role: 'user', content: block.text });
+            } else if (block.type === 'image') {
+              input.push({
+                role: 'user',
+                content: [{
+                  type: 'input_image' as const,
+                  image_url: `data:${block.source.media_type};base64,${block.source.data}`,
+                  detail: 'auto' as const,
+                }],
+              });
             }
-            // Skip images for now — Responses API handles them differently
           }
         }
       } else if (msg.role === 'assistant') {
