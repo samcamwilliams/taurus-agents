@@ -97,7 +97,13 @@ export class PersistentShell {
 
   async exec(command: string, opts?: { timeout?: number; onData?: (line: string) => void }): Promise<CommandResult> {
     if (!this.alive || !this.proc) {
-      throw new Error('Shell is not alive. Call spawn() first.');
+      // Auto-respawn: the shell may have died (e.g. Docker/OrbStack paused when
+      // the laptop lid was closed). Try to recover transparently.
+      try {
+        await this.spawn();
+      } catch {
+        throw new Error('Shell died and could not be restarted. The Docker container may have stopped.');
+      }
     }
 
     const sentinelId = randomUUID();
