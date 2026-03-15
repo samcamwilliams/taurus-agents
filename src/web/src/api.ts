@@ -1,8 +1,29 @@
 import type { Agent, Run, MessageRecord } from './types';
 
+// ── CSRF token management ──
+
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
+
+export function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
+// ── Request helper ──
+
 async function request<T>(path: string, opts: Omit<RequestInit, 'body'> & { body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  // Attach CSRF token on mutation requests
+  if (csrfToken && opts.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(opts.method)) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });

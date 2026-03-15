@@ -2,6 +2,7 @@ node_modules/
 dist/
 src/web/dist/
 data/
+.auth_secret
 *.sqlite
 *.sqlite-journal
 .env

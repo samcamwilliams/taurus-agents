@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Daemon } from '../daemon/daemon.js';
 import { error, type Route } from './helpers.js';
+import { authenticate, AUTH_ENABLED } from './auth.js';
+import { authRoutes } from './routes/auth.js';
 import { agentRoutes } from './routes/agents.js';
 import { folderRoutes } from './routes/folders.js';
 import { healthRoutes } from './routes/health.js';
@@ -32,6 +34,7 @@ function getMimeType(filePath: string): string {
 
 export function createServer(daemon: Daemon, port: number): http.Server {
   const routes: Route[] = [
+    ...authRoutes(),
     ...folderRoutes(),
     ...agentRoutes(daemon),
     ...healthRoutes(),
@@ -39,18 +42,29 @@ export function createServer(daemon: Daemon, port: number): http.Server {
     ...fileRoutes(daemon),
   ];
 
+  if (AUTH_ENABLED) {
+    console.log('  Auth: enabled (AUTH_PASSWORD set)');
+  }
+
   const server = http.createServer(async (req, res) => {
     // CORS preflight
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
       });
       return res.end();
     }
 
     const url = new URL(req.url!, `http://localhost:${port}`);
+
+    // Auth gate — check before routing
+    const auth = authenticate(req);
+    if (!auth.ok) {
+      error(res, auth.error, auth.status);
+      return;
+    }
 
     // Match API routes
     for (const r of routes) {

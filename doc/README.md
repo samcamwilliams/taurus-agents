@@ -109,8 +109,10 @@ src/
   server/
     server.ts           # HTTP server + routing
     ws.ts               # WebSocket terminal (persistent sessions with replay)
+    auth.ts             # Authentication (sessions, rate limiting, CSRF, cookies)
     helpers.ts          # json(), error(), parseBody(), route()
     routes/
+      auth.ts           # Login, logout, auth check endpoints
       agents.ts         # Agent + run + ask endpoints
       files.ts          # File browser API (list, read, write in container)
       folders.ts        # Folder CRUD

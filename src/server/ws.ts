@@ -15,6 +15,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import http from 'node:http';
 import net from 'node:net';
 import type { Daemon } from '../daemon/daemon.js';
+import { authenticateWs } from './auth.js';
 
 const DOCKER_SOCKET = '/var/run/docker.sock';
 const REPLAY_LIMIT = 50 * 1024; // 50KB replay buffer per session
@@ -37,6 +38,13 @@ export function attachTerminalWs(server: http.Server, daemon: Daemon): void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
+    // Auth check on WebSocket upgrade
+    if (!authenticateWs(req)) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
     const url = new URL(req.url!, `http://localhost`);
     const match = url.pathname.match(/^\/ws\/terminal\/(?<id>[^/]+)$/);
     if (!match?.groups?.id) {

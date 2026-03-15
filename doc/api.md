@@ -4,6 +4,57 @@ Base URL: `http://localhost:7777` (configurable via `TAURUS_PORT` env var)
 
 All endpoints accept and return JSON. Set `Content-Type: application/json` on requests with a body.
 
+## Authentication
+
+When `AUTH_PASSWORD` is set in `.env`, all API endpoints (except those listed below) require authentication.
+
+### Auth methods
+
+1. **Session cookie** — log in via `POST /api/auth/login`, which sets an `HttpOnly; SameSite=Strict` cookie. Mutation requests (POST/PUT/PATCH/DELETE) must also include the `X-CSRF-Token` header returned at login.
+2. **Bearer token** — pass `Authorization: Bearer <AUTH_API_KEY>` (or a session token). No CSRF required.
+
+Unauthenticated requests to protected endpoints return `401`. Invalid CSRF tokens return `403`.
+
+### Check auth status
+
+```
+GET /api/auth/check
+```
+
+Always public. Returns:
+
+```json
+{ "authenticated": true, "authEnabled": true, "csrfToken": "..." }
+```
+
+| Field | Description |
+|-------|-------------|
+| `authEnabled` | Whether auth is configured on the server |
+| `authenticated` | Whether the current request has a valid session |
+| `csrfToken` | Present when authenticated — use as `X-CSRF-Token` header |
+
+### Login
+
+```
+POST /api/auth/login
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `password` | string | yes | The `AUTH_PASSWORD` value |
+
+Returns `200` with `{ ok: true, csrfToken: "..." }` and sets a session cookie.
+
+Rate limited: max 5 failed attempts per IP per 60 seconds. Returns `429` when exceeded.
+
+### Logout
+
+```
+POST /api/auth/logout
+```
+
+Clears the session cookie and invalidates the server-side session. Requires authentication and CSRF token.
+
 ---
 
 ## Agents

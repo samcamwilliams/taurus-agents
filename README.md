@@ -235,6 +235,44 @@ JINA_API_KEY=          # Optional — higher rate limits for WebFetch
 TAURUS_PORT=7777       # Server port
 ```
 
+## Authentication
+
+By default, Taurus runs without authentication (suitable for local development). To secure a production deployment, set `AUTH_PASSWORD` in `.env`:
+
+```bash
+AUTH_PASSWORD=my-secret       # Enables login gate for the web UI
+AUTH_API_KEY=my-api-key       # Optional — static key for programmatic API access
+# AUTH_SECRET=                # Optional — HMAC signing key (auto-generated if not set)
+TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
+```
+
+### How it works
+
+- **Web UI**: password login sets an `HttpOnly; SameSite=Strict` session cookie (7-day TTL). Mutation requests (POST/PUT/PATCH/DELETE) require an `X-CSRF-Token` header.
+- **API access**: use `Authorization: Bearer <AUTH_API_KEY>` for programmatic access. No CSRF needed for Bearer auth.
+- **WebSocket terminal**: authenticated via session cookie, or `?token=<key>` query param for external clients.
+- **Rate limiting**: max 5 failed login attempts per IP per minute, then 429.
+- **Instance secret**: HMAC keys are derived (via HKDF) from a per-instance secret stored at `data/.auth_secret`. Set `AUTH_SECRET` explicitly in multi-node deployments.
+
+### API examples with auth
+
+```bash
+# Login (returns session cookie + CSRF token)
+curl -c cookies.txt localhost:7777/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"password": "my-secret"}'
+
+# Authenticated request with cookie + CSRF
+curl -b cookies.txt localhost:7777/api/agents \
+  -H 'X-CSRF-Token: <token-from-login>'
+
+# Or use API key (simpler for scripts)
+curl localhost:7777/api/agents \
+  -H 'Authorization: Bearer my-api-key'
+```
+
+When `AUTH_PASSWORD` is not set, all endpoints are open (current default behavior).
+
 ## License
 
 MIT

@@ -6,7 +6,7 @@ export function json(res: http.ServerResponse, data: any, status = 200): void {
     'Connection': 'close',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
   });
   res.end(JSON.stringify(data));
 }
