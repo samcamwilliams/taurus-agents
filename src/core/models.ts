@@ -320,7 +320,7 @@ export function getLimitOutputTokens(model: string): number {
  * (e.g. "anthropic/claude-sonnet-4-20250514" matches "anthropic/claude-sonnet-4").
  */
 export function getModelPricing(model: string): ModelPricing | null {
-  // Exact match first (works for both prefixed and bare via dual-indexed map)
+  // Exact match first
   const exact = byId.get(model);
   if (exact?.pricing) return exact.pricing;
 

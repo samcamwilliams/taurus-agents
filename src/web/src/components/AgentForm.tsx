@@ -169,7 +169,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <input type="text" value={cwd} onChange={e => setCwd(e.target.value)} placeholder="/path/to/project" />
 
       <label>Model (optional)</label>
-      <ModelPicker value={model} onChange={setModel} placeholder={defaults?.model} />
+      <ModelPicker value={model} onChange={setModel} placeholder={defaults?.model} clearable={!initial} />
       {initial && agents && (() => {
         const n = countDescendants(initial.id, agents);
         const modelChanged = model !== (initial.model ?? '');

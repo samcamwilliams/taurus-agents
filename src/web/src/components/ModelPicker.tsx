@@ -21,6 +21,8 @@ interface ModelPickerProps {
   value: string;
   onChange: (modelId: string) => void;
   placeholder?: string;
+  /** Show clear (X) button. Defaults to true. */
+  clearable?: boolean;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -68,7 +70,7 @@ function highlight(text: string, query: string) {
   );
 }
 
-export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) {
+export function ModelPicker({ value, onChange, placeholder, clearable = true }: ModelPickerProps) {
   const [models, setModels] = useState<Record<string, ModelInfo[]>>({});
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('');
@@ -202,7 +204,7 @@ export function ModelPicker({ value, onChange, placeholder }: ModelPickerProps) 
           placeholder={placeholderText}
         />
         <span className="model-picker__trigger-icons">
-          {value && (
+          {value && clearable && (
             <span className="model-picker__clear" onClick={handleClear} title="Clear selection">
               <X size={13} />
             </span>
