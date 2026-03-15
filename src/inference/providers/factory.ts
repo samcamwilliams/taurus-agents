@@ -59,6 +59,15 @@ export function resolveProvider(model: string): InferenceProvider {
       });
     }
 
+    case 'local': {
+      const baseURL = process.env.LOCAL_PROVIDER_BASE_URL || 'http://localhost:1234/v1';
+      return new OpenAICompatProvider({
+        apiKey: process.env.LOCAL_PROVIDER_API_KEY || 'local',
+        baseURL,
+        name: 'local',
+      });
+    }
+
     case 'custom': {
       const apiKey = process.env.CUSTOM_PROVIDER_API_KEY;
       const baseURL = process.env.CUSTOM_PROVIDER_BASE_URL;
@@ -73,7 +82,7 @@ export function resolveProvider(model: string): InferenceProvider {
 
     default:
       throw new Error(
-        `Unknown provider "${backend}" in model "${model}". Supported: anthropic, openai, openrouter, groq, custom.`,
+        `Unknown provider "${backend}" in model "${model}". Supported: anthropic, openai, openrouter, groq, local, custom.`,
       );
   }
 }

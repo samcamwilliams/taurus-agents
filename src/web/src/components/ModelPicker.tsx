@@ -27,6 +27,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   openrouter: 'OpenRouter',
+  local: 'Local',
 };
 
 function providerLabel(key: string): string {

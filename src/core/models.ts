@@ -242,6 +242,12 @@ export const MODEL_REGISTRY: ModelDef[] = [
     title: 'Grok 4 Fast', description: 'Best agentic tool calling, 2M context.',
     contextTokens: 2_000_000, maxOutputTokens: 131_072,
   },
+
+  {
+    id: 'local/gpt-oss-120b',
+    title: 'GPT OSS 120B', description: '',
+    contextTokens: 131_072, maxOutputTokens: 16_384,
+  }
 ];
 
 // ── Lookup helpers ──
