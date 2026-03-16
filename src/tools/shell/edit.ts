@@ -36,13 +36,15 @@ export class ShellEditTool extends Tool {
       if (err) return { output: err, isError: true, durationMs: stat.durationMs };
     }
 
-    // Read the file
-    const readResult = await this.shell.exec(`cat ${JSON.stringify(fp)}`);
+    // Read the file via base64 to preserve exact bytes (including trailing newline).
+    // PersistentShell strips trailing \n from stdout, which would lose the file's
+    // final newline if we used `cat` directly.
+    const readResult = await this.shell.exec(`base64 ${JSON.stringify(fp)}`);
     if (readResult.exitCode !== 0) {
       return { output: `File not found: ${fp}`, isError: true, durationMs: readResult.durationMs };
     }
 
-    const content = readResult.stdout;
+    const content = Buffer.from(readResult.stdout.replace(/\s/g, ''), 'base64').toString('utf-8');
     const occurrences = content.split(input.old_string).length - 1;
 
     if (occurrences === 0) {
