@@ -28,18 +28,38 @@ export class ShellEditTool extends Tool {
       return { output: 'old_string and new_string are identical. No changes made.', isError: true, durationMs: 0 };
     }
 
-    // Freshness check: must Read before Edit
+    // Freshness + size check: get mtime and size in one call
+    const statResult = await this.shell.exec(
+      `stat -c '%Y %s' ${JSON.stringify(fp)} 2>/dev/null || stat -f '%m %z' ${JSON.stringify(fp)} 2>/dev/null`,
+    );
+    if (statResult.exitCode !== 0) {
+      return { output: `File not found: ${fp}`, isError: true, durationMs: statResult.durationMs };
+    }
+    const [mtimeStr, sizeStr] = statResult.stdout.trim().split(/\s+/);
+    const currentMtime = parseInt(mtimeStr, 10) || 0;
+    const fileSize = parseInt(sizeStr, 10) || 0;
+
     if (this.tracker) {
-      const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
-      const currentMtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
       const err = this.tracker.checkFreshness(fp, currentMtime);
-      if (err) return { output: err, isError: true, durationMs: stat.durationMs };
+      if (err) return { output: err, isError: true, durationMs: statResult.durationMs };
+    }
+
+    // 5MB — base64 expands ~33%, so 5MB file → ~6.7MB base64 output, well within
+    // the 10MB outputLimit below. If changing this, update outputLimit to ~2x.
+    const MAX_EDIT_SIZE = 5 * 1024 * 1024;
+    if (fileSize > MAX_EDIT_SIZE) {
+      return {
+        output: `File too large for Edit (${(fileSize / 1024 / 1024).toFixed(1)}MB, limit ${MAX_EDIT_SIZE / 1024 / 1024}MB). Use Bash with sed or a script instead.`,
+        isError: true,
+        durationMs: statResult.durationMs,
+      };
     }
 
     // Read the file via base64 to preserve exact bytes (including trailing newline).
     // PersistentShell strips trailing \n from stdout, which would lose the file's
     // final newline if we used `cat` directly.
-    const readResult = await this.shell.exec(`base64 ${JSON.stringify(fp)}`);
+    // 10MB outputLimit — sized for MAX_EDIT_SIZE (5MB) after base64 expansion (~6.7MB).
+    const readResult = await this.shell.exec(`base64 ${JSON.stringify(fp)}`, { outputLimit: 10_000_000 });
     if (readResult.exitCode !== 0) {
       return { output: `File not found: ${fp}`, isError: true, durationMs: readResult.durationMs };
     }

@@ -27,6 +27,7 @@ interface PendingCommand {
   timer: ReturnType<typeof setTimeout>;
   watchdog?: ReturnType<typeof setInterval>;
   onData?: (line: string) => void;
+  outputLimit?: number;
 }
 
 const DEFAULT_OUTPUT_LIMIT = 100_000; // 100KB
@@ -142,7 +143,7 @@ export class PersistentShell {
     });
   }
 
-  async exec(command: string, opts?: { timeout?: number; onData?: (line: string) => void }): Promise<CommandResult> {
+  async exec(command: string, opts?: { timeout?: number; onData?: (line: string) => void; outputLimit?: number }): Promise<CommandResult> {
     if (!this.alive || !this.proc) {
       // Auto-respawn: the shell may have died (e.g. Docker/OrbStack paused when
       // the laptop lid was closed). Try to recover transparently.
@@ -200,6 +201,7 @@ export class PersistentShell {
         timer,
         watchdog,
         onData: opts?.onData,
+        outputLimit: opts?.outputLimit,
       });
 
       // Send command with sentinel. Each part on its own line so that:
@@ -389,7 +391,7 @@ export class PersistentShell {
         if (pending.stdout.length > 0) pending.stdout += '\n';
         pending.stdout += line;
 
-        if (pending.stdout.length > this.outputLimit) {
+        if (pending.stdout.length > (pending.outputLimit ?? this.outputLimit)) {
           // Freeze head at the limit, start collecting tail
           pending.stdout = pending.stdout.slice(0, this.outputLimit);
           pending.truncated = true;
