@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 
-const THEMES = ['dark', 'vivid', 'catppuccin', 'vivid-catppuccin'] as const;
+const THEMES = ['light', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin'] as const;
 export type Theme = typeof THEMES[number];
 
 const THEME_LABELS: Record<Theme, string> = {
+  light: 'Light',
   dark: 'Dark',
   vivid: 'Vivid',
   catppuccin: 'Catppuccin',

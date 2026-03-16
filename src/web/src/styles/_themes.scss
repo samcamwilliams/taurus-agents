@@ -206,3 +206,54 @@
   --c-btn-danger:        #ff73ad;
   --c-btn-danger-hover:  #ff8fa7;
 }
+
+[data-theme="light"] {
+  // GitHub Light inspired
+  // Backgrounds
+  --c-bg:      #ffffff;
+  --c-bg2:     #f6f8fa;
+  --c-bg3:     #eaeef2;
+  --c-border:  #d0d7de;
+
+  // Text
+  --c-text:    #1f2328;
+  --c-muted:   #656d76;
+
+  // Accents (lighter/softer than dark theme — readable on white, gentle as fills)
+  --c-accent:  #4493f8;
+  --c-green:   #3fb950;
+  --c-red:     #f85149;
+  --c-yellow:  #d29922;
+  --c-purple:  #8957e5;
+  --c-amber:   #db6d28;
+
+  // Active marker (violet)
+  --c-marker:       #8250df;
+  --c-marker-bright: #6639ba;
+  --c-marker-glow1: rgba(130, 80, 223, 0.25);
+  --c-marker-glow2: rgba(130, 80, 223, 0.12);
+  --c-marker-glow3: rgba(130, 80, 223, 0.06);
+  --c-hover:        rgba(130, 80, 223, 0.06);
+
+  // Status backgrounds
+  --c-status-running: #fff8c5;
+  --c-status-paused:  #fff1e5;
+  --c-status-error:   #ffebe9;
+  --c-status-success: #dafbe1;
+
+  // Buttons — primary (violet)
+  --c-btn-primary-from:  rgba(130, 80, 223, 0.12);
+  --c-btn-primary-to:    rgba(130, 80, 223, 0.06);
+  --c-btn-primary-hover-from: rgba(130, 80, 223, 0.20);
+  --c-btn-primary-hover-to:   rgba(130, 80, 223, 0.10);
+  --c-btn-primary-text:  #6639ba;
+  --c-btn-primary-shine: rgba(130, 80, 223, 0.08);
+  --c-btn-primary-border: rgba(130, 80, 223, 0.35);
+  --c-btn-primary-border-hover: rgba(130, 80, 223, 0.55);
+  --c-btn-primary-glow:  rgba(130, 80, 223, 0.08);
+  --c-btn-primary-glow-hover: rgba(130, 80, 223, 0.15);
+
+  // Buttons — danger
+  --c-btn-danger:        #cf222e;
+  --c-btn-danger-hover:  #a40e26;
+}

@@ -17,7 +17,7 @@ import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Circle } from 'lucide-react';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -636,14 +636,16 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   onSelect={handleSelectRun}
                   emptyMessage="No runs yet"
                   renderIcon={(run) => {
+                    if (run.trigger !== 'schedule') {
+                      return <StatusDot status={run.status} />;
+                    }
                     const color = run.status === 'running' ? 'var(--c-amber)'
                       : run.status === 'error' ? 'var(--c-red)'
                       : run.status === 'completed' ? 'var(--c-green)'
                       : run.status === 'paused' ? 'var(--c-yellow)'
                       : 'var(--c-muted)';
-                    const Icon = run.trigger === 'schedule' ? Clock : Circle;
-                    return <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title={`${run.status} / ${run.trigger ?? 'manual'}`}>
-                      <Icon size={11} color={color} {...(run.trigger !== 'schedule' ? { fill: color, strokeWidth: 0 } : {})} />
+                    return <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title="scheduled">
+                      <Clock size={11} color={color} />
                     </span>;
                   }}
                   renderLabel={(run) => (

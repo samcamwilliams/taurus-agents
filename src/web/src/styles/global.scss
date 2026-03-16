@@ -232,3 +232,151 @@ body {
     color: #000;
   }
 }
+
+// ── Light theme overrides ──
+
+[data-theme="light"] {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    &:hover { background: rgba(0, 0, 0, 0.25); }
+  }
+
+  .btn {
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+    color: var(--c-text);
+
+    &:hover {
+      background: var(--c-bg3);
+      border-color: #c0c8d0;
+      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+    }
+
+    &:active {
+      background: var(--c-bg3);
+      box-shadow: inset 0 1px 0 rgba(27, 31, 36, 0.1);
+      transform: none;
+    }
+
+    &.primary {
+      background: var(--c-purple);
+      border-color: var(--c-purple);
+      color: #fff;
+      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+      font-weight: 500;
+
+      &:hover {
+        background: #6e40c9;
+        border-color: #6e40c9;
+        box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+        transform: none;
+      }
+
+      &:active {
+        background: #5a32a3;
+        box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.15);
+        transform: none;
+      }
+    }
+
+    &.danger {
+      background: var(--c-btn-danger);
+      border-color: var(--c-btn-danger);
+      color: #fff;
+      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+
+      &:hover {
+        background: var(--c-btn-danger-hover);
+        border-color: var(--c-btn-danger-hover);
+        box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+        transform: none;
+      }
+
+      &:active {
+        box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.15);
+        transform: none;
+      }
+    }
+
+    &.btn--active {
+      color: #fff;
+    }
+  }
+
+
+
+  // Tree/sidebar: flat selection instead of neon glow
+  .tv__node {
+    &:hover:not(.tv__node--selected)::before {
+      background: var(--c-border);
+      box-shadow: none;
+    }
+
+    &--selected {
+      background: rgba(130, 80, 223, 0.08);
+      &:hover { background: rgba(130, 80, 223, 0.08); }
+
+      &::before {
+        background: var(--c-purple);
+        box-shadow: none;
+        width: 2px;
+      }
+    }
+  }
+
+  // Tab bar: flat underline instead of neon glow
+  .tab-bar__tab {
+    &:hover:not(.tab-bar__tab--active)::after {
+      background: var(--c-border);
+      box-shadow: none;
+    }
+
+    &--active {
+      background: var(--c-hover);
+
+      &::after {
+        background: var(--c-purple);
+        box-shadow: none;
+        height: 2px;
+        clip-path: none;
+      }
+    }
+  }
+
+  // Sidebar: flat selection
+  .sidebar__item {
+    &:hover:not(.sidebar__item--active)::before {
+      background: var(--c-border);
+      box-shadow: none;
+    }
+
+    &--active {
+      background: rgba(130, 80, 223, 0.06);
+
+      &::after {
+        background: var(--c-purple);
+        box-shadow: none;
+        height: 2px;
+      }
+    }
+  }
+
+  // File browser: flat hover indicator
+  .fb-tree__item:hover:not(.fb-tree__item--selected)::before {
+    background: var(--c-border);
+    box-shadow: none;
+  }
+
+  // Softer borders
+  .panel-header {
+    border-color: var(--c-border);
+  }
+
+  // Modal overlay: lighter
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}

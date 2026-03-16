@@ -217,7 +217,7 @@
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   line-height: 16px;
-  color: #d4a574;
+  color: var(--c-amber);
   background: var(--c-bg);
   border: 1px solid var(--c-border);
   border-radius: 10px;
@@ -240,7 +240,7 @@
 
   &--clickable {
     cursor: pointer;
-    &:hover { border-color: #d4a574; }
+    &:hover { border-color: var(--c-amber); }
   }
 }
 
