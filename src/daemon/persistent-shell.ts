@@ -410,6 +410,7 @@ export class PersistentShell {
   private handleClose(code: number | null): void {
     this.alive = false;
     if (this.closing) return; // Intentional shutdown via close() — not unexpected
+    if (this.pending.size === 0) return; // No in-flight commands — daemon shutting down, not a real problem
     const detail = `exit code: ${code}, container: ${this.container_id ?? 'host'}, shell PID: ${this.shellPid ?? 'unknown'}`;
     console.error(`[persistent-shell] Shell closed unexpectedly (${detail})`);
     // Reject all pending commands

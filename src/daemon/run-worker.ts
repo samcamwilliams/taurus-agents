@@ -45,6 +45,14 @@ function send(msg: ChildMessage): void {
   process.send?.(msg);
 }
 
+/** Send a message and wait for it to be flushed to the parent IPC channel. */
+function sendAndFlush(msg: ChildMessage): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!process.send) return resolve();
+    process.send(msg, (err: Error | null) => err ? reject(err) : resolve());
+  });
+}
+
 function log(level: LogLevel, event: string, message: string, data?: unknown): void {
   send({ type: 'log', level, event, message, data });
 }
@@ -645,8 +653,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     data: { tokens },
   });
 
-  // 9. Notify parent (for SSE broadcast)
-  send({ type: 'run_complete', summary, tokens });
+  // 9. Notify parent (for SSE broadcast) — flush before worker exits
+  await sendAndFlush({ type: 'run_complete', summary, tokens });
 }
 
 // ── IPC message handling ──
