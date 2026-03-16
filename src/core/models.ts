@@ -349,12 +349,21 @@ export function getModel(id: string): ModelDef | undefined {
 }
 
 /** Get the output token limit for a model. Single source of truth for max_tokens.
- *  Returns min(limitOutputTokens, maxOutputTokens) — never exceeds model capacity.
- *  Falls back to DEFAULT_LIMIT_OUTPUT_TOKENS for unknown models. */
+ *  Uses explicit limitOutputTokens if set, otherwise DEFAULT_LIMIT_OUTPUT_TOKENS (16K).
+ *  Never exceeds the model's maxOutputTokens (hard API limit).
+ *
+ *  This deliberately caps per-turn output well below the API maximum.
+ *  maxOutputTokens (128K for Opus 4.6) is the hard API ceiling — but sending it as
+ *  max_tokens would mean: (a) the compaction threshold triggers at 31% of context
+ *  (128K output + 62K input > 190K capacity), and (b) with extended thinking the
+ *  model could consume 110K+ in one turn, leaving no room for the next.
+ *  16K per turn (matching Claude Code) keeps compaction at ~87% and lets the model
+ *  work incrementally across turns. */
 export function getLimitOutputTokens(model: string): number {
   const def = getModel(model);
   if (!def) return DEFAULT_LIMIT_OUTPUT_TOKENS;
-  return Math.min(def.limitOutputTokens ?? def.maxOutputTokens, def.maxOutputTokens);
+  const budget = def.limitOutputTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;
+  return Math.min(budget, def.maxOutputTokens);
 }
 
 /**
