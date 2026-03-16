@@ -17,7 +17,7 @@ import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings } from 'lucide-react';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Circle } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -633,11 +633,19 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   selectedId={runId}
                   onSelect={handleSelectRun}
                   emptyMessage="No runs yet"
-                  renderIcon={(run) => <StatusDot status={run.status} />}
+                  renderIcon={(run) => {
+                    const color = run.status === 'running' ? 'var(--c-amber)'
+                      : run.status === 'error' ? 'var(--c-red)'
+                      : run.status === 'completed' ? 'var(--c-green)'
+                      : run.status === 'paused' ? 'var(--c-yellow)'
+                      : 'var(--c-muted)';
+                    const Icon = run.trigger === 'schedule' ? Clock : Circle;
+                    return <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title={`${run.status} / ${run.trigger ?? 'manual'}`}>
+                      <Icon size={11} color={color} {...(run.trigger !== 'schedule' ? { fill: color, strokeWidth: 0 } : {})} />
+                    </span>;
+                  }}
                   renderLabel={(run) => (
-                    <span style={{ fontSize: 12 }}>
-                      {formatRunDate(run.created_at)}
-                    </span>
+                    <span style={{ fontSize: 12 }}>{formatRunDate(run.created_at)}</span>
                   )}
                   renderSecondary={(run) => {
                     if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;

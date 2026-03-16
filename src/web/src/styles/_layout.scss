@@ -570,6 +570,19 @@
   }
 }
 
+.run-trigger-icon {
+  display: inline-flex;
+
+  &--running {
+    animation: icon-pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes icon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 // ── Run Footer ──
 
 // ── Run Controls (floating overlay) ──
