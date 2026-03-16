@@ -95,11 +95,16 @@ export class ShellEditTool extends Tool {
     }
 
     const replacedCount = input.replace_all ? occurrences : 1;
+    const startLine = input.replace_all ? 1 : content.slice(0, content.indexOf(input.old_string)).split('\n').length;
+    const oldLines = input.old_string.split('\n').length;
+    const newLines = input.new_string.split('\n').length;
+    const endLine = startLine + newLines - 1;
+    const lineInfo = input.replace_all ? '' : ` (lines ${startLine}–${endLine})`;
     return {
-      output: `Edited ${fp}: replaced ${replacedCount} occurrence(s) (${input.old_string.length} → ${input.new_string.length} chars)`,
+      output: `Edited ${fp}${lineInfo}: replaced ${replacedCount} occurrence(s), ${oldLines} → ${newLines} lines`,
       isError: false,
       durationMs: readResult.durationMs + writeResult.durationMs,
-      metadata: { file_path: fp, mtime: newMtime }, // works!
+      metadata: { file_path: fp, mtime: newMtime, start_line: startLine },
     };
   }
 }

@@ -41,7 +41,9 @@ class Message extends Model {
       ? { tokensBefore: meta.tokensBefore, messagesCompacted: meta.messagesCompacted, compactedAt: meta.compactedAt }
       : undefined;
     const model = meta?.model as string | undefined;
-    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, model, compaction, created_at };
+    // Expose tool metadata (keyed by tool_use_id) for user messages with tool results
+    const toolMeta = role === 'user' && meta && !meta.usage ? meta : undefined;
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, model, compaction, toolMeta, created_at };
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Terminal, FileText, FilePen, FolderSearch, Search,
   Pause, Globe, Download, MonitorPlay, Eye,
@@ -145,7 +145,7 @@ function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { 
 
 // ── Content block rendering ──
 
-function ContentBlockView({ block, showMetadata }: { block: any; showMetadata?: boolean }) {
+function ContentBlockView({ block, showMetadata, toolMeta }: { block: any; showMetadata?: boolean; toolMeta?: Record<string, any> }) {
   if (block.type === 'thinking') {
     return <ThinkingBlock text={block.thinking} showTokens={showMetadata} />;
   }
@@ -173,6 +173,7 @@ function ContentBlockView({ block, showMetadata }: { block: any; showMetadata?: 
               oldString={inputRest.old_string}
               newString={inputRest.new_string}
               replaceAll={inputRest.replace_all}
+              startLine={toolMeta?.[block.id]?.start_line}
             />
           </div>
         </div>
@@ -241,7 +242,7 @@ function ContentBlockView({ block, showMetadata }: { block: any; showMetadata?: 
   return <pre className="msg-raw">{JSON.stringify(block, null, 2)}</pre>;
 }
 
-function MessageContent({ content, role, showMetadata }: { content: unknown; role?: string; showMetadata?: boolean }) {
+function MessageContent({ content, role, showMetadata, toolMeta }: { content: unknown; role?: string; showMetadata?: boolean; toolMeta?: Record<string, any> }) {
   if (typeof content === 'string') {
     if (role === 'user') return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
     return <Markdown>{content}</Markdown>;
@@ -250,7 +251,7 @@ function MessageContent({ content, role, showMetadata }: { content: unknown; rol
     return (
       <>
         {content.map((block, i) => (
-          <ContentBlockView key={i} block={block} showMetadata={showMetadata} />
+          <ContentBlockView key={i} block={block} showMetadata={showMetadata} toolMeta={toolMeta} />
         ))}
       </>
     );
@@ -330,6 +331,15 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
     wasNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
   }
 
+  // Build tool_use_id → metadata lookup from all user messages with toolMeta
+  const allToolMeta = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const msg of messages) {
+      if (msg.toolMeta) Object.assign(map, msg.toolMeta);
+    }
+    return map;
+  }, [messages]);
+
   if (messages.length === 0) {
     const label = runStatus === 'running' ? 'Starting...' : 'No messages in this run';
     return <div className="empty-state">{label}</div>;
@@ -383,7 +393,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
             {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
           </div>
           <div className="message__body">
-            <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} />
+            <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
           </div>
           {showMetadata && msg.usage && (
             <div className="message__footer">

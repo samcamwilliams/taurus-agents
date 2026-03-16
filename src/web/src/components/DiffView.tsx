@@ -44,6 +44,7 @@ interface DiffViewProps {
   oldString: string;
   newString: string;
   replaceAll?: boolean;
+  startLine?: number;
 }
 
 /** Guess highlight.js language from file extension. */
@@ -77,7 +78,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function DiffView({ filePath, oldString, newString, replaceAll }: DiffViewProps) {
+export function DiffView({ filePath, oldString, newString, replaceAll, startLine = 1 }: DiffViewProps) {
   const changes: Change[] = useMemo(() => diffLines(oldString, newString), [oldString, newString]);
   const lang = useMemo(() => langFromPath(filePath), [filePath]);
 
@@ -94,7 +95,7 @@ export function DiffView({ filePath, oldString, newString, replaceAll }: DiffVie
     const htmlLines = highlightLines(fullText, lang);
 
     // Compute old/new line numbers
-    let oldNum = 1, newNum = 1;
+    let oldNum = startLine, newNum = startLine;
     return allLines.map((l, i) => {
       let oldLn: number | null = null;
       let newLn: number | null = null;

@@ -65,6 +65,7 @@ export interface MessageRecord {
   cost?: number;
   model?: string;
   compaction?: { tokensBefore: number; messagesCompacted: number; compactedAt: string };
+  toolMeta?: Record<string, any>;
   created_at: string;
 }
 
