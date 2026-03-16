@@ -37,6 +37,7 @@ const WATCHDOG_INTERVAL = 10_000; // 10s — how often to check if the command i
 export class PersistentShell {
   private proc: ChildProcess | null = null;
   private alive = false;
+  private closing = false;
   private pending = new Map<string, PendingCommand>();
   private buffer = '';
   private shellPid?: number; // PID of the bash process inside the container
@@ -64,9 +65,10 @@ export class PersistentShell {
   async spawn(): Promise<void> {
     if (this.alive) return;
 
-    // Clear stale buffer from any previous dead session
+    // Clear stale state from any previous dead session
     this.buffer = '';
     this.shellPid = undefined;
+    this.closing = false;
 
     const args = this.mode === 'docker'
       ? ['exec', '-i', this.container_id!, 'bash', '--norc', '--noprofile']
@@ -224,6 +226,7 @@ export class PersistentShell {
   async close(): Promise<void> {
     if (!this.alive || !this.proc) return;
 
+    this.closing = true;
     this.proc.stdin!.write('exit\n');
 
     await new Promise<void>((resolve) => {
@@ -404,6 +407,7 @@ export class PersistentShell {
 
   private handleClose(code: number | null): void {
     this.alive = false;
+    if (this.closing) return; // Intentional shutdown via close() — not unexpected
     const detail = `exit code: ${code}, container: ${this.container_id ?? 'host'}, shell PID: ${this.shellPid ?? 'unknown'}`;
     console.error(`[persistent-shell] Shell closed unexpectedly (${detail})`);
     // Reject all pending commands
