@@ -53,11 +53,16 @@ export class ShellReadTool extends Tool {
     // Image — return as multimodal content
     const imageMediaType = IMAGE_MIMES[mime];
     if (imageMediaType) {
-      const b64Result = await this.shell.exec(`base64 ${JSON.stringify(fp)}`);
+      // Raise output limit for base64 — images easily exceed the default 100KB shell limit.
+      // 20MB base64 ≈ 15MB raw image, well above Anthropic's practical limit.
+      const b64Result = await this.shell.exec(`base64 ${JSON.stringify(fp)}`, { outputLimit: 20_000_000 });
       if (b64Result.exitCode !== 0) {
         return { output: `Error reading image: ${fp}`, isError: true, durationMs: b64Result.durationMs };
       }
       const base64 = b64Result.stdout.replace(/\s/g, '');
+      if (!base64 || base64.length < 8) {
+        return { output: `Error: empty or corrupt base64 for ${fp}`, isError: true, durationMs: b64Result.durationMs };
+      }
       return {
         output: `Image: ${fp} (${mime})`,
         isError: false,
