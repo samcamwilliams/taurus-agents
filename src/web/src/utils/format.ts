@@ -12,6 +12,20 @@ export function fmtTokens(n: number): string {
   return n.toLocaleString();
 }
 
+/** Format a timestamp: time-only for today, date+time for older. */
+export function fmtSmartTime(date: Date): string {
+  const now = new Date();
+  const isToday = date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+  if (isToday) return date.toLocaleTimeString();
+  const sameYear = date.getFullYear() === now.getFullYear();
+  const datePart = sameYear
+    ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${datePart}, ${date.toLocaleTimeString()}`;
+}
+
 /** Extract plain text from message content for clipboard. */
 export function extractMessageText(content: unknown): string {
   if (typeof content === 'string') return content;

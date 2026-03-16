@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
+import { fmtSmartTime } from '../utils/format';
 import { JsonKV } from './JsonKV';
 import { DiffView } from './DiffView';
 import { Lightbox } from './Lightbox';
@@ -376,7 +377,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
               {isOptimistic
                 ? <span className="message__pill message__pill--sending">sending</span>
                 : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
-              {!isOptimistic && new Date(msg.created_at).toLocaleTimeString()}
+              {!isOptimistic && fmtSmartTime(new Date(msg.created_at))}
             </span>
             {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} />}
           </div>

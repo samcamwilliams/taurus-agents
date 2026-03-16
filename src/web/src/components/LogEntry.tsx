@@ -1,9 +1,10 @@
 import type { LogEntry as LogEntryType } from '../types';
+import { fmtSmartTime } from '../utils/format';
 
 function formatTime(entry: LogEntryType): string {
   const raw = entry.created_at || entry.timestamp;
   if (!raw) return '';
-  return new Date(raw).toLocaleTimeString();
+  return fmtSmartTime(new Date(raw));
 }
 
 export function LogEntry({ entry }: { entry: LogEntryType }) {

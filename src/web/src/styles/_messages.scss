@@ -19,6 +19,7 @@
   &__ts {
     color: var(--c-muted);
     margin-right: 8px;
+    font-family: $font-sans;
   }
 
   &__event {
@@ -107,7 +108,7 @@
   &__meta {
     font-size: 10px;
     color: var(--c-muted);
-    font-family: $font-mono;
+    font-family: $font-sans;
     display: flex;
     align-items: center;
     gap: 6px;
