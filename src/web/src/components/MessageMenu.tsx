@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Copy, FileText, Search } from 'lucide-react';
+import { ChevronDown, Copy, FileText, Search, Trash2 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { fmtCost, fmtTokens, extractMessageText } from '../utils/format';
 
 interface MessageMenuProps {
   message: MessageRecord;
   onInspect?: (message: MessageRecord) => void;
+  onDelete?: (message: MessageRecord) => void;
 }
 
-export function MessageMenu({ message, onInspect }: MessageMenuProps) {
+export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -61,6 +62,14 @@ export function MessageMenu({ message, onInspect }: MessageMenuProps) {
               onClick={() => { onInspect(message); setOpen(false); }}
             >
               <Search size={12} /> Inspect
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="msg-menu__item msg-menu__item--danger"
+              onClick={() => { onDelete(message); setOpen(false); }}
+            >
+              <Trash2 size={12} /> Delete
             </button>
           )}
 

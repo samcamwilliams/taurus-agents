@@ -470,6 +470,16 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     }
   }
 
+  async function handleDeleteMessage(msg: MessageRecord) {
+    if (!agentId || !runId) return;
+    try {
+      await api.deleteMessage(agentId, runId, msg.id);
+      setMessages(prev => prev.filter(m => m.id !== msg.id));
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  }
+
   async function handleSend(message: string, images?: import('../components/InputBar').ImageAttachment[]) {
     if (!agentId || !message.trim()) return;
     appendOptimisticUserMessage(message, images);
@@ -631,7 +641,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage}>
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
                     <RunFooter
                       run={selectedRun}
                       messages={messages}

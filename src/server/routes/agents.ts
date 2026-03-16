@@ -230,6 +230,12 @@ export function agentRoutes(daemon: Daemon): Route[] {
       json(res, messages);
     }),
 
+    route('DELETE', '/api/agents/:id/runs/:runId/messages/:messageId', async (_req, res, params) => {
+      const ok = await daemon.deleteMessage(params.messageId);
+      if (!ok) return error(res, 'Message not found', 404);
+      json(res, { ok: true });
+    }),
+
     // ── Blocking ask ──
 
     // By name: POST /api/ask { agent: "my-agent", message: "..." }

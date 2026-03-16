@@ -269,10 +269,11 @@ interface MessageViewProps {
   runStatus?: string;
   showMetadata?: boolean;
   onInspect?: (message: MessageRecord) => void;
+  onDelete?: (message: MessageRecord) => void;
   children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, showMetadata, onInspect, children }: MessageViewProps) {
+export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -379,7 +380,7 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
                 : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
               {!isOptimistic && fmtSmartTime(new Date(msg.created_at))}
             </span>
-            {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} />}
+            {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
           </div>
           <div className="message__body">
             <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} />

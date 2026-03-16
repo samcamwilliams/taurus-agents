@@ -26,9 +26,6 @@ import Folder from '../db/models/Folder.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 
-// Set up association for eager loading
-Run.hasMany(Message, { foreignKey: 'run_id', as: 'messages' });
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');
 
@@ -318,8 +315,9 @@ export class Daemon {
         await this.docker.removeContainer(managed.agent.container_id);
       }
 
-      await AgentLog.destroy({ where: { agent_id: agentId } });
-      await Agent.destroy({ where: { id: agentId } });
+      await AgentLog.destroy({ where: { agent_id: agentId } }); // hard delete (no paranoid)
+      // Soft-delete agent — afterDestroy hooks cascade to runs → messages
+      await Agent.destroy({ where: { id: agentId }, individualHooks: true });
       this.agents.delete(agentId);
 
       this.logger('info', `Agent deleted: ${agentId}`);
@@ -1326,6 +1324,13 @@ export class Daemon {
       order: [['seq', 'ASC']],
     });
     return messages.map(m => m.toApi());
+  }
+
+  async deleteMessage(messageId: string): Promise<boolean> {
+    const msg = await Message.findByPk(messageId);
+    if (!msg) return false;
+    await msg.destroy(); // soft-delete (paranoid)
+    return true;
   }
 
   async getAgentLogs(agentId: string, limit: number = 100): Promise<any[]> {

@@ -6,7 +6,7 @@
  */
 
 import 'dotenv/config';
-import { Database } from './db/index.js';
+import { Database, setupAssociations } from './db/index.js';
 
 // Import models so Sequelize registers them
 import './db/models/Run.js';
@@ -27,6 +27,7 @@ async function main() {
   acquireLock(PORT);
 
   await Database.sync();
+  await setupAssociations();
 
   const daemon = new Daemon();
   await daemon.init();

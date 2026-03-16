@@ -109,6 +109,10 @@ export const api = {
     return request(`/api/agents/${agentId}/runs/${runId}/messages${qs}`);
   },
 
+  deleteMessage(agentId: string, runId: string, messageId: string): Promise<{ ok: boolean }> {
+    return request(`/api/agents/${agentId}/runs/${runId}/messages/${messageId}`, { method: 'DELETE' });
+  },
+
   listTools(): Promise<{
     tools: { name: string; group: string; description: string }[];
     defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; supervisor_tools: string[]; max_turns: number; timeout_ms: number };

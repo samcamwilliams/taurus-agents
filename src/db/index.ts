@@ -42,3 +42,39 @@ export class Database {
 Database.init();
 
 export const sequelize = Database.client;
+
+/**
+ * Register model associations and paranoid cascade hooks.
+ * Must be called once after all models are loaded (e.g., during daemon boot).
+ *
+ * Sequelize's onDelete:'CASCADE' only works for real DELETEs, not paranoid
+ * soft-deletes (which are UPDATEs). So we cascade via afterDestroy hooks.
+ */
+let _setup = false;
+export async function setupAssociations(): Promise<void> {
+  if (_setup) return;
+  _setup = true;
+
+  const { default: Agent } = await import('./models/Agent.js');
+  const { default: Run } = await import('./models/Run.js');
+  const { default: Message } = await import('./models/Message.js');
+
+  // Associations (for eager loading / queries, not for cascade)
+  Agent.hasMany(Run, { foreignKey: 'agent_id' });
+  Run.belongsTo(Agent, { foreignKey: 'agent_id' });
+  Run.hasMany(Message, { foreignKey: 'run_id', as: 'messages' });
+  Message.belongsTo(Run, { foreignKey: 'run_id' });
+
+  // Paranoid cascade: Agent → Runs → Messages
+  Agent.afterDestroy(async (agent) => {
+    const runs = await Run.findAll({ where: { agent_id: agent.id }, attributes: ['id'] });
+    if (runs.length > 0) {
+      // Destroy runs individually so their own afterDestroy hooks fire
+      await Promise.all(runs.map(r => r.destroy()));
+    }
+  });
+
+  Run.afterDestroy(async (run) => {
+    await Message.destroy({ where: { run_id: run.id } });
+  });
+}

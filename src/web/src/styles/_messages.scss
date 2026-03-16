@@ -943,6 +943,11 @@
     text-align: left;
 
     &:hover { background: var(--c-bg3); }
+
+    &--danger {
+      color: var(--c-error, #e55);
+      &:hover { background: rgba(255, 50, 50, 0.1); }
+    }
   }
 
   &__sep {

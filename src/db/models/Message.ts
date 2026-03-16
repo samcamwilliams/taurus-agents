@@ -93,7 +93,9 @@ Message.init(
     tableName: 'Messages',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,
+    updatedAt: 'updated_at',
+    paranoid: true,
+    deletedAt: 'deleted_at',
     indexes: [
       { fields: ['run_id', 'seq'] },
     ],
