@@ -394,13 +394,33 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   log('info', 'run.started', `Agent "${agent.name}" started (trigger: ${trigger})`);
   send({ type: 'status', status: 'running' });
 
-  // 2. Initialize inference
+  // 2. Persist messages to DB early — before fallible init (provider, shell, tools).
+  //    If init fails (bad model name, Docker down, etc.), the user's message is still saved.
+  let systemPrompt: string | undefined;
+  if (!resume) {
+    systemPrompt = expandSystemPrompt(agent.system_prompt);
+    const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
+    if (children.length > 0) {
+      const childList = children.map(c => {
+        const firstLine = c.system_prompt.split('\n')[0].slice(0, 120);
+        return `- ${c.name}: ${firstLine}`;
+      }).join('\n');
+      systemPrompt += `\n\n## Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool:\n${childList}`;
+    }
+    await run.persistMessage('system', systemPrompt);
+  }
+  const inputText = resume ? input : buildInputMessage(trigger, input);
+  if (inputText) {
+    await run.persistMessage('user', buildUserContent(inputText, images));
+  }
+
+  // 3. Initialize inference
   const provider = resolveProvider(agent.model);
   const inference = new InferenceService(provider);
   const { getLimitOutputTokens } = await import('../core/models.js');
   const limitOutputTokens = getLimitOutputTokens(agent.model);
 
-  // 3. Initialize persistent shell
+  // 4. Initialize persistent shell
   const shell = new PersistentShell({
     mode: 'docker',
     container_id: agent.container_id,
@@ -408,7 +428,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   });
   await shell.spawn();
 
-  // 4. Register tools
+  // 5. Register tools
   // Pause is the agent's safety valve to ask for human input.
   // Spawn/delegate children never get Pause (nobody can resume them — deadlock).
   const ALWAYS_ON_TOOLS = (trigger === 'spawn' || trigger === 'delegate') ? [] : ['Pause'];
@@ -421,44 +441,30 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const toolNames = [...new Set([...baseTools, ...ALWAYS_ON_TOOLS])];
   const fileTracker = registerTools(tools, toolNames, shell);
 
-  // 5. Build ChatML
+  // 6. Build ChatML (in-memory only — messages already persisted in step 2)
   const chatml = new ChatML();
-
-  // 5a. System prompt + history
   if (resume) {
+    // loadFullRunHistory includes the user message persisted above
     const history = await loadFullRunHistory(runId);
     if (!history.some((m: Message) => m.role === 'system')) {
       chatml.setSystem(expandSystemPrompt(agent.system_prompt));
     }
     buildChatMLFromHistory(chatml, history, fileTracker);
+    // If no input was provided for resume, synthesize a continuation prompt
+    if (!inputText && (!chatml.getMessages().length || chatml.getMessages().at(-1)?.role === 'assistant')) {
+      const contMsg = 'Continue from where you left off.';
+      chatml.addUser(contMsg);
+      await run.persistMessage('user', contMsg);
+    }
     log('info', 'run.resumed', `Loaded ${history.length} messages, resuming run`);
   } else {
-    let systemPrompt = expandSystemPrompt(agent.system_prompt);
-    const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
-    if (children.length > 0) {
-      const childList = children.map(c => {
-        const firstLine = c.system_prompt.split('\n')[0].slice(0, 120);
-        return `- ${c.name}: ${firstLine}`;
-      }).join('\n');
-      systemPrompt += `\n\n## Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool:\n${childList}`;
+    chatml.setSystem(systemPrompt!);
+    if (inputText) {
+      chatml.appendUser(buildUserContent(inputText, images));
     }
-    chatml.setSystem(systemPrompt);
-    await run.persistMessage('system', systemPrompt);
   }
 
-  // 5b. Add user input
-  const inputText = resume ? input : buildInputMessage(trigger, input);
-  if (inputText) {
-    const content = buildUserContent(inputText, images);
-    chatml.appendUser(content);
-    await run.persistMessage('user', content);
-  } else if (!chatml.getMessages().length || chatml.getMessages().at(-1)?.role === 'assistant') {
-    const contMsg = 'Continue from where you left off.';
-    chatml.addUser(contMsg);
-    await run.persistMessage('user', contMsg);
-  }
-
-  // 6. Agent loop
+  // 7. Agent loop
   try {
     for await (const event of agentLoop({
       chatml,
