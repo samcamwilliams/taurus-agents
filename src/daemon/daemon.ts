@@ -795,6 +795,7 @@ export class Daemon {
               type: 'delegate_result',
               requestId: completedRun.delegateRequestId,
               summary: msg.summary,
+              runId,
               error: msg.error,
               tokens: msg.tokens,
             } as ParentMessage);
@@ -877,6 +878,7 @@ export class Daemon {
               type: 'delegate_result',
               requestId: erroredRun.delegateRequestId,
               summary: '',
+              runId,
               error: msg.error,
             } as ParentMessage);
           }
@@ -942,7 +944,7 @@ export class Daemon {
   private async handleDelegateRequest(
     callerAgentId: string,
     callerRunId: string,
-    msg: { requestId: string; targetAgent: string; input: string; context?: string },
+    msg: { requestId: string; targetAgent: string; input: string; context?: string; continueRun?: boolean },
   ): Promise<void> {
     // Resolve target: must be a direct child of the caller
     const targetAgent = this.findChildByName(callerAgentId, msg.targetAgent);
@@ -957,24 +959,56 @@ export class Daemon {
     // Ensure the child's container is running (lazy start)
     await this.docker.ensureContainer(targetAgent);
 
-    const childRun = await Run.create({
-      cwd: targetAgent.cwd,
-      model: targetAgent.model,
-      agent_id: targetAgent.id,
-      trigger: 'delegate',
-      parent_run_id: callerRunId,
-    });
+    let runId: string;
 
-    await this.forkWorker(targetAgent.id, childRun.id, callerRunId, {
-      type: 'start',
-      agentId: targetAgent.id,
-      runId: childRun.id,
-      trigger: 'delegate',
-      input: msg.input,
-    });
+    if (msg.continueRun) {
+      // Continue the child's most recent run
+      const latestRuns = await Run.findAll({
+        where: { agent_id: targetAgent.id },
+        order: [['created_at', 'DESC']],
+        limit: 1,
+      });
+      if (latestRuns.length === 0) {
+        throw new Error(`Agent "${msg.targetAgent}" has no runs to continue`);
+      }
+      runId = latestRuns[0].id;
+
+      // Check if there's already an active worker for this run
+      const activeRun = targetManaged.runs.get(runId);
+      if (activeRun) {
+        throw new Error(`Agent "${msg.targetAgent}" is already running (run ${runId})`);
+      }
+
+      await this.forkWorker(targetAgent.id, runId, callerRunId, {
+        type: 'start',
+        agentId: targetAgent.id,
+        runId,
+        trigger: 'delegate',
+        input: msg.input,
+        resume: true,
+      });
+    } else {
+      // Start a fresh run
+      const childRun = await Run.create({
+        cwd: targetAgent.cwd,
+        model: targetAgent.model,
+        agent_id: targetAgent.id,
+        trigger: 'delegate',
+        parent_run_id: callerRunId,
+      });
+      runId = childRun.id;
+
+      await this.forkWorker(targetAgent.id, runId, callerRunId, {
+        type: 'start',
+        agentId: targetAgent.id,
+        runId,
+        trigger: 'delegate',
+        input: msg.input,
+      });
+    }
 
     // Tag the child run for cross-agent routing
-    const childManagedRun = targetManaged.runs.get(childRun.id);
+    const childManagedRun = targetManaged.runs.get(runId);
     if (childManagedRun) {
       childManagedRun.delegateRequestId = msg.requestId;
       childManagedRun.delegatorAgentId = callerAgentId;
@@ -982,7 +1016,8 @@ export class Daemon {
     }
 
     const callerManaged = this.agents.get(callerAgentId);
-    this.logger('info', `[${callerManaged?.agent.name}] Delegated to "${msg.targetAgent}" → run ${childRun.id}`);
+    const action = msg.continueRun ? 'Continued delegation' : 'Delegated';
+    this.logger('info', `[${callerManaged?.agent.name}] ${action} to "${msg.targetAgent}" → run ${runId}`);
   }
 
   /**
@@ -1156,6 +1191,7 @@ export class Daemon {
           type: 'delegate_result',
           requestId: exitedRun.delegateRequestId,
           summary: '',
+          runId,
           error: code === 0 ? undefined : `Delegate child exited with code ${code}`,
         } as ParentMessage);
       }

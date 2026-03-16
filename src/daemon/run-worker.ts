@@ -687,7 +687,7 @@ process.on('message', async (msg: ParentMessage) => {
       const resolver = delegateResolvers.get(msg.requestId);
       if (resolver) {
         delegateResolvers.delete(msg.requestId);
-        resolver({ summary: msg.summary, error: msg.error, tokens: msg.tokens });
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, tokens: msg.tokens });
       }
       break;
     }

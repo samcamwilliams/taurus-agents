@@ -6,10 +6,12 @@ export interface DelegateRequest {
   targetAgent: string;
   input: string;
   context?: string;
+  continueRun?: boolean;
 }
 
 export interface DelegateResult {
   summary: string;
+  runId?: string;
   error?: string;
   tokens?: { input: number; output: number; cost: number };
 }
@@ -26,7 +28,7 @@ export interface DelegateResult {
 export class DelegateTool extends Tool {
   readonly name = 'Delegate';
   readonly group = 'Supervisor';
-  readonly description = 'Delegate a task to a named child agent. The child agent runs in its own container with its own prompt, tools, and persistent workspace. Use this to assign work to specialists in your team. Blocks until the child completes and returns the result.';
+  readonly description = 'Delegate a task to a named child agent. The child agent runs in its own container with its own prompt, tools, and persistent workspace. Use this to assign work to specialists in your team. Blocks until the child completes and returns the result. Set continue=true to resume the child\'s latest run instead of starting fresh — the child keeps its full conversation history and picks up where it left off.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,
@@ -42,6 +44,10 @@ export class DelegateTool extends Tool {
       context: {
         type: 'string',
         description: 'Optional additional context to include (e.g., results from a prior delegation).',
+      },
+      continue: {
+        type: 'boolean',
+        description: 'If true, continue the child\'s most recent run instead of starting a new one. The child retains its full conversation history.',
       },
     },
     required: ['agent', 'task'],
@@ -59,7 +65,7 @@ export class DelegateTool extends Tool {
     this.waitForResult = waitForResult;
   }
 
-  async execute(input: { agent: string; task: string; context?: string }, _context: ToolContext): Promise<ToolResult> {
+  async execute(input: { agent: string; task: string; context?: string; continue?: boolean }, _context: ToolContext): Promise<ToolResult> {
     const requestId = crypto.randomUUID();
 
     const message = input.context
@@ -70,6 +76,7 @@ export class DelegateTool extends Tool {
       requestId,
       targetAgent: input.agent,
       input: message,
+      continueRun: input.continue,
     });
 
     const result = await this.waitForResult(requestId);
@@ -85,9 +92,10 @@ export class DelegateTool extends Tool {
     const tokenInfo = result.tokens
       ? `\n\n[Tokens: ${result.tokens.input}in/${result.tokens.output}out]`
       : '';
+    const runInfo = result.runId ? `\n[Run: ${result.runId}]` : '';
 
     return {
-      output: `${result.summary}${tokenInfo}`,
+      output: `${result.summary}${tokenInfo}${runInfo}`,
       isError: false,
       durationMs: 0,
     };
