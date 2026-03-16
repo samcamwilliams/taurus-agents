@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { SendHorizonal, Plus, Image } from 'lucide-react';
 import { Lightbox } from './Lightbox';
 
@@ -8,18 +8,79 @@ export type ImageAttachment = {
   name: string;
 };
 
+export interface InputBarHandle {
+  /** Focus the textarea and select all text if present. */
+  focusAndSelect(): void;
+}
+
 interface InputBarProps {
   placeholder?: string;
+  /** Current run ID — used to persist draft text per-run in memory. */
+  runId?: string;
+  /** If set, pre-fill with this text (selected) when runId has no draft. */
+  defaultValue?: string;
   onSend: (message: string, images?: ImageAttachment[]) => void;
 }
 
-export function InputBar({ placeholder, onSend }: InputBarProps) {
-  const [value, setValue] = useState('');
+/** In-memory draft storage keyed by runId (empty string = no run selected). */
+const drafts = new Map<string, string>();
+
+export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function InputBar({ placeholder, runId, defaultValue, onSend }, ref) {
+  const draftKey = runId ?? '';
+  const [value, setValue] = useState(() => drafts.get(draftKey) ?? defaultValue ?? '');
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const prevKeyRef = useRef(draftKey);
+
+  // Save draft when switching runs, restore draft for new run
+  useEffect(() => {
+    if (prevKeyRef.current !== draftKey) {
+      // Save outgoing draft (but don't persist defaultValue-only drafts)
+      const outgoing = prevKeyRef.current;
+      const el = textareaRef.current;
+      const currentText = el ? el.value : value;
+      if (currentText) {
+        drafts.set(outgoing, currentText);
+      } else {
+        drafts.delete(outgoing);
+      }
+      // Restore incoming draft (fall back to defaultValue for this key)
+      const restored = drafts.get(draftKey) ?? defaultValue ?? '';
+      setValue(restored);
+      prevKeyRef.current = draftKey;
+      // If this key has a defaultValue, focus + select all
+      if (defaultValue && el) {
+        requestAnimationFrame(() => {
+          el.focus();
+          el.setSelectionRange(0, restored.length);
+        });
+      }
+    }
+  }, [draftKey, defaultValue]);
+
+  // Keep draft map in sync as user types (skip defaultValue — it's not a real draft)
+  useEffect(() => {
+    if (value && value !== defaultValue) {
+      drafts.set(draftKey, value);
+    } else {
+      drafts.delete(draftKey);
+    }
+  }, [value, draftKey, defaultValue]);
+
+  // Expose focusAndSelect() to parent
+  useImperativeHandle(ref, () => ({
+    focusAndSelect() {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      if (el.value.length > 0) {
+        el.setSelectionRange(0, el.value.length);
+      }
+    },
+  }), []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -79,6 +140,7 @@ export function InputBar({ placeholder, onSend }: InputBarProps) {
     onSend(msg, images.length > 0 ? images : undefined);
     setValue('');
     setImages([]);
+    drafts.delete(draftKey);
     textareaRef.current?.focus();
   }
 
@@ -148,4 +210,4 @@ export function InputBar({ placeholder, onSend }: InputBarProps) {
       />
     </div>
   );
-}
+});

@@ -5,7 +5,7 @@ import { api } from '../api';
 import { Sidebar } from '../components/Sidebar';
 import { StatusDot } from '../components/StatusDot';
 import { MessageView } from '../components/MessageView';
-import { InputBar } from '../components/InputBar';
+import { InputBar, type InputBarHandle } from '../components/InputBar';
 import { CreateAgentModal } from '../components/CreateAgentModal';
 import { AgentSettings } from '../components/AgentSettings';
 import { FileBrowser, Terminal } from '../components/file-browser';
@@ -92,6 +92,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
 
   // Remember last selected run per agent so switching back restores it
   const lastRunByAgent = useRef<Record<string, string>>({});
+  const inputBarRef = useRef<InputBarHandle>(null);
 
   // Refs so SSE callbacks see latest values without re-subscribing
   const agentIdRef = useRef(agentId);
@@ -404,18 +405,10 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
 
   // ── Actions ──
 
-  async function handleStartRun() {
+  function handleStartRun() {
     if (!agentId) return;
-    try {
-      const result = await api.startRun(agentId);
-      await loadAgents();
-      const updatedRuns = await api.listRuns(agentId);
-      setRuns(updatedRuns);
-      setActiveTab('runs');
-      navigate(`/agents/${agentId}/runs/${result.runId}`);
-    } catch (err: any) {
-      showToast(err.message);
-    }
+    navigate(`/agents/${agentId}/runs/new`);
+    setActiveTab('runs');
   }
 
   async function handleContinueRun() {
@@ -479,7 +472,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
 
     try {
-      const targetRunId = runId || runs[0]?.id;
+      const targetRunId = runId === 'new' ? undefined : runId;
       const result = await api.sendMessage(agentId, message, apiImages, targetRunId);
       await loadAgents();
       const updatedRuns = await api.listRuns(agentId);
@@ -644,9 +637,14 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                     />
                   </MessageView>
                 ) : (
-                  <div className="empty-state">Select a run</div>
+                  <div className="empty-state">Select a run or type a message to start a new one</div>
                 )}
-                <InputBar key={agentId} onSend={handleSend} />
+                <InputBar
+                  ref={inputBarRef}
+                  runId={runId}
+                  defaultValue={runId === 'new' ? 'You have been manually triggered. Execute your task.' : undefined}
+                  onSend={handleSend}
+                />
               </div>
             </div>
 
