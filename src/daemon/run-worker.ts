@@ -252,7 +252,7 @@ function buildChatMLFromHistory(chatml: ChatML, history: Message[], fileTracker:
 function buildInputMessage(trigger: TriggerType, input?: string): string {
   if (input) return input;
   if (trigger === 'schedule') {
-    return `You have been triggered by your scheduled run. Current time: ${new Date().toISOString()}. Execute your task.`;
+    return `You have been triggered by your scheduled run. Time at the start of the run: ${new Date().toISOString()}. Execute your task.`;
   }
   if (trigger === 'manual') {
     return `You have been manually triggered. Execute your task.`;
