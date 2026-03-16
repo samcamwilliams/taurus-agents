@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, ChevronDown, LogOut } from 'lucide-react';
+import { User, ChevronDown, LogOut, UserCog } from 'lucide-react';
 import { getCsrfToken, setCsrfToken } from '../api';
+import { AccountSettingsModal } from './AccountSettingsModal';
 
 interface UserMenuProps {
   onLogout: () => void;
@@ -8,6 +9,7 @@ interface UserMenuProps {
 
 export function UserMenu({ onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,18 +33,24 @@ export function UserMenu({ onLogout }: UserMenuProps) {
   }
 
   return (
-    <div className="user-menu" ref={ref}>
-      <button className="btn icon-btn user-menu__trigger" onClick={() => setOpen(v => !v)}>
-        <User size={13} />
-        <ChevronDown size={10} />
-      </button>
-      {open && (
-        <div className="user-menu__dropdown">
-          <button className="user-menu__item" onClick={handleLogout}>
-            <LogOut size={13} /> Sign out
-          </button>
-        </div>
-      )}
-    </div>
+    <>
+      <div className="user-menu" ref={ref}>
+        <button className="btn icon-btn user-menu__trigger" onClick={() => setOpen(v => !v)}>
+          <User size={13} />
+          <ChevronDown size={10} />
+        </button>
+        {open && (
+          <div className="user-menu__dropdown">
+            <button className="user-menu__item" onClick={() => { setOpen(false); setShowSettings(true); }}>
+              <UserCog size={13} /> <span style={{ whiteSpace: 'nowrap' }}>Profile</span>
+            </button>
+            <button className="user-menu__item" onClick={handleLogout}>
+              <LogOut size={13} /> Sign out
+            </button>
+          </div>
+        )}
+      </div>
+      {showSettings && <AccountSettingsModal onClose={() => setShowSettings(false)} />}
+    </>
   );
 }

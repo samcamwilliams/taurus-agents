@@ -23,6 +23,7 @@ import Agent from '../db/models/Agent.js';
 import AgentLog from '../db/models/AgentLog.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
+import UserSecret from '../db/models/UserSecret.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');
@@ -429,10 +430,13 @@ export class Daemon {
   private async forkWorker(agentId: string, runId: string, parentRunId: string | null, startMsg: ParentMessage): Promise<void> {
     const managed = this.agents.get(agentId)!;
 
+    // Per-user API keys override .env defaults
+    const envOverrides = await UserSecret.getEnvOverrides(managed.agent.user_id);
+
     const child = fork(WORKER_PATH, [], {
       execArgv: ['--import', 'tsx'],
       serialization: 'advanced',
-      env: { ...process.env },
+      env: { ...process.env, ...envOverrides },
     });
 
     managed.runs.set(runId, {

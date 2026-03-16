@@ -17,6 +17,7 @@ import {
 } from '../auth/index.js';
 import { DisplayableError, NotFoundError } from '../../core/errors.js';
 import User from '../../db/models/User.js';
+import UserSecret, { SECRET_KEYS } from '../../db/models/UserSecret.js';
 
 export function authRoutes(): Route[] {
   return [
@@ -123,6 +124,27 @@ export function authRoutes(): Route[] {
       const hash = await User.hashPassword(new_password);
       await user.update({ password_hash: hash });
 
+      json(ctx.res, { ok: true });
+    }),
+
+    // Get API keys (masked) — shows which keys are set
+    route('GET', '/api/auth/keys', async (ctx) => {
+      const secrets = await UserSecret.getForUser(ctx.user.id);
+      const masked: Record<string, string | null> = {};
+      for (const key of SECRET_KEYS) {
+        const val = secrets[key];
+        masked[key] = val ? `${val.slice(0, 4)}${'•'.repeat(Math.max(0, val.length - 4))}` : null;
+      }
+      json(ctx.res, { keys: masked });
+    }),
+
+    // Update API keys — { key: value, ... } (null/empty to clear)
+    route('PUT', '/api/auth/keys', async (ctx) => {
+      const body = await parseBody(ctx.req);
+      if (!body || typeof body !== 'object') {
+        throw new DisplayableError('Request body must be an object', 400);
+      }
+      await UserSecret.bulkSetForUser(ctx.user.id, body);
       json(ctx.res, { ok: true });
     }),
   ];

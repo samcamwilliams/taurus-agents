@@ -148,6 +148,30 @@
   }
 }
 
+// ── Account Settings Tabs ──
+
+.account-tab {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+
+  &:hover:not(.account-tab--active) {
+    color: var(--c-text);
+    background: var(--c-hover);
+  }
+
+  &--active {
+    color: var(--c-text);
+    border-bottom: 1px solid var(--c-purple);
+  }
+}
+
 // ── Field Hint ──
 
 .field-hint {

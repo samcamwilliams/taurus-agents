@@ -123,4 +123,16 @@ export const api = {
   listModels(): Promise<Record<string, { id: string; title: string; description: string; contextTokens: number; maxOutputTokens: number; pricing?: { input: number; output: number } }[]>> {
     return request('/api/models');
   },
+
+  getApiKeys(): Promise<{ keys: Record<string, string | null> }> {
+    return request('/api/auth/keys');
+  },
+
+  updateApiKeys(keys: Record<string, string | null>): Promise<{ ok: boolean }> {
+    return request('/api/auth/keys', { method: 'PUT', body: keys });
+  },
+
+  changePassword(current_password: string, new_password: string): Promise<{ ok: boolean }> {
+    return request('/api/auth/password', { method: 'PUT', body: { current_password, new_password } });
+  },
 };
