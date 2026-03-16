@@ -364,6 +364,10 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
             if (data.event === 'context.compacting' && data.runId === runIdRef.current) {
               setIsCompacting(true);
             }
+            if ((data.event === 'context.compacted' || data.event === 'context.compaction_failed') && data.runId === runIdRef.current) {
+              setIsCompacting(false);
+              if (data.event === 'context.compacted') fetchNewMessages();
+            }
             if (data.event === 'message.saved') {
               // Snapshot accumulated text as run activity
               if (data.message === 'assistant' && runStreamingRef.current[data.runId]) {

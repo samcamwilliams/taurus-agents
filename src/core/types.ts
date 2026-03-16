@@ -34,6 +34,7 @@ export type AgentEvent =
   | { type: 'user_message'; message: ChatMessage; meta?: Record<string, any> }
   | { type: 'context_compacting' }
   | { type: 'context_compacted'; tokensBefore: number; summary: string; messagesCompacted: number; usage?: TokenUsage }
+  | { type: 'context_compaction_failed'; reason: string }
   | { type: 'max_turns_reached' }
   | { type: 'retry'; attempt: number; maxRetries: number; error: string; delayMs: number }
   | { type: 'done' };
@@ -118,4 +119,6 @@ export type InferenceRequest = {
   maxTokens?: number;
   temperature?: number;
   model?: string;
+  /** Disable extended thinking for this request (e.g. compaction summaries). */
+  disableThinking?: boolean;
 };

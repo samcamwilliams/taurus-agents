@@ -40,13 +40,17 @@ export class AnthropicProvider extends InferenceProvider {
       messages: messages as Anthropic.MessageParam[],
       tools: params.tools as Anthropic.Tool[] | undefined,
       max_tokens: params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS,
-      // Extended thinking — temperature must be omitted (defaults to 1)
-      thinking: { type: 'enabled', budget_tokens: 10000 },
       // Prompt caching — the API automatically places a breakpoint on the last
       // cacheable block and moves it forward as the conversation grows.
       // Cache read = 10% of input price; write = 1.25x. Pays for itself after 1 hit.
       cache_control: { type: 'ephemeral' },
     };
+
+    // Extended thinking — enabled by default, but can be disabled for lightweight
+    // calls (e.g. compaction) where max_tokens would be below budget_tokens.
+    if (!params.disableThinking) {
+      baseParams.thinking = { type: 'enabled', budget_tokens: 10000 };
+    }
 
     let response: any;
 

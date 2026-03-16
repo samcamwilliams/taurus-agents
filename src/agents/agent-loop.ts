@@ -86,12 +86,14 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
       const currentTokens = await inference.countTokens(chatml);
       if (shouldCompact(model, currentTokens, limitOutputTokens)) {
         yield { type: 'context_compacting' };
-      }
-      const compactResult = await maybeCompact({
-        chatml, inference, model, limitOutputTokens, signal, currentTokens,
-      });
-      if (compactResult.compacted) {
-        yield { type: 'context_compacted', tokensBefore: compactResult.tokensBefore!, summary: compactResult.summary!, messagesCompacted: compactResult.messagesCompacted!, usage: compactResult.usage };
+        const compactResult = await maybeCompact({
+          chatml, inference, model, limitOutputTokens, signal, currentTokens,
+        });
+        if (compactResult.compacted) {
+          yield { type: 'context_compacted', tokensBefore: compactResult.tokensBefore!, summary: compactResult.summary!, messagesCompacted: compactResult.messagesCompacted!, usage: compactResult.usage };
+        } else {
+          yield { type: 'context_compaction_failed', reason: compactResult.reason ?? 'unknown' };
+        }
       }
     }
 

@@ -565,6 +565,10 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           break;
         }
 
+        case 'context_compaction_failed':
+          log('warn', 'context.compaction_failed', `Compaction failed (${event.reason}) — continuing with full context`);
+          break;
+
         case 'retry':
           log('warn', 'inference.retry', `Transient error, retry ${event.attempt}/${event.maxRetries} in ${event.delayMs}ms: ${event.error}`);
           break;

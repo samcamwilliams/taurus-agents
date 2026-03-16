@@ -7,6 +7,8 @@ export interface CompletionOpts {
   /** Output token limit per inference call. Maps to max_tokens / max_output_tokens at the provider. */
   limitOutputTokens?: number;
   temperature?: number;
+  /** Disable extended thinking for this request (e.g. compaction summaries). */
+  disableThinking?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export class InferenceService {
       maxTokens: opts?.limitOutputTokens,
       temperature: opts?.temperature,
       model: opts?.model,
+      disableThinking: opts?.disableThinking,
     };
 
     for await (const event of this.provider.stream(params)) {

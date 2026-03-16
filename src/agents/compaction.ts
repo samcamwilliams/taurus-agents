@@ -35,7 +35,7 @@ Be concise but complete — err on the side of including information that would 
 
 This is only part of a longer conversation so *do not* conclude the summary with language like "Finally, ...". Because the conversation will continue after the summary.
 
-Wrap in <compaction_summary></compaction_summary> tags.`;
+Wrap in <compaction_summary></compaction_summary> tags. Do not use any tools.`;
 
 /**
  * Should compaction trigger for the current context size?
@@ -62,6 +62,8 @@ export function shouldCompact(model: string, currentTokens: number, limitOutputT
 
 export interface CompactionResult {
   compacted: boolean;
+  /** Why compaction was skipped or failed (only set when compacted=false). */
+  reason?: string;
   summary?: string;
   tokensBefore?: number;
   messagesCompacted?: number;
@@ -89,21 +91,20 @@ export async function maybeCompact(params: {
 
   const currentTokens = params.currentTokens ?? await inference.countTokens(chatml);
   if (!shouldCompact(model, currentTokens, limitOutputTokens)) {
-    return { compacted: false };
+    return { compacted: false, reason: 'below_threshold' };
   }
 
-  // Clone chatml and append the compaction prompt as a user message
-  // (user message avoids cache eviction on the system prompt prefix)
+  // Clone chatml and append the compaction prompt as a user message.
+  // Keep tools so the prefix matches the main conversation's cache.
   const compactionChatml = chatml.clone();
-  compactionChatml.setTools([]);
   compactionChatml.addUser(COMPACTION_PROMPT);
 
   let summaryText = '';
   let compactionUsage: TokenUsage | undefined;
   try {
     const compactionLimit = Math.min(COMPACTION_OUTPUT_TOKENS, getLimitOutputTokens(model));
-    for await (const event of inference.complete(compactionChatml, { model, limitOutputTokens: compactionLimit })) {
-      if (signal?.aborted) return { compacted: false };
+    for await (const event of inference.complete(compactionChatml, { model, limitOutputTokens: compactionLimit, disableThinking: true })) {
+      if (signal?.aborted) return { compacted: false, reason: 'aborted' };
       if (event.type === 'message_complete') {
         compactionUsage = event.usage;
         const msg = event.message;
@@ -117,8 +118,8 @@ export async function maybeCompact(params: {
         }
       }
     }
-  } catch {
-    return { compacted: false };
+  } catch (err: any) {
+    return { compacted: false, reason: `inference_error: ${err.message ?? err}` };
   }
 
   // Extract content between tags — prefer <compaction_summary>, fall back to <summary> (models may default to it)
@@ -129,7 +130,8 @@ export async function maybeCompact(params: {
   summary = summary.replace(/<\/?compaction_summary>/g, '').replace(/<\/?summary>/g, '').trim();
 
   if (!summary) {
-    return { compacted: false };
+    const snippet = summaryText.slice(0, 200) || '(empty response)';
+    return { compacted: false, reason: `empty_summary: ${snippet}` };
   }
 
   // Don't modify chatml here — the caller (run-worker) will persist the boundary
