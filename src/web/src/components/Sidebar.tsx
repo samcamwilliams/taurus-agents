@@ -9,11 +9,12 @@ interface SidebarProps {
   agents: Agent[];
   selectedId: string | null;
   onCreateClick: () => void;
+  onTriggerSchedule?: (agentId: string) => void;
 }
 
 type AgentTreeItem = Agent & TreeItem;
 
-export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
+export function Sidebar({ agents, selectedId, onCreateClick, onTriggerSchedule }: SidebarProps) {
   const navigate = useNavigate();
 
   const treeAgents: AgentTreeItem[] = agents.map(a => ({
@@ -38,7 +39,8 @@ export function Sidebar({ agents, selectedId, onCreateClick }: SidebarProps) {
         )}
         renderSecondary={(agent) => {
           if (agent.schedule && agent.next_run && agent.status !== 'running') {
-            return <Countdown targetDate={agent.next_run} schedule={agent.schedule} />;
+            const canTrigger = onTriggerSchedule && agent.status !== 'paused';
+            return <Countdown targetDate={agent.next_run} schedule={agent.schedule} onClick={canTrigger ? (e) => { e?.stopPropagation(); onTriggerSchedule(agent.id); } : undefined} />;
           }
           return null;
         }}

@@ -481,16 +481,17 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     }
   }
 
-  async function handleTriggerSchedule() {
-    if (!agentId) return;
+  async function handleTriggerSchedule(targetAgentId?: string) {
+    const id = targetAgentId || agentId;
+    if (!id) return;
     if (!confirm('Trigger scheduled run now?')) return;
     try {
-      const { runId: newRunId } = await api.startRun(agentId, { trigger: 'schedule' });
+      const { runId: newRunId } = await api.startRun(id, { trigger: 'schedule' });
       await loadAgents();
-      const updatedRuns = await api.listRuns(agentId);
+      const updatedRuns = await api.listRuns(id);
       setRuns(updatedRuns);
       setActiveTab('runs');
-      navigate(`/agents/${agentId}/runs/${newRunId}`);
+      navigate(`/agents/${id}/runs/${newRunId}`);
     } catch (err: any) {
       showToast(err.message);
     }
@@ -561,6 +562,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
         agents={agents}
         selectedId={agentId ?? null}
         onCreateClick={() => setShowCreateModal(true)}
+        onTriggerSchedule={handleTriggerSchedule}
       />
 
       <div className="main">
@@ -585,7 +587,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                 <h2>{selectedAgent.name}</h2>
                 <span className="panel-header__meta">{selectedAgent.model}</span>
                 {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
-                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} onClick={isStopped ? handleTriggerSchedule : undefined} />
+                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} onClick={isStopped ? () => handleTriggerSchedule() : undefined} />
                 )}
               </div>
               <div className="panel-header__actions">

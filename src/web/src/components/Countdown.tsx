@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type MouseEvent } from 'react';
 
 interface CountdownProps {
   targetDate: string;
   schedule?: string;
-  onClick?: () => void;
+  onClick?: (e?: MouseEvent) => void;
 }
 
 function formatRemaining(ms: number): string {
@@ -36,7 +36,7 @@ export function Countdown({ targetDate, schedule, onClick }: CountdownProps) {
     : new Date(targetDate).toLocaleString();
 
   return (
-    <span className={`countdown${onClick ? ' countdown--clickable' : ''}`} title={tooltip} onClick={onClick} role={onClick ? 'button' : undefined}>
+    <span className={`countdown${onClick ? ' countdown--clickable' : ''}`} title={tooltip} onClick={onClick ? (e) => onClick(e) : undefined} role={onClick ? 'button' : undefined}>
       <span className="countdown__label">Next</span><span className="countdown__value">{formatRemaining(remaining)}</span>
     </span>
   );
