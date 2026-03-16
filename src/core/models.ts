@@ -81,6 +81,7 @@ const GPT5_NANO: ModelPricing = { input: 0.05, output: 0.40, cacheWrite: 0.05, c
 const GPT5_1: ModelPricing = { input: 1.25, output: 10, cacheWrite: 1.25, cacheRead: 0.125 };
 const GPT5_2: ModelPricing = { input: 1.75, output: 14, cacheWrite: 1.75, cacheRead: 0.175 };
 const GPT5_4: ModelPricing = { input: 2.50, output: 15, cacheWrite: 2.50, cacheRead: 0.25 };
+const GPT5_4_PRO: ModelPricing = { input: 30, output: 180, cacheWrite: 30, cacheRead: 30 }; // no caching support
 
 // xAI — https://docs.x.ai/docs/models#models-and-pricing
 const GROK4: ModelPricing = { input: 3, output: 15, cacheWrite: 3, cacheRead: 3 };
@@ -197,6 +198,11 @@ export const MODEL_REGISTRY: ModelDef[] = [
     id: 'openai/gpt-5.4',
     title: 'GPT-5.4', description: 'Most capable OpenAI model, 1M context.',
     contextTokens: 1_050_000, maxOutputTokens: 128_000, pricing: GPT5_4,
+  },
+  {
+    id: 'openai/gpt-5.4-pro',
+    title: 'GPT-5.4 Pro', description: 'GPT-5.4 with extended thinking, 12x cost.',
+    contextTokens: 1_050_000, maxOutputTokens: 128_000, pricing: GPT5_4_PRO,
   },
 
   // ── Groq (fast inference, OpenAI-compatible API) ──
