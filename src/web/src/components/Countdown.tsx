@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 interface CountdownProps {
   targetDate: string;
   schedule?: string;
+  onClick?: () => void;
 }
 
 function formatRemaining(ms: number): string {
@@ -19,7 +20,7 @@ function formatRemaining(ms: number): string {
   return `${secs}s`;
 }
 
-export function Countdown({ targetDate, schedule }: CountdownProps) {
+export function Countdown({ targetDate, schedule, onClick }: CountdownProps) {
   const [remaining, setRemaining] = useState(() => new Date(targetDate).getTime() - Date.now());
 
   useEffect(() => {
@@ -31,11 +32,11 @@ export function Countdown({ targetDate, schedule }: CountdownProps) {
   }, [targetDate]);
 
   const tooltip = schedule
-    ? `${new Date(targetDate).toLocaleString()}\nSchedule: ${schedule}`
+    ? `${new Date(targetDate).toLocaleString()}\nSchedule: ${schedule}${onClick ? '\nClick to trigger now' : ''}`
     : new Date(targetDate).toLocaleString();
 
   return (
-    <span className="countdown" title={tooltip}>
+    <span className={`countdown${onClick ? ' countdown--clickable' : ''}`} title={tooltip} onClick={onClick} role={onClick ? 'button' : undefined}>
       <span className="countdown__label">Next</span><span className="countdown__value">{formatRemaining(remaining)}</span>
     </span>
   );

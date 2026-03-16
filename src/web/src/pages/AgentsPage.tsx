@@ -472,9 +472,25 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
 
   async function handleDeleteMessage(msg: MessageRecord) {
     if (!agentId || !runId) return;
+    if (!confirm('Delete this message?')) return;
     try {
       await api.deleteMessage(agentId, runId, msg.id);
       setMessages(prev => prev.filter(m => m.id !== msg.id));
+    } catch (err: any) {
+      showToast(err.message);
+    }
+  }
+
+  async function handleTriggerSchedule() {
+    if (!agentId) return;
+    if (!confirm('Trigger scheduled run now?')) return;
+    try {
+      const { runId: newRunId } = await api.startRun(agentId, { trigger: 'schedule' });
+      await loadAgents();
+      const updatedRuns = await api.listRuns(agentId);
+      setRuns(updatedRuns);
+      setActiveTab('runs');
+      navigate(`/agents/${agentId}/runs/${newRunId}`);
     } catch (err: any) {
       showToast(err.message);
     }
@@ -569,7 +585,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                 <h2>{selectedAgent.name}</h2>
                 <span className="panel-header__meta">{selectedAgent.model}</span>
                 {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
-                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} />
+                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} onClick={isStopped ? handleTriggerSchedule : undefined} />
                 )}
               </div>
               <div className="panel-header__actions">

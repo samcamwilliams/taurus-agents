@@ -237,6 +237,11 @@
     padding: 0 7px 0 5px;
     font-weight: 300;
   }
+
+  &--clickable {
+    cursor: pointer;
+    &:hover { border-color: #d4a574; }
+  }
 }
 
 // ── Tab Bar ──
