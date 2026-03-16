@@ -1,12 +1,10 @@
 import http from 'node:http';
+import type { Ctx } from './context.js';
 
 export function json(res: http.ServerResponse, data: any, status = 200): void {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Connection': 'close',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
   });
   res.end(JSON.stringify(data));
 }
@@ -15,10 +13,21 @@ export function error(res: http.ServerResponse, message: string, status = 400): 
   json(res, { error: message }, status);
 }
 
+const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
+
 export async function parseBody(req: http.IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error('Request body too large'));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => {
       try {
         resolve(body ? JSON.parse(body) : {});
@@ -33,7 +42,7 @@ export async function parseBody(req: http.IncomingMessage): Promise<any> {
 export type Route = {
   method: string;
   pattern: RegExp;
-  handler: (req: http.IncomingMessage, res: http.ServerResponse, params: Record<string, string>) => Promise<void>;
+  handler: (ctx: Ctx) => Promise<void>;
 };
 
 export function route(method: string, path: string, handler: Route['handler']): Route {

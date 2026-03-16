@@ -14,7 +14,6 @@ import { fileURLToPath } from 'node:url';
 import type {
   AgentStatus, TriggerType, ChildMessage, ParentMessage, LogLevel,
 } from './types.js';
-import { ROOT_FOLDER_ID } from './types.js';
 import { DockerService } from './docker.js';
 import { SSEBroadcaster } from './sse.js';
 import { Scheduler } from './scheduler.js';
@@ -22,7 +21,6 @@ import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT
 import { Op } from 'sequelize';
 import Agent from '../db/models/Agent.js';
 import AgentLog from '../db/models/AgentLog.js';
-import Folder from '../db/models/Folder.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 
@@ -81,8 +79,6 @@ export class Daemon {
   // ── Lifecycle ──
 
   async init(): Promise<void> {
-    await Folder.seedRoot();
-
     const agents = await Agent.findAll();
     for (const agent of agents) {
       if (agent.status === 'running') {
@@ -160,6 +156,7 @@ export class Daemon {
     system_prompt: string;
     tools: string[];
     cwd: string;
+    user_id: string;
     parent_agent_id?: string | null;
     folder_id?: string;
     model?: string;
@@ -177,13 +174,22 @@ export class Daemon {
       if (!parent) throw new Error(`Parent agent not found: ${input.parent_agent_id}`);
     }
 
+    // Resolve folder: explicit, or user's root folder
+    let folderId = input.folder_id;
+    if (!folderId) {
+      const Folder = (await import('../db/models/Folder.js')).default;
+      const root = await Folder.ensureRootForUser(input.user_id);
+      folderId = root.id;
+    }
+
     const agent = await Agent.create({
       name: input.name,
       system_prompt: input.system_prompt,
       tools: input.tools,
       cwd: input.cwd,
+      user_id: input.user_id,
       parent_agent_id: input.parent_agent_id ?? null,
-      folder_id: input.folder_id ?? ROOT_FOLDER_ID,
+      folder_id: folderId,
       model: input.model ?? DEFAULT_MODEL,
       schedule: input.schedule ?? null,
       schedule_overlap: input.schedule_overlap ?? 'skip',
@@ -331,13 +337,18 @@ export class Daemon {
     return { ...managed.agent.toApi(), next_run: nextRun?.toISOString() ?? null };
   }
 
-  async listAgents(folder_id?: string): Promise<(ReturnType<Agent['toApi']> & { next_run: string | null })[]> {
-    const all = [...this.agents.values()].map(m => m.agent);
+  async listAgents(userId: string, folder_id?: string): Promise<(ReturnType<Agent['toApi']> & { next_run: string | null })[]> {
+    const all = [...this.agents.values()].map(m => m.agent).filter(a => a.user_id === userId);
     const filtered = folder_id ? all.filter(a => a.folder_id === folder_id) : all;
     return filtered.map(a => ({
       ...a.toApi(),
       next_run: this.scheduler.getNextRun(a.id)?.toISOString() ?? null,
     }));
+  }
+
+  /** Total agent count (all users) — for startup banner. */
+  agentCount(): number {
+    return this.agents.size;
   }
 
   isRunning(agentId: string): boolean {
@@ -575,9 +586,9 @@ export class Daemon {
     return pausedId;
   }
 
-  findAgentByName(name: string): Agent | null {
+  findAgentByName(userId: string, name: string): Agent | null {
     for (const managed of this.agents.values()) {
-      if (managed.agent.name === name) return managed.agent;
+      if (managed.agent.user_id === userId && managed.agent.name === name) return managed.agent;
     }
     return null;
   }
@@ -1057,6 +1068,7 @@ export class Daemon {
             system_prompt: p.system_prompt,
             tools: p.tools ?? ['Read', 'Glob', 'Grep'],
             cwd: callerManaged.agent.cwd,
+            user_id: callerManaged.agent.user_id,
             parent_agent_id: callerAgentId,
             model: p.model ?? callerManaged.agent.model,
             docker_image: p.docker_image ?? callerManaged.agent.docker_image,

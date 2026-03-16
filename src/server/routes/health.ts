@@ -2,8 +2,8 @@ import { json, route, type Route } from '../helpers.js';
 
 export function healthRoutes(): Route[] {
   return [
-    route('GET', '/api/health', async (_req, res) => {
-      json(res, { status: 'ok', uptime: process.uptime() });
+    route('GET', '/api/health', async (ctx) => {
+      json(ctx.res, { status: 'ok', uptime: process.uptime() });
     }),
   ];
 }

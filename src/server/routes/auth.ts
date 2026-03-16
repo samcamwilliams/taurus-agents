@@ -1,11 +1,10 @@
 /**
- * Auth routes — login, logout, status check.
+ * Auth routes — login, logout, status check, password change.
  */
 
 import { route, json, error, parseBody, type Route } from '../helpers.js';
 import {
-  AUTH_ENABLED,
-  verifyPassword,
+  verifyUserCredentials,
   createSession,
   deleteSession,
   getSession,
@@ -15,91 +14,116 @@ import {
   checkLoginRateLimit,
   recordLoginFailure,
   clearLoginFailures,
-} from '../auth.js';
+} from '../auth/index.js';
+import { DisplayableError, NotFoundError } from '../../core/errors.js';
+import User from '../../db/models/User.js';
 
 export function authRoutes(): Route[] {
   return [
     // Check auth status — always public
-    route('GET', '/api/auth/check', async (req, res) => {
-      if (!AUTH_ENABLED) {
-        return json(res, { authenticated: true, authEnabled: false });
-      }
-
-      const cookies = parseCookies(req);
+    route('GET', '/api/auth/check', async (ctx) => {
+      const cookies = parseCookies(ctx.req);
       const sessionToken = cookies.taurus_session;
       if (!sessionToken) {
-        return json(res, { authenticated: false, authEnabled: true });
+        return json(ctx.res, { authenticated: false, authEnabled: true });
       }
 
       const session = getSession(sessionToken);
       if (!session) {
-        return json(res, { authenticated: false, authEnabled: true });
+        return json(ctx.res, { authenticated: false, authEnabled: true });
       }
 
-      return json(res, {
+      // Look up user for username/role
+      const user = await User.findByPk(session.userId, { attributes: ['username', 'role'] });
+      return json(ctx.res, {
         authenticated: true,
         authEnabled: true,
         csrfToken: session.csrfToken,
+        username: user?.username ?? null,
+        role: user?.role ?? session.role,
       });
     }),
 
-    // Login
-    route('POST', '/api/auth/login', async (req, res) => {
-      if (!AUTH_ENABLED) {
-        return json(res, { ok: true, authEnabled: false });
-      }
-
+    // Login — accepts { username, password }
+    route('POST', '/api/auth/login', async (ctx) => {
       // Rate limit by IP
-      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-        || req.socket.remoteAddress
+      const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+        || ctx.req.socket.remoteAddress
         || 'unknown';
 
       if (!checkLoginRateLimit(ip)) {
-        return error(res, 'Too many login attempts — try again later', 429);
+        return error(ctx.res, 'Too many login attempts — try again later', 429);
       }
 
-      const body = await parseBody(req);
+      const body = await parseBody(ctx.req);
+      const username = body.username;
       const password = body.password;
 
+      if (!username || typeof username !== 'string') {
+        return error(ctx.res, 'Username is required', 400);
+      }
       if (!password || typeof password !== 'string') {
-        return error(res, 'Password is required', 400);
+        return error(ctx.res, 'Password is required', 400);
       }
 
-      if (!verifyPassword(password)) {
+      const user = await verifyUserCredentials(username, password);
+      if (!user) {
         recordLoginFailure(ip);
-        return error(res, 'Invalid password', 401);
+        return error(ctx.res, 'Invalid username or password', 401);
       }
 
       clearLoginFailures(ip);
-      const session = createSession();
+      const session = createSession(user.id, user.role);
 
-      res.writeHead(200, {
+      ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': sessionCookieHeader(session.token),
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
       });
-      res.end(JSON.stringify({
+      ctx.res.end(JSON.stringify({
         ok: true,
         csrfToken: session.csrfToken,
+        username: user.username,
+        role: user.role,
       }));
     }),
 
     // Logout
-    route('POST', '/api/auth/logout', async (_req, res) => {
-      const cookies = parseCookies(_req);
+    route('POST', '/api/auth/logout', async (ctx) => {
+      const cookies = parseCookies(ctx.req);
       const sessionToken = cookies.taurus_session;
       if (sessionToken) {
         deleteSession(sessionToken);
       }
 
-      res.writeHead(200, {
+      ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': clearSessionCookieHeader(),
-        'Access-Control-Allow-Origin': '*',
       });
-      res.end(JSON.stringify({ ok: true }));
+      ctx.res.end(JSON.stringify({ ok: true }));
+    }),
+
+    // Self-service password change
+    route('PUT', '/api/auth/password', async (ctx) => {
+      const body = await parseBody(ctx.req);
+      const { current_password, new_password } = body;
+
+      if (!current_password || !new_password) {
+        throw new DisplayableError('current_password and new_password are required', 400);
+      }
+      if (typeof new_password !== 'string' || new_password.length < 6) {
+        throw new DisplayableError('New password must be at least 6 characters', 400);
+      }
+
+      const user = await User.findByPk(ctx.user.id);
+      if (!user) throw new NotFoundError('User not found');
+
+      const valid = await user.verifyPassword(current_password);
+      if (!valid) throw new DisplayableError('Current password is incorrect', 401);
+
+      const hash = await User.hashPassword(new_password);
+      await user.update({ password_hash: hash });
+
+      json(ctx.res, { ok: true });
     }),
   ];
 }

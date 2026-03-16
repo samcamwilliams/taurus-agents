@@ -3,8 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Daemon } from '../daemon/daemon.js';
+import type { Ctx } from './context.js';
 import { error, type Route } from './helpers.js';
-import { authenticate, AUTH_ENABLED } from './auth.js';
+import { authenticate } from './auth/index.js';
+import { DisplayableError } from '../core/errors.js';
 import { authRoutes } from './routes/auth.js';
 import { agentRoutes } from './routes/agents.js';
 import { folderRoutes } from './routes/folders.js';
@@ -42,25 +44,27 @@ export function createServer(daemon: Daemon, port: number): http.Server {
     ...fileRoutes(daemon),
   ];
 
-  if (AUTH_ENABLED) {
-    console.log('  Auth: enabled (AUTH_PASSWORD set)');
-  }
-
   const server = http.createServer(async (req, res) => {
-    // CORS preflight
+    // CORS preflight — only allow same origin or configured CORS_ORIGIN
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
-      });
+      const allowedOrigin = process.env.CORS_ORIGIN;
+      if (allowedOrigin) {
+        res.writeHead(204, {
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
+          'Access-Control-Allow-Credentials': 'true',
+        });
+      } else {
+        res.writeHead(204);
+      }
       return res.end();
     }
 
     const url = new URL(req.url!, `http://localhost:${port}`);
 
-    // Auth gate — check before routing
-    const auth = authenticate(req);
+    // Auth gate — check before routing (now async)
+    const auth = await authenticate(req);
     if (!auth.ok) {
       error(res, auth.error, auth.status);
       return;
@@ -71,10 +75,20 @@ export function createServer(daemon: Daemon, port: number): http.Server {
       if (req.method !== r.method) continue;
       const match = url.pathname.match(r.pattern);
       if (match) {
+        const ctx: Ctx = { req, res, params: match.groups ?? {}, user: auth.user };
         try {
-          await r.handler(req, res, match.groups ?? {});
+          await r.handler(ctx);
         } catch (err: any) {
-          error(res, `Internal error: ${err.message}`, 500);
+          if (err instanceof DisplayableError) {
+            console.error(`[${err.status}] ${err.message}`);
+            if (!res.headersSent) error(res, err.message, err.status);
+          } else {
+            console.error('Internal error:', err);
+            if (!res.headersSent) {
+              const isDev = process.env.NODE_ENV !== 'production';
+              error(res, isDev ? `Internal error: ${err.message}` : 'Internal error', 500);
+            }
+          }
         }
         return;
       }

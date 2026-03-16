@@ -1,7 +1,6 @@
 import { DataTypes, Model } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../index.js';
-import { ROOT_FOLDER_ID } from '../../daemon/types.js';
 import type { AgentStatus } from '../../daemon/types.js';
 import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT_MS } from '../../core/defaults.js';
 
@@ -9,6 +8,7 @@ const sequelize = Database.init();
 
 class Agent extends Model {
   declare id: string;
+  declare user_id: string;
   declare parent_agent_id: string | null;
   declare folder_id: string;
   declare name: string;
@@ -32,10 +32,10 @@ class Agent extends Model {
   }
 
   toApi() {
-    const { id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
+    const { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
     // SQLite may store JSON default as a raw string — ensure mounts is always an array
     const mounts = typeof this.mounts === 'string' ? JSON.parse(this.mounts) : (this.mounts ?? []);
-    return { id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, mounts, created_at, updated_at };
+    return { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, mounts, created_at, updated_at };
   }
 }
 
@@ -51,10 +51,13 @@ Agent.init(
       allowNull: true,
       defaultValue: null,
     },
+    user_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     folder_id: {
       type: DataTypes.UUID,
       allowNull: false,
-      defaultValue: ROOT_FOLDER_ID,
     },
     name: {
       type: DataTypes.STRING,
@@ -129,8 +132,8 @@ Agent.init(
     indexes: [
       {
         unique: true,
-        fields: ['parent_agent_id', 'name'],
-        name: 'agents_parent_name_unique',
+        fields: ['user_id', 'parent_agent_id', 'name'],
+        name: 'agents_user_parent_name_unique',
       },
     ],
   }

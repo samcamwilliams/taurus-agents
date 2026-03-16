@@ -99,6 +99,7 @@
       color: var(--c-muted);
     }
 
+    input[type="text"],
     input[type="password"] {
       width: 100%;
       background: color-mix(in srgb, var(--c-bg) 80%, transparent);
@@ -110,6 +111,7 @@
       font-size: 14px;
       outline: none;
       transition: border-color 0.15s;
+      margin-bottom: 12px;
 
       &:focus { border-color: var(--c-purple); }
       &::placeholder { color: var(--c-muted); opacity: 0.5; }
@@ -124,6 +126,14 @@
     border-radius: 6px;
     color: var(--c-red);
     font-size: 13px;
+  }
+
+  &__hint {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--c-muted);
+    text-align: center;
+    opacity: 0.7;
   }
 
   &__submit {

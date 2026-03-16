@@ -14,7 +14,6 @@ export class SSEBroadcaster {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
     });
 
     if (!this.clients.has(agentId)) {

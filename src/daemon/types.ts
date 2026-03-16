@@ -32,7 +32,3 @@ export type ChildMessage =
   | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string; continueRun?: boolean }
   | { type: 'supervisor_request'; requestId: string; action: string; params: Record<string, unknown> }
   | { type: 'error'; error: string; stack?: string };
-
-// ─── Root folder well-known ID ───
-
-export const ROOT_FOLDER_ID = '00000000-0000-0000-0000-000000000000';

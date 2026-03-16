@@ -8,15 +8,15 @@ type AuthState = 'loading' | 'authenticated' | 'login';
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>('loading');
-  const [authEnabled, setAuthEnabled] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/check')
       .then((r) => r.json())
       .then((data) => {
-        setAuthEnabled(!!data.authEnabled);
-        if (!data.authEnabled || data.authenticated) {
+        if (data.authenticated) {
           if (data.csrfToken) setCsrfToken(data.csrfToken);
+          if (data.username) setUsername(data.username);
           setAuth('authenticated');
         } else {
           setAuth('login');
@@ -40,9 +40,9 @@ export function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<AgentsPage authEnabled={authEnabled} onLogout={() => setAuth('login')} />} />
-      <Route path="/agents/:agentId" element={<AgentsPage authEnabled={authEnabled} onLogout={() => setAuth('login')} />} />
-      <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage authEnabled={authEnabled} onLogout={() => setAuth('login')} />} />
+      <Route path="/" element={<AgentsPage authEnabled={true} onLogout={() => { setAuth('login'); setUsername(null); }} />} />
+      <Route path="/agents/:agentId" element={<AgentsPage authEnabled={true} onLogout={() => { setAuth('login'); setUsername(null); }} />} />
+      <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage authEnabled={true} onLogout={() => { setAuth('login'); setUsername(null); }} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

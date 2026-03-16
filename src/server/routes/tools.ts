@@ -5,8 +5,8 @@ import { listModels } from '../../core/models.js';
 
 export function toolRoutes(): Route[] {
   return [
-    route('GET', '/api/tools', async (_req, res) => {
-      json(res, {
+    route('GET', '/api/tools', async (ctx) => {
+      json(ctx.res, {
         tools: TOOL_CATALOG,
         defaults: {
           model: DEFAULT_MODEL,
@@ -20,8 +20,8 @@ export function toolRoutes(): Route[] {
       });
     }),
 
-    route('GET', '/api/models', async (_req, res) => {
-      json(res, listModels());
+    route('GET', '/api/models', async (ctx) => {
+      json(ctx.res, listModels());
     }),
   ];
 }

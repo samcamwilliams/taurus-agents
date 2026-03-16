@@ -5,6 +5,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +19,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
@@ -45,14 +46,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         <div className="login-card__body">
-          {/* Hidden username for password managers */}
+          <label htmlFor="username">Username</label>
           <input
+            id="username"
             type="text"
             name="username"
             autoComplete="username"
-            value="admin"
-            readOnly
-            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0 }}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username"
+            autoFocus
+            disabled={loading}
           />
 
           <label htmlFor="password">Password</label>
@@ -64,13 +68,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter password"
-            autoFocus
             disabled={loading}
           />
 
+          <p className="login-card__hint">Check the CLI output for default credentials.</p>
+
           {error && <div className="login-card__error">{error}</div>}
 
-          <button type="submit" className="btn primary login-card__submit" disabled={loading || !password}>
+          <button type="submit" className="btn primary login-card__submit" disabled={loading || !username || !password}>
             {loading ? 'Signing in\u2026' : 'Sign in'}
           </button>
         </div>

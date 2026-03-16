@@ -55,11 +55,17 @@ export async function setupAssociations(): Promise<void> {
   if (_setup) return;
   _setup = true;
 
+  const { default: User } = await import('./models/User.js');
   const { default: Agent } = await import('./models/Agent.js');
   const { default: Run } = await import('./models/Run.js');
   const { default: Message } = await import('./models/Message.js');
+  const { default: Folder } = await import('./models/Folder.js');
 
   // Associations (for eager loading / queries, not for cascade)
+  User.hasMany(Agent, { foreignKey: 'user_id' });
+  Agent.belongsTo(User, { foreignKey: 'user_id' });
+  User.hasMany(Folder, { foreignKey: 'user_id' });
+  Folder.belongsTo(User, { foreignKey: 'user_id' });
   Agent.hasMany(Run, { foreignKey: 'agent_id' });
   Run.belongsTo(Agent, { foreignKey: 'agent_id' });
   Run.hasMany(Message, { foreignKey: 'run_id', as: 'messages' });

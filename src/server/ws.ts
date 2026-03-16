@@ -15,7 +15,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import http from 'node:http';
 import net from 'node:net';
 import type { Daemon } from '../daemon/daemon.js';
-import { authenticateWs } from './auth.js';
+import { authenticateWs } from './auth/index.js';
+import { assertAccessToAgent } from './auth/index.js';
 
 const DOCKER_SOCKET = '/var/run/docker.sock';
 const REPLAY_LIMIT = 50 * 1024; // 50KB replay buffer per session
@@ -37,9 +38,10 @@ const sessions = new Map<string, TerminalSession>();
 export function attachTerminalWs(server: http.Server, daemon: Daemon): void {
   const wss = new WebSocketServer({ noServer: true });
 
-  server.on('upgrade', (req, socket, head) => {
+  server.on('upgrade', async (req, socket, head) => {
     // Auth check on WebSocket upgrade
-    if (!authenticateWs(req)) {
+    const user = await authenticateWs(req);
+    if (!user) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
@@ -52,8 +54,19 @@ export function attachTerminalWs(server: http.Server, daemon: Daemon): void {
       return;
     }
 
+    const agentId = match.groups!.id;
+
+    // Ownership check — user must own this agent
+    try {
+      await assertAccessToAgent(agentId, user);
+    } catch {
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
     wss.handleUpgrade(req, socket, head, (ws) => {
-      handleConnection(ws, match.groups!.id, daemon);
+      handleConnection(ws, agentId, daemon);
     });
   });
 }

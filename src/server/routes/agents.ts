@@ -1,6 +1,8 @@
 import type http from 'node:http';
 import type { Daemon } from '../../daemon/daemon.js';
 import { json, error, parseBody, route, type Route } from '../helpers.js';
+import { assertAccessToAgent, assertRunBelongsToAgent, assertMessageBelongsToRun } from '../auth/index.js';
+import { NotFoundError } from '../../core/errors.js';
 import { DEFAULT_TOOLS } from '../../core/defaults.js';
 
 /**
@@ -89,17 +91,17 @@ async function sendAskResult(
 export function agentRoutes(daemon: Daemon): Route[] {
   return [
     // ── CRUD ──
-    route('GET', '/api/agents', async (req, res) => {
-      const url = new URL(req.url!, `http://localhost`);
+    route('GET', '/api/agents', async (ctx) => {
+      const url = new URL(ctx.req.url!, `http://localhost`);
       const folder_id = url.searchParams.get('folder_id') ?? undefined;
-      const agents = await daemon.listAgents(folder_id);
-      json(res, agents);
+      const agents = await daemon.listAgents(ctx.user.id, folder_id);
+      json(ctx.res, agents);
     }),
 
-    route('POST', '/api/agents', async (req, res) => {
-      const body = await parseBody(req);
+    route('POST', '/api/agents', async (ctx) => {
+      const body = await parseBody(ctx.req);
       if (!body.name || !body.system_prompt) {
-        return error(res, 'name and system_prompt are required');
+        return error(ctx.res, 'name and system_prompt are required');
       }
       try {
         const agent = await daemon.createAgent({
@@ -107,6 +109,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           system_prompt: body.system_prompt,
           tools: body.tools ?? DEFAULT_TOOLS,
           cwd: body.cwd ?? '/workspace',
+          user_id: ctx.user.id,
           parent_agent_id: body.parent_agent_id,
           folder_id: body.folder_id,
           model: body.model,
@@ -118,142 +121,157 @@ export function agentRoutes(daemon: Daemon): Route[] {
           docker_image: body.docker_image,
           mounts: body.mounts,
         });
-        json(res, agent, 201);
+        json(ctx.res, agent, 201);
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
-    route('GET', '/api/agents/:id', async (_req, res, params) => {
-      const agent = await daemon.getAgent(params.id);
-      if (!agent) return error(res, 'Agent not found', 404);
-      const children = daemon.getChildren(params.id).map(c => ({
+    route('GET', '/api/agents/:id', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const agent = await daemon.getAgent(ctx.params.id);
+      if (!agent) return error(ctx.res, 'Agent not found', 404);
+      const children = daemon.getChildren(ctx.params.id).map(c => ({
         id: c.id, name: c.name, status: c.status,
       }));
-      json(res, { ...agent, children });
+      json(ctx.res, { ...agent, children });
     }),
 
-    route('PUT', '/api/agents/:id', async (req, res, params) => {
-      const body = await parseBody(req);
+    route('PUT', '/api/agents/:id', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const body = await parseBody(ctx.req);
       try {
-        const agent = await daemon.updateAgent(params.id, body);
-        json(res, agent);
+        const agent = await daemon.updateAgent(ctx.params.id, body);
+        json(ctx.res, agent);
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
-    route('DELETE', '/api/agents/:id', async (_req, res, params) => {
+    route('DELETE', '/api/agents/:id', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
       try {
-        await daemon.deleteAgent(params.id);
-        json(res, { ok: true });
+        await daemon.deleteAgent(ctx.params.id);
+        json(ctx.res, { ok: true });
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
     // ── Run Management ──
-    route('POST', '/api/agents/:id/run', async (req, res, params) => {
-      const body = await parseBody(req);
+    route('POST', '/api/agents/:id/run', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const body = await parseBody(ctx.req);
       try {
         if (body.run_id) {
-          // Continue an existing run (or resume if paused)
-          await daemon.continueRun(params.id, body.run_id, body.input, body.images);
-          json(res, { runId: body.run_id });
+          await daemon.continueRun(ctx.params.id, body.run_id, body.input, body.images);
+          json(ctx.res, { runId: body.run_id });
         } else {
-          // Start a new run
           const runId = await daemon.startRun(
-            params.id,
+            ctx.params.id,
             body.trigger ?? 'manual',
             body.input,
             body.images,
           );
-          json(res, { runId }, 201);
+          json(ctx.res, { runId }, 201);
         }
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
-    route('DELETE', '/api/agents/:id/run', async (_req, res, params) => {
+    route('DELETE', '/api/agents/:id/run', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
       try {
-        await daemon.stopAllRuns(params.id, 'API stop request');
-        json(res, { ok: true });
+        await daemon.stopAllRuns(ctx.params.id, 'API stop request');
+        json(ctx.res, { ok: true });
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
-    route('DELETE', '/api/agents/:id/runs/:runId', async (_req, res, params) => {
+    route('DELETE', '/api/agents/:id/runs/:runId', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      await assertRunBelongsToAgent(ctx.params.runId, ctx.params.id);
       try {
-        await daemon.stopRun(params.id, params.runId, 'API stop request');
-        json(res, { ok: true });
+        await daemon.stopRun(ctx.params.id, ctx.params.runId, 'API stop request');
+        json(ctx.res, { ok: true });
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
-    route('POST', '/api/agents/:id/message', async (req, res, params) => {
-      const body = await parseBody(req);
-      if (!body.message) return error(res, 'message is required');
+    route('POST', '/api/agents/:id/message', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const body = await parseBody(ctx.req);
+      if (!body.message) return error(ctx.res, 'message is required');
       try {
-        const runId = await daemon.sendMessage(params.id, body.message, {
+        const runId = await daemon.sendMessage(ctx.params.id, body.message, {
           images: body.images,
           run_id: body.run_id,
         });
-        json(res, { runId });
+        json(ctx.res, { runId });
       } catch (err: any) {
-        error(res, err.message);
+        error(ctx.res, err.message);
       }
     }),
 
     // ── SSE, Logs, Runs ──
-    route('GET', '/api/agents/:id/stream', async (_req, res, params) => {
-      await daemon.addSSEClient(params.id, res);
+    route('GET', '/api/agents/:id/stream', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      await daemon.addSSEClient(ctx.params.id, ctx.res);
     }),
 
-    route('GET', '/api/agents/:id/logs', async (_req, res, params) => {
-      const logs = await daemon.getAgentLogs(params.id, 100);
-      json(res, logs);
+    route('GET', '/api/agents/:id/logs', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const logs = await daemon.getAgentLogs(ctx.params.id, 100);
+      json(ctx.res, logs);
     }),
 
-    route('GET', '/api/agents/:id/runs', async (_req, res, params) => {
-      const runs = await daemon.getAgentRuns(params.id);
-      json(res, runs);
+    route('GET', '/api/agents/:id/runs', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const runs = await daemon.getAgentRuns(ctx.params.id);
+      json(ctx.res, runs);
     }),
 
-    route('GET', '/api/agents/:id/runs/:runId/messages', async (req, res, params) => {
-      const url = new URL(req.url!, `http://localhost`);
+    route('GET', '/api/agents/:id/runs/:runId/messages', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      await assertRunBelongsToAgent(ctx.params.runId, ctx.params.id);
+      const url = new URL(ctx.req.url!, `http://localhost`);
       const afterStr = url.searchParams.get('after');
       const afterSeq = afterStr ? parseInt(afterStr, 10) : undefined;
-      const messages = await daemon.getRunMessages(params.runId, afterSeq);
-      json(res, messages);
+      const messages = await daemon.getRunMessages(ctx.params.runId, afterSeq);
+      json(ctx.res, messages);
     }),
 
-    route('DELETE', '/api/agents/:id/runs/:runId/messages/:messageId', async (_req, res, params) => {
-      const ok = await daemon.deleteMessage(params.messageId);
-      if (!ok) return error(res, 'Message not found', 404);
-      json(res, { ok: true });
+    route('DELETE', '/api/agents/:id/runs/:runId/messages/:messageId', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      await assertRunBelongsToAgent(ctx.params.runId, ctx.params.id);
+      await assertMessageBelongsToRun(ctx.params.messageId, ctx.params.runId);
+      const ok = await daemon.deleteMessage(ctx.params.messageId);
+      if (!ok) return error(ctx.res, 'Message not found', 404);
+      json(ctx.res, { ok: true });
     }),
 
     // ── Blocking ask ──
 
     // By name: POST /api/ask { agent: "my-agent", message: "..." }
-    route('POST', '/api/ask', async (req, res) => {
-      const body = await parseBody(req);
-      if (!body.agent) return error(res, 'agent (name) is required');
-      const agent = daemon.findAgentByName(body.agent);
+    route('POST', '/api/ask', async (ctx) => {
+      const body = await parseBody(ctx.req);
+      if (!body.agent) return error(ctx.res, 'agent (name) is required');
+      const agent = daemon.findAgentByName(ctx.user.id, body.agent);
       if (!agent) {
-        const all = await daemon.listAgents();
-        return error(res, `Agent not found: "${body.agent}". Available: ${all.map(a => a.name).join(', ')}`, 404);
+        throw new NotFoundError(`Agent not found: "${body.agent}"`)
+;
       }
-      await handleAsk(daemon, agent.id, body, req, res);
+      await handleAsk(daemon, agent.id, body, ctx.req, ctx.res);
     }),
 
     // By ID: POST /api/agents/:id/ask { message: "..." }
-    route('POST', '/api/agents/:id/ask', async (req, res, params) => {
-      const body = await parseBody(req);
-      await handleAsk(daemon, params.id, body, req, res);
+    route('POST', '/api/agents/:id/ask', async (ctx) => {
+      await assertAccessToAgent(ctx.params.id, ctx.user);
+      const body = await parseBody(ctx.req);
+      await handleAsk(daemon, ctx.params.id, body, ctx.req, ctx.res);
     }),
   ];
 }
