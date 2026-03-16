@@ -393,6 +393,9 @@ export class Daemon {
     const activeRun = managed.runs.get(runId);
     if (activeRun) {
       if (activeRun.status === 'paused') {
+        // Ensure the container is running — it may have been paused by OrbStack
+        // (e.g. laptop sleep) while the agent was waiting for user input.
+        await this.docker.ensureContainer(managed.agent);
         activeRun.process.send({ type: 'resume', message: input } as ParentMessage);
         activeRun.status = 'running';
         await this.deriveAgentStatus(agentId);
@@ -505,6 +508,7 @@ export class Daemon {
     if (!run) throw new Error('No active run to inject into');
 
     if (run.status === 'paused') {
+      await this.docker.ensureContainer(managed.agent);
       run.process.send({ type: 'resume', message } as ParentMessage);
       run.status = 'running';
       await this.deriveAgentStatus(agentId);

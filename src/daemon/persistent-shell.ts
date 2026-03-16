@@ -64,6 +64,10 @@ export class PersistentShell {
   async spawn(): Promise<void> {
     if (this.alive) return;
 
+    // Clear stale buffer from any previous dead session
+    this.buffer = '';
+    this.shellPid = undefined;
+
     const args = this.mode === 'docker'
       ? ['exec', '-i', this.container_id!, 'bash', '--norc', '--noprofile']
       : ['--norc', '--noprofile'];
@@ -93,16 +97,61 @@ export class PersistentShell {
     if (this.mode === 'host' && this.cwd) {
       this.proc.stdin!.write(`cd ${JSON.stringify(this.cwd)}\n`);
     }
+
+    // Readiness probe: verify the shell actually works before returning.
+    // Without this, spawn() can "succeed" while the docker exec process is
+    // already dead (e.g. container paused after OrbStack sleep).
+    const readyId = randomUUID();
+    this.proc.stdin!.write(`echo "TAURUS_READY_${readyId}"\n`);
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        if (this.proc) this.proc.kill('SIGKILL');
+        this.alive = false;
+        reject(new Error(`Shell readiness probe timed out (container: ${this.container_id})`));
+      }, 5000);
+
+      const onData = (chunk: Buffer) => {
+        if (chunk.toString().includes(`TAURUS_READY_${readyId}`)) {
+          cleanup();
+          resolve();
+        }
+      };
+
+      const onClose = (code: number | null) => {
+        cleanup();
+        reject(new Error(
+          `Shell died during spawn (exit code: ${code}, container: ${this.container_id}). ` +
+          `The docker exec session could not be established — the container may be paused or stopped.`
+        ));
+      };
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.proc?.stdout?.off('data', onData);
+        this.proc?.off('close', onClose);
+      };
+
+      // Listen on stdout directly (not through handleData) to catch the probe
+      // before it gets mixed with sentinel processing
+      this.proc!.stdout!.on('data', onData);
+      this.proc!.on('close', onClose);
+    });
   }
 
   async exec(command: string, opts?: { timeout?: number; onData?: (line: string) => void }): Promise<CommandResult> {
     if (!this.alive || !this.proc) {
       // Auto-respawn: the shell may have died (e.g. Docker/OrbStack paused when
       // the laptop lid was closed). Try to recover transparently.
+      console.error(`[persistent-shell] Shell is dead, attempting auto-respawn (container: ${this.container_id})`);
       try {
         await this.spawn();
-      } catch {
-        throw new Error('Shell died and could not be restarted. The Docker container may have stopped.');
+        console.error(`[persistent-shell] Auto-respawn succeeded (container: ${this.container_id})`);
+      } catch (err: any) {
+        throw new Error(
+          `Shell died and could not be restarted (container: ${this.container_id}): ${err.message}`
+        );
       }
     }
 
@@ -353,12 +402,17 @@ export class PersistentShell {
     }
   }
 
-  private handleClose(_code: number | null): void {
+  private handleClose(code: number | null): void {
     this.alive = false;
+    const detail = `exit code: ${code}, container: ${this.container_id ?? 'host'}, shell PID: ${this.shellPid ?? 'unknown'}`;
+    console.error(`[persistent-shell] Shell closed unexpectedly (${detail})`);
     // Reject all pending commands
     for (const [id, pending] of this.pending) {
       this.clearPending(id, pending);
-      pending.reject(new Error('Shell process exited unexpectedly'));
+      pending.reject(new Error(
+        `Shell process exited unexpectedly (${detail}). ` +
+        `This usually means the Docker container was paused or restarted (e.g. laptop sleep, OrbStack).`
+      ));
     }
   }
 
