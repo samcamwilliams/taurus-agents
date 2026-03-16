@@ -2,6 +2,38 @@ import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardR
 import { SendHorizonal, Plus, Image } from 'lucide-react';
 import { Lightbox } from './Lightbox';
 
+const MAX_IMAGE_DIM = 1568; // Anthropic recommended max — keeps tokens reasonable
+
+function resizeImage(file: File): Promise<{ base64: string; mediaType: string }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const { width, height } = img;
+      if (width <= MAX_IMAGE_DIM && height <= MAX_IMAGE_DIM) {
+        // Already small enough — use original bytes
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve({ base64: (reader.result as string).split(',')[1], mediaType: file.type });
+        };
+        reader.readAsDataURL(file);
+        URL.revokeObjectURL(img.src);
+        return;
+      }
+      const scale = MAX_IMAGE_DIM / Math.max(width, height);
+      const w = Math.round(width * scale);
+      const h = Math.round(height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/webp', 0.85);
+      resolve({ base64: dataUrl.split(',')[1], mediaType: 'image/webp' });
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export type ImageAttachment = {
   base64: string;
   mediaType: string;
@@ -105,13 +137,9 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   function addFiles(files: FileList | File[]) {
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const base64 = dataUrl.split(',')[1];
-        setImages(prev => [...prev, { base64, mediaType: file.type, name: file.name }]);
-      };
-      reader.readAsDataURL(file);
+      resizeImage(file).then(({ base64, mediaType }) => {
+        setImages(prev => [...prev, { base64, mediaType, name: file.name }]);
+      });
     }
   }
 
