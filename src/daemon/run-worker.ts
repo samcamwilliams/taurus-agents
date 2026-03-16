@@ -598,11 +598,11 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   let summary = 'Run completed.';
   if (lastAssistant) {
     if (typeof lastAssistant.content === 'string') {
-      summary = lastAssistant.content.slice(0, 4000);
+      summary = lastAssistant.content;
     } else {
       const textBlock = lastAssistant.content.find(b => b.type === 'text');
       if (textBlock && textBlock.type === 'text') {
-        summary = textBlock.text.slice(0, 4000);
+        summary = textBlock.text;
       }
     }
   }
