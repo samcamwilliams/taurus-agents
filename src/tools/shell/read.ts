@@ -2,6 +2,7 @@ import type { ToolResult, ToolContext, ImageData } from '../../core/types.js';
 import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
 import type { FileTracker } from './file-tracker.js';
+import { resizeImageIfNeeded } from './resize-image.js';
 
 const MAX_LINE_LENGTH = 2000;
 
@@ -59,15 +60,17 @@ export class ShellReadTool extends Tool {
       if (b64Result.exitCode !== 0) {
         return { output: `Error reading image: ${fp}`, isError: true, durationMs: b64Result.durationMs };
       }
-      const base64 = b64Result.stdout.replace(/\s/g, '');
-      if (!base64 || base64.length < 8) {
+      const rawBase64 = b64Result.stdout.replace(/\s/g, '');
+      if (!rawBase64 || rawBase64.length < 8) {
         return { output: `Error: empty or corrupt base64 for ${fp}`, isError: true, durationMs: b64Result.durationMs };
       }
+      // Downscale oversized images to avoid blowing up context
+      const resized = await resizeImageIfNeeded(rawBase64, imageMediaType);
       return {
-        output: `Image: ${fp} (${mime})`,
+        output: `Image: ${fp} (${resized.mediaType})`,
         isError: false,
         durationMs: probe.durationMs + b64Result.durationMs,
-        images: [{ base64, mediaType: imageMediaType }],
+        images: [resized],
       };
     }
 
