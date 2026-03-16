@@ -1,8 +1,16 @@
 import type { DirListing } from './types';
+import { getCsrfToken } from '../../api';
 
 async function request<T>(path: string, opts: Omit<RequestInit, 'body'> & { body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  const csrf = getCsrfToken();
+  if (csrf && opts.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(opts.method)) {
+    headers['X-CSRF-Token'] = csrf;
+  }
+
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
