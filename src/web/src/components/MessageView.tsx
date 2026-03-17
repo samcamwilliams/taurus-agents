@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Terminal, FileText, FilePen, FolderSearch, Search,
   Pause, Globe, Download, MonitorPlay, Eye,
-  Wrench, Minimize2,
+  Wrench, Minimize2, Maximize2, X,
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
@@ -26,13 +26,46 @@ const TOOL_ICONS: Record<string, typeof Terminal> = {
   Browser: MonitorPlay,
 };
 
-function ToolHeader({ name, description }: { name: string; description?: string }) {
+function ToolHeader({ name, description, onZoom }: { name: string; description?: string; onZoom?: () => void }) {
   const Icon = TOOL_ICONS[name] ?? Wrench;
   return (
     <div className="msg-tool-use__header">
       <Icon size={12} />
       <span>{name}</span>
       {description && <span className="msg-tool-use__desc">{description}</span>}
+      {onZoom && (
+        <button className="zoomable__btn" onClick={onZoom} title="Maximize">
+          <Maximize2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ZoomableBlock({ children }: { children: (onZoom: () => void) => React.ReactNode }) {
+  const [zoomed, setZoomed] = useState(false);
+  const onZoom = () => setZoomed(true);
+
+  useEffect(() => {
+    if (!zoomed) return;
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') setZoomed(false);
+    }
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [zoomed]);
+
+  return (
+    <div className="zoomable">
+      {children(onZoom)}
+      {zoomed && (
+        <div className="zoomable__overlay" onClick={(e) => { if (e.target === e.currentTarget) setZoomed(false); }}>
+          <div className="zoomable__pane">
+            <button className="zoomable__close" onClick={() => setZoomed(false)}><X size={16} /></button>
+            {children(onZoom)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -165,77 +198,96 @@ function ContentBlockView({ block, showMetadata, toolMeta }: { block: any; showM
     const { description, ...inputRest } = block.input ?? {};
     if (block.name === 'Edit' && inputRest.old_string != null && inputRest.new_string != null) {
       return (
-        <div className="msg-tool-use">
-          <ToolHeader name={block.name} description={description} />
-          <div className="msg-tool-use__input msg-tool-use__input--diff">
-            <DiffView
-              filePath={inputRest.file_path ?? ''}
-              oldString={inputRest.old_string}
-              newString={inputRest.new_string}
-              replaceAll={inputRest.replace_all}
-              startLine={toolMeta?.[block.id]?.start_line}
-            />
-          </div>
-        </div>
+        <ZoomableBlock>
+          {(onZoom) => (
+            <div className="msg-tool-use">
+              <ToolHeader name={block.name} description={description} onZoom={onZoom} />
+              <div className="msg-tool-use__input msg-tool-use__input--diff">
+                <DiffView
+                  filePath={inputRest.file_path ?? ''}
+                  oldString={inputRest.old_string}
+                  newString={inputRest.new_string}
+                  replaceAll={inputRest.replace_all}
+                  startLine={toolMeta?.[block.id]?.start_line}
+                />
+              </div>
+            </div>
+          )}
+        </ZoomableBlock>
       );
     }
     if (block.name === 'Bash' && inputRest.command) {
       const { command, ...bashRest } = inputRest;
       const hasExtra = Object.keys(bashRest).length > 0;
       return (
-        <div className="msg-tool-use">
-          <ToolHeader name={block.name} description={description} />
-          <div className="msg-tool-use__cmd">
-            <code>{command}</code>
-          </div>
-          {hasExtra && (
-            <div className="msg-tool-use__input">
-              <JsonKV data={bashRest} />
+        <ZoomableBlock>
+          {(onZoom) => (
+            <div className="msg-tool-use">
+              <ToolHeader name={block.name} description={description} onZoom={onZoom} />
+              <div className="msg-tool-use__cmd">
+                <code>{command}</code>
+              </div>
+              {hasExtra && (
+                <div className="msg-tool-use__input">
+                  <JsonKV data={bashRest} />
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </ZoomableBlock>
       );
     }
     return (
-      <div className="msg-tool-use">
-        <ToolHeader name={block.name} description={description} />
-        <div className="msg-tool-use__input">
-          <JsonKV data={inputRest} />
-        </div>
-      </div>
+      <ZoomableBlock>
+        {(onZoom) => (
+          <div className="msg-tool-use">
+            <ToolHeader name={block.name} description={description} onZoom={onZoom} />
+            <div className="msg-tool-use__input">
+              <JsonKV data={inputRest} />
+            </div>
+          </div>
+        )}
+      </ZoomableBlock>
     );
   }
   if (block.type === 'tool_result') {
     const isError = block.is_error;
     return (
-      <div className={`msg-tool-result ${isError ? 'error' : ''}`}>
-        <div className="msg-tool-result__header">
-          Result
-          {isError && <span className="msg-tool-result__error"> ERROR</span>}
-        </div>
-        {typeof block.content === 'string' ? (
-          <pre className="msg-tool-result__content">{block.content}</pre>
-        ) : Array.isArray(block.content) ? (
-          <div className="msg-tool-result__content">
-            {block.content.map((sub: any, i: number) => {
-              if (sub.type === 'text') return <pre key={i} style={{ margin: 0 }}>{sub.text}</pre>;
-              if (sub.type === 'image' && sub.source?.type === 'base64') {
-                return (
-                  <Lightbox
-                    key={i}
-                    src={`data:${sub.source.media_type};base64,${sub.source.data}`}
-                    alt="Screenshot"
-                    className="msg-tool-result__image"
-                  />
-                );
-              }
-              return <pre key={i} style={{ margin: 0 }}>{JSON.stringify(sub, null, 2)}</pre>;
-            })}
+      <ZoomableBlock>
+        {(onZoom) => (
+          <div className={`msg-tool-result ${isError ? 'error' : ''}`}>
+            <div className="msg-tool-result__header">
+              <span>Result</span>
+              {isError && <span className="msg-tool-result__error"> ERROR</span>}
+              <button className="zoomable__btn" onClick={onZoom} title="Maximize">
+                <Maximize2 size={12} />
+              </button>
+            </div>
+            {typeof block.content === 'string' ? (
+              <pre className="msg-tool-result__content">{block.content}</pre>
+            ) : Array.isArray(block.content) ? (
+              <div className="msg-tool-result__content">
+                {block.content.map((sub: any, i: number) => {
+                  if (sub.type === 'text') return <pre key={i} style={{ margin: 0 }}>{sub.text}</pre>;
+                  if (sub.type === 'image' && sub.source?.type === 'base64') {
+                    return (
+                      <Lightbox
+                        key={i}
+                        src={`data:${sub.source.media_type};base64,${sub.source.data}`}
+                        alt="Screenshot"
+                        className="msg-tool-result__image"
+                      />
+                    );
+                  }
+                  return <pre key={i} style={{ margin: 0 }}>{JSON.stringify(sub, null, 2)}</pre>;
+                })}
+              </div>
+            ) : (
+              <pre className="msg-tool-result__content">{JSON.stringify(block.content, null, 2)}</pre>
+            )}
           </div>
-        ) : (
-          <pre className="msg-tool-result__content">{JSON.stringify(block.content, null, 2)}</pre>
         )}
-      </div>
+      </ZoomableBlock>
     );
   }
   // Fallback for unknown block types
