@@ -71,7 +71,7 @@
     position: absolute;
     top: 100%;
     right: 0;
-    background-color: #161b22;
+    background-color: var(--c-bg2);
     border: 1px solid var(--c-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -85,7 +85,7 @@
       gap: 8px;
       width: 100%;
       padding: 8px 12px;
-      background-color: #161b22;
+      background-color: var(--c-bg2);
       border: none;
       color: var(--c-text);
       font-size: 12px;
@@ -94,11 +94,11 @@
       transition: background-color 0.1s ease;
 
       &:hover {
-        background-color: #21262d;
+        background-color: var(--c-bg3);
       }
 
       &.active {
-        background-color: rgba(188, 140, 255, 0.15);
+        background-color: color-mix(in srgb, var(--c-purple) 15%, transparent);
         color: var(--c-purple);
 
         .fb__places-path {
