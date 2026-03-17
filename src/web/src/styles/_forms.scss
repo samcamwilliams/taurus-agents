@@ -33,7 +33,7 @@
     margin-bottom: 12px;
     outline: none;
 
-    &:focus { border-color: var(--c-purple); }
+    &:focus { border-color: var(--c-accent-ui); }
   }
 
   select {
@@ -44,7 +44,7 @@
     background-position: right 8px center;
     cursor: pointer;
 
-    &:hover { border-color: color-mix(in srgb, var(--c-purple) 50%, var(--c-border)); }
+    &:hover { border-color: color-mix(in srgb, var(--c-accent-ui) 50%, var(--c-border)); }
   }
 
   textarea {
@@ -67,8 +67,8 @@
     flex-shrink: 0;
 
     &:checked {
-      background: var(--c-purple);
-      border-color: var(--c-purple);
+      background: var(--c-accent-ui);
+      border-color: var(--c-accent-ui);
 
       &::after {
         content: '';
@@ -83,7 +83,7 @@
       }
     }
 
-    &:focus { border-color: var(--c-purple); }
+    &:focus { border-color: var(--c-accent-ui); }
   }
 }
 
@@ -105,7 +105,7 @@
     background:
       linear-gradient(
         180deg,
-        color-mix(in srgb, var(--c-purple) 6%, transparent) 0%,
+        color-mix(in srgb, var(--c-accent-ui) 6%, transparent) 0%,
         transparent 100%
       );
 
@@ -120,8 +120,8 @@
       background: linear-gradient(
         90deg,
         transparent 0%,
-        color-mix(in srgb, var(--c-purple) 40%, transparent) 20%,
-        color-mix(in srgb, var(--c-purple) 40%, transparent) 80%,
+        color-mix(in srgb, var(--c-accent-ui) 40%, transparent) 20%,
+        color-mix(in srgb, var(--c-accent-ui) 40%, transparent) 80%,
         transparent 100%
       );
     }
@@ -168,7 +168,7 @@
 
   &--active {
     color: var(--c-text);
-    border-bottom: 1px solid var(--c-purple);
+    border-bottom: 1px solid var(--c-accent-ui);
   }
 }
 
@@ -225,7 +225,7 @@
   font-family: inherit;
 
   &:hover {
-    border-color: var(--c-purple);
+    border-color: var(--c-accent-ui);
     color: var(--c-text);
   }
 }
@@ -282,7 +282,7 @@
       padding: 6px 10px;
 
       &:focus {
-        background: color-mix(in srgb, var(--c-purple) 5%, transparent);
+        background: color-mix(in srgb, var(--c-accent-ui) 5%, transparent);
         border: none;
       }
     }
@@ -365,14 +365,14 @@
     transition: all 0.15s ease;
 
     &:hover {
-      border-color: var(--c-purple);
+      border-color: var(--c-accent-ui);
       color: var(--c-text);
     }
 
     &.active {
-      background: color-mix(in srgb, var(--c-purple) 15%, transparent);
-      border-color: var(--c-purple);
-      color: var(--c-purple);
+      background: color-mix(in srgb, var(--c-accent-ui) 15%, transparent);
+      border-color: var(--c-accent-ui);
+      color: var(--c-accent-ui);
     }
   }
 }

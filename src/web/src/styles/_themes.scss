@@ -52,6 +52,14 @@
   // Buttons — danger
   --c-btn-danger:        #da3633;
   --c-btn-danger-hover:  #f85149;
+
+  // Semantic aliases
+  --c-accent-ui:         var(--c-purple);
+  --c-accent-ui-strong:  var(--c-marker-bright);
+  --c-accent-ui-fill:    var(--c-hover);
+  --c-accent-ui-glow1:   var(--c-marker-glow1);
+  --c-accent-ui-glow2:   var(--c-marker-glow2);
+  --c-accent-ui-glow3:   var(--c-marker-glow3);
 }
 
 [data-theme="vivid"] {
@@ -103,6 +111,14 @@
   // Buttons — danger
   --c-btn-danger:        #ff0000;
   --c-btn-danger-hover:  #ff0b00;
+
+  // Semantic aliases
+  --c-accent-ui:         var(--c-purple);
+  --c-accent-ui-strong:  var(--c-marker-bright);
+  --c-accent-ui-fill:    var(--c-hover);
+  --c-accent-ui-glow1:   var(--c-marker-glow1);
+  --c-accent-ui-glow2:   var(--c-marker-glow2);
+  --c-accent-ui-glow3:   var(--c-marker-glow3);
 }
 
 [data-theme="catppuccin"] {
@@ -154,6 +170,14 @@
   // Buttons — danger
   --c-btn-danger:        #f38ba8; // red
   --c-btn-danger-hover:  #eba0ac; // maroon
+
+  // Semantic aliases
+  --c-accent-ui:         var(--c-purple);
+  --c-accent-ui-strong:  var(--c-marker-bright);
+  --c-accent-ui-fill:    var(--c-hover);
+  --c-accent-ui-glow1:   var(--c-marker-glow1);
+  --c-accent-ui-glow2:   var(--c-marker-glow2);
+  --c-accent-ui-glow3:   var(--c-marker-glow3);
 }
 
 [data-theme="vivid-catppuccin"] {
@@ -205,6 +229,14 @@
   // Buttons — danger
   --c-btn-danger:        #ff73ad;
   --c-btn-danger-hover:  #ff8fa7;
+
+  // Semantic aliases
+  --c-accent-ui:         var(--c-purple);
+  --c-accent-ui-strong:  var(--c-marker-bright);
+  --c-accent-ui-fill:    var(--c-hover);
+  --c-accent-ui-glow1:   var(--c-marker-glow1);
+  --c-accent-ui-glow2:   var(--c-marker-glow2);
+  --c-accent-ui-glow3:   var(--c-marker-glow3);
 }
 
 [data-theme="light"] {
@@ -222,18 +254,26 @@
   // Accents (lighter/softer than dark theme — readable on white, gentle as fills)
   --c-accent:  #4493f8;
   --c-green:   #3fb950;
-  --c-red:     #f85149;
+  --c-red:     #fa538c;
   --c-yellow:  #d29922;
-  --c-purple:  #8957e5;
   --c-amber:   #db6d28;
 
-  // Active marker (violet)
-  --c-marker:       #8250df;
-  --c-marker-bright: #6639ba;
-  --c-marker-glow1: rgba(130, 80, 223, 0.25);
-  --c-marker-glow2: rgba(130, 80, 223, 0.12);
-  --c-marker-glow3: rgba(130, 80, 223, 0.06);
-  --c-hover:        rgba(130, 80, 223, 0.06);
+  // UI accent family
+  --c-accent-ui:         #C249C6;
+  --c-accent-ui-strong:  #9A2C9E;
+  --c-accent-ui-fill:    rgba(187, 66, 192, 0.06);
+  --c-accent-ui-glow1:   rgba(187, 66, 192, 0.25);
+  --c-accent-ui-glow2:   rgba(187, 66, 192, 0.12);
+  --c-accent-ui-glow3:   rgba(187, 66, 192, 0.06);
+
+  // Back-compat aliases for existing styles
+  --c-purple:        var(--c-accent-ui);
+  --c-marker:        #BB42C0;
+  --c-marker-bright: var(--c-accent-ui-strong);
+  --c-marker-glow1:  var(--c-accent-ui-glow1);
+  --c-marker-glow2:  var(--c-accent-ui-glow2);
+  --c-marker-glow3:  var(--c-accent-ui-glow3);
+  --c-hover:         var(--c-accent-ui-fill);
 
   // Status backgrounds
   --c-status-running: #fff8c5;
@@ -241,17 +281,17 @@
   --c-status-error:   #ffebe9;
   --c-status-success: #dafbe1;
 
-  // Buttons — primary (violet)
-  --c-btn-primary-from:  rgba(130, 80, 223, 0.12);
-  --c-btn-primary-to:    rgba(130, 80, 223, 0.06);
-  --c-btn-primary-hover-from: rgba(130, 80, 223, 0.20);
-  --c-btn-primary-hover-to:   rgba(130, 80, 223, 0.10);
-  --c-btn-primary-text:  #6639ba;
-  --c-btn-primary-shine: rgba(130, 80, 223, 0.08);
-  --c-btn-primary-border: rgba(130, 80, 223, 0.35);
-  --c-btn-primary-border-hover: rgba(130, 80, 223, 0.55);
-  --c-btn-primary-glow:  rgba(130, 80, 223, 0.08);
-  --c-btn-primary-glow-hover: rgba(130, 80, 223, 0.15);
+  // Buttons — primary (magenta)
+  --c-btn-primary-from:  rgba(187, 66, 192, 0.12);
+  --c-btn-primary-to:    rgba(187, 66, 192, 0.06);
+  --c-btn-primary-hover-from: rgba(187, 66, 192, 0.20);
+  --c-btn-primary-hover-to:   rgba(187, 66, 192, 0.10);
+  --c-btn-primary-text:  #9A2C9E;
+  --c-btn-primary-shine: rgba(187, 66, 192, 0.08);
+  --c-btn-primary-border: rgba(187, 66, 192, 0.35);
+  --c-btn-primary-border-hover: rgba(187, 66, 192, 0.55);
+  --c-btn-primary-glow:  rgba(187, 66, 192, 0.08);
+  --c-btn-primary-glow-hover: rgba(187, 66, 192, 0.15);
 
   // Buttons — danger
   --c-btn-danger:        #cf222e;

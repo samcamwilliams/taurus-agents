@@ -3,23 +3,23 @@ import type { AgentStatus, RunStatus } from '../types';
 
 type Status = AgentStatus | RunStatus;
 
-const COLOR_MAP: Record<Status, string> = {
-  idle:      'var(--c-muted)',
-  running:   'var(--c-amber)',
-  paused:    'var(--c-yellow)',
-  error:     'var(--c-red)',
-  disabled:  'var(--c-muted)',
-  completed: 'var(--c-green)',
-  stopped:   'var(--c-muted)',
+const STATUS_CLASS: Record<Status, string> = {
+  idle:      'status-dot--idle',
+  running:   'status-dot--running',
+  paused:    'status-dot--paused',
+  error:     'status-dot--error',
+  disabled:  'status-dot--idle',
+  completed: 'status-dot--completed',
+  stopped:   'status-dot--idle',
 };
 
 export function StatusDot({ status, size = 8, label }: { status: Status; size?: number; label?: boolean }) {
-  const color = COLOR_MAP[status] ?? 'var(--c-muted)';
+  const cls = STATUS_CLASS[status] ?? 'status-dot--idle';
 
   if (status === 'paused') {
     return (
       <span className="status-dot-wrap" title={status}>
-        <Pause size={size + 2} color={color} fill={color} />
+        <Pause size={size + 2} className={`status-dot-icon ${cls}`} />
         {label && <span className="status-dot__label">{status}</span>}
       </span>
     );
@@ -28,8 +28,8 @@ export function StatusDot({ status, size = 8, label }: { status: Status; size?: 
   return (
     <span className="status-dot-wrap" title={status}>
       <span
-        className={`status-dot${status === 'running' ? ' status-dot--running' : ''}`}
-        style={{ width: size, height: size, background: color }}
+        className={`status-dot ${cls}`}
+        style={{ width: size, height: size }}
       />
       {label && <span className="status-dot__label">{status}</span>}
     </span>

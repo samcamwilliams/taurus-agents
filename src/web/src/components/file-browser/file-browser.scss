@@ -98,11 +98,11 @@
       }
 
       &.active {
-        background-color: color-mix(in srgb, var(--c-purple) 15%, transparent);
-        color: var(--c-purple);
+        background-color: color-mix(in srgb, var(--c-accent-ui) 15%, transparent);
+        color: var(--c-accent-ui);
 
         .fb__places-path {
-          color: var(--c-purple);
+          color: var(--c-accent-ui);
           opacity: 0.7;
         }
       }

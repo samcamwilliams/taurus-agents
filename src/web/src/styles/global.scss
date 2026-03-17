@@ -243,6 +243,50 @@ body {
     &:hover { background: rgba(0, 0, 0, 0.25); }
   }
 
+  // ── Panel differentiation ──
+  // Sidebar slightly tinted, runs panel between sidebar and messages
+  .sidebar {
+    background: #f0f3f7;
+  }
+  .runs-panel {
+    background: #f5f7fa;
+  }
+
+  // ── Status dots: light, pastel, cohesive ──
+  .status-dot {
+    &--idle      { background: #b4b9c1; }
+    &--running   {
+      background: #ff9a25;
+      animation: light-glow-pulse 2s ease-in-out infinite;
+      box-shadow: 0 0 6px rgba(255, 230, 140, 0.75);
+    }
+    &--error     { background: var(--c-red); }
+    &--completed { background: #42c87d; }
+  }
+  .status-dot-icon.status-dot--paused { color: #d4ad42; fill: #d4ad42; }
+
+  @keyframes light-glow-pulse {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 4px rgba(255, 235, 160, 0.85), 0 0 8px rgba(255, 235, 160, 0.55);
+    }
+    50% {
+      opacity: 0.7;
+      box-shadow: 0 0 2px rgba(255, 235, 160, 0.6);
+    }
+  }
+
+  // ── Agent names: tinted, not plain black ──
+  .agent-item__name {
+    color: color-mix(in srgb, var(--c-accent) 40%, var(--c-text));
+  }
+
+  // ── Run labels: subtle accent tint ──
+  .runs-panel .tv__label {
+    color: color-mix(in srgb, var(--c-accent-ui) 30%, var(--c-text));
+  }
+
+  // ── Buttons ──
   .btn {
     background: var(--c-bg);
     border: 1px solid var(--c-border);
@@ -251,7 +295,7 @@ body {
 
     &:hover {
       background: var(--c-bg3);
-      border-color: #c0c8d0;
+      border-color: var(--c-border);
       box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
     }
 
@@ -261,24 +305,40 @@ body {
       transform: none;
     }
 
+    // Primary: polished gradient with shine
     &.primary {
-      background: var(--c-purple);
-      border-color: var(--c-purple);
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--c-accent-ui) 85%, #fff) 0%,
+          var(--c-accent-ui) 50%,
+          color-mix(in srgb, var(--c-accent-ui) 92%, #000) 100%
+        );
+      border-color: color-mix(in srgb, var(--c-accent-ui) 80%, #000);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 1px 3px rgba(0, 0, 0, 0.12);
       color: #fff;
-      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
       font-weight: 500;
 
       &:hover {
-        background: #6e40c9;
-        border-color: #6e40c9;
-        box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
-        transform: none;
+        background:
+          linear-gradient(
+            180deg,
+            var(--c-accent-ui) 0%,
+            color-mix(in srgb, var(--c-accent-ui) 88%, #000) 100%
+          );
+        border-color: color-mix(in srgb, var(--c-accent-ui) 75%, #000);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.15),
+          0 2px 8px color-mix(in srgb, var(--c-accent-ui) 30%, transparent);
+        transform: translateY(-0.5px);
       }
 
       &:active {
-        background: #5a32a3;
-        box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.15);
-        transform: none;
+        background: color-mix(in srgb, var(--c-accent-ui) 78%, #000);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        transform: translateY(0.5px);
       }
     }
 
@@ -306,9 +366,7 @@ body {
     }
   }
 
-
-
-  // Tree/sidebar: flat selection instead of neon glow
+  // ── Tree selection: flat ──
   .tv__node {
     &:hover:not(.tv__node--selected)::before {
       background: var(--c-border);
@@ -316,18 +374,18 @@ body {
     }
 
     &--selected {
-      background: rgba(130, 80, 223, 0.08);
-      &:hover { background: rgba(130, 80, 223, 0.08); }
+      background: var(--c-hover);
+      &:hover { background: var(--c-hover); }
 
       &::before {
-        background: var(--c-purple);
+        background: var(--c-marker);
         box-shadow: none;
         width: 2px;
       }
     }
   }
 
-  // Tab bar: flat underline instead of neon glow
+  // ── Tab bar: flat underline ──
   .tab-bar__tab {
     &:hover:not(.tab-bar__tab--active)::after {
       background: var(--c-border);
@@ -338,7 +396,7 @@ body {
       background: var(--c-hover);
 
       &::after {
-        background: var(--c-purple);
+        background: var(--c-marker);
         box-shadow: none;
         height: 2px;
         clip-path: none;
@@ -346,7 +404,7 @@ body {
     }
   }
 
-  // Sidebar: flat selection
+  // ── Sidebar selection: flat ──
   .sidebar__item {
     &:hover:not(.sidebar__item--active)::before {
       background: var(--c-border);
@@ -354,21 +412,35 @@ body {
     }
 
     &--active {
-      background: rgba(130, 80, 223, 0.06);
+      background: var(--c-hover);
 
       &::after {
-        background: var(--c-purple);
+        background: var(--c-marker);
         box-shadow: none;
         height: 2px;
       }
     }
   }
 
-  // File browser: flat hover indicator
+  // File browser: flat hover
   .fb-tree__item:hover:not(.fb-tree__item--selected)::before {
     background: var(--c-border);
     box-shadow: none;
   }
+
+  // ── Punchier diffs ──
+  .diff-view__line {
+    &--added {
+      background: color-mix(in srgb, var(--c-green) 20%, transparent);
+      color: #1a7f37;  // dark green — readable on white
+    }
+    &--removed {
+      background: color-mix(in srgb, var(--c-red) 20%, transparent);
+      color: #cf222e;  // dark red — readable on white
+    }
+  }
+  .diff-view__sign { opacity: 1; }
+  .diff-view__ln   { opacity: 0.6; }
 
   // Softer borders
   .panel-header {

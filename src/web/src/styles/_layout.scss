@@ -53,10 +53,15 @@
   border-radius: 50%;
   flex-shrink: 0;
 
-  &--running {
-    animation: glow-pulse 2s ease-in-out infinite;
-    box-shadow: 0 0 4px var(--c-amber);
-  }
+  &--idle      { background: var(--c-muted); }
+  &--running   { background: var(--c-amber); animation: glow-pulse 2s ease-in-out infinite; box-shadow: 0 0 4px var(--c-amber); }
+  &--error     { background: var(--c-red); }
+  &--completed { background: var(--c-green); }
+}
+
+// Paused icon colors (SVG fill/stroke via CSS)
+.status-dot-icon {
+  &.status-dot--paused { color: var(--c-yellow); fill: var(--c-yellow); }
 }
 
 .status-dot__label {

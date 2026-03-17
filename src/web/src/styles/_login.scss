@@ -40,7 +40,7 @@
   width: 360px;
   background: color-mix(in srgb, var(--c-bg2) 85%, transparent);
   backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in srgb, var(--c-purple) 15%, var(--c-border));
+  border: 1px solid color-mix(in srgb, var(--c-accent-ui) 15%, var(--c-border));
   border-radius: 12px;
   overflow: hidden;
   position: relative;
@@ -113,7 +113,7 @@
       transition: border-color 0.15s;
       margin-bottom: 12px;
 
-      &:focus { border-color: var(--c-purple); }
+      &:focus { border-color: var(--c-accent-ui); }
       &::placeholder { color: var(--c-muted); opacity: 0.5; }
     }
   }
