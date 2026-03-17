@@ -183,6 +183,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-top: 1px;
+
+  &:has(.countdown) { opacity: 1; }
 }
 
 // ── Stem ──
