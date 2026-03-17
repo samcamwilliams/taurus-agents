@@ -1312,11 +1312,11 @@ export class Daemon {
 
   // ── Queries (for HTTP API) ──
 
-  async getAgentRuns(agentId: string, limit: number = 20): Promise<any[]> {
+  async getAgentRuns(agentId: string, limit?: number): Promise<any[]> {
     const runs = await Run.findAll({
       where: { agent_id: agentId },
       order: [['created_at', 'DESC']],
-      limit,
+      ...(limit ? { limit } : {}),
       include: [{
         model: Message,
         as: 'messages',
