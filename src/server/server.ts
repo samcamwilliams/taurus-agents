@@ -63,6 +63,11 @@ export function createServer(daemon: Daemon, port: number): http.Server {
 
     const url = new URL(req.url!, `http://localhost:${port}`);
 
+    // Normalize trailing slash on API routes (e.g. /api/agents/ → /api/agents)
+    if (url.pathname.length > 1 && url.pathname.endsWith('/')) {
+      url.pathname = url.pathname.slice(0, -1);
+    }
+
     // Auth gate — check before routing (now async)
     const auth = await authenticate(req);
     if (!auth.ok) {
