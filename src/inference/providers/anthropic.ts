@@ -11,11 +11,9 @@ export class AnthropicProvider extends InferenceProvider {
   readonly name = 'anthropic';
   private client: Anthropic;
 
-  constructor(apiKey?: string) {
+  constructor(apiKey: string) {
     super();
-    this.client = new Anthropic({
-      apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-    });
+    this.client = new Anthropic({ apiKey });
   }
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {

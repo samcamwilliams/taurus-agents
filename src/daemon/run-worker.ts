@@ -35,6 +35,7 @@ import { FileTracker } from '../tools/shell/file-tracker.js';
 import { computeCost } from '../core/models.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
+import { setSecrets, getSecret } from '../core/config.js';
 import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
 import { DelegateTool, type DelegateRequest, type DelegateResult } from '../tools/control/delegate.js';
 import { SupervisorTool } from '../tools/control/supervisor.js';
@@ -144,7 +145,7 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   Supervisor: () => new SupervisorTool(sendSupervisorRequest, waitForSupervisorResult),
   WebFetch:  ()  => new WebFetchTool(),
   WebSearch: ()  => {
-    const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+    const apiKey = getSecret('BRAVE_SEARCH_API_KEY');
     return apiKey ? new WebSearchTool(new BraveSearchProvider(apiKey)) : null;
   },
 };
@@ -662,6 +663,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 process.on('message', async (msg: ParentMessage) => {
   switch (msg.type) {
     case 'start':
+      if (msg.secrets) setSecrets(msg.secrets);
       try {
         await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.tools);
       } catch (err: any) {

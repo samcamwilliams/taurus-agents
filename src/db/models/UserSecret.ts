@@ -41,10 +41,11 @@ class UserSecret extends Model {
   }
 
   /**
-   * Get secrets as env var overrides (e.g. { ANTHROPIC_API_KEY: '...' }).
+   * Get per-user secrets as a key→value map (e.g. { ANTHROPIC_API_KEY: '...' }).
    * Only includes known keys with a non-empty value.
+   * Passed to workers via IPC — see setSecrets()/getSecret() in core/config.ts.
    */
-  static async getEnvOverrides(userId: string): Promise<Record<string, string>> {
+  static async getSecrets(userId: string): Promise<Record<string, string>> {
     const secrets = await UserSecret.getForUser(userId);
     const env: Record<string, string> = {};
     for (const [key, value] of Object.entries(secrets)) {

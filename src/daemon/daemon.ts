@@ -430,13 +430,13 @@ export class Daemon {
   private async forkWorker(agentId: string, runId: string, parentRunId: string | null, startMsg: ParentMessage): Promise<void> {
     const managed = this.agents.get(agentId)!;
 
-    // Per-user API keys override .env defaults
-    const envOverrides = await UserSecret.getEnvOverrides(managed.agent.user_id);
+    // Per-user API keys — passed via IPC, not env, to avoid overriding system vars.
+    const secrets = await UserSecret.getSecrets(managed.agent.user_id);
+    if (startMsg.type === 'start') startMsg.secrets = secrets;
 
     const child = fork(WORKER_PATH, [], {
       execArgv: ['--import', 'tsx'],
       serialization: 'advanced',
-      env: { ...process.env, ...envOverrides },
     });
 
     managed.runs.set(runId, {

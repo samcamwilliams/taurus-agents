@@ -13,6 +13,12 @@
  * drivePath():  Build an absolute path under TAURUS_DRIVE_PATH with traversal
  *               protection. Same approach as the prompt include resolver in
  *               run-worker.ts (resolve → realpath → startsWith check).
+ *
+ * getSecret():  Read a secret (API key etc.) from the worker-local override map,
+ *               falling back to process.env. Worker processes receive per-user
+ *               secrets via IPC and call setSecrets() to populate the map.
+ *               This avoids spreading user secrets into process.env where they
+ *               could collide with system vars like AUTH_PASSWORD or NODE_ENV.
  */
 
 import path from 'node:path';
@@ -37,6 +43,23 @@ export const ALLOW_ARBITRARY_BIND_MOUNTS: boolean =
   envBindMounts !== undefined
     ? envBindMounts === 'true'
     : process.env.NODE_ENV === 'local';
+
+// ── Secrets ──
+
+const secretOverrides = new Map<string, string>();
+
+/** Set per-user secret overrides (called by worker on IPC start). */
+export function setSecrets(secrets: Record<string, string>): void {
+  secretOverrides.clear();
+  for (const [key, value] of Object.entries(secrets)) {
+    if (value) secretOverrides.set(key, value);
+  }
+}
+
+/** Read a secret — checks worker-local overrides first, then process.env. */
+export function getSecret(key: string): string | undefined {
+  return secretOverrides.get(key) ?? process.env[key];
+}
 
 // ── Secure path builder ──
 

@@ -5,6 +5,7 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import { isUrlSafe } from './url-safety.js';
 import { DEFAULT_FETCH_HEADERS } from '../../core/defaults.js';
+import { getSecret } from '../../core/config.js';
 
 const MAX_RESPONSE_BYTES = 5_000_000;
 const MAX_OUTPUT_CHARS = 50_000;
@@ -129,7 +130,7 @@ export class WebFetchTool extends Tool {
         // raw/auto → plain text extraction; markdown → markdown
         'X-Return-Format': format === 'markdown' ? 'markdown' : 'text',
       };
-      const apiKey = process.env.JINA_API_KEY;
+      const apiKey = getSecret('JINA_API_KEY');
       if (apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }

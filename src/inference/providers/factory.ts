@@ -2,6 +2,7 @@ import type { InferenceProvider } from './base.js';
 import { AnthropicProvider } from './anthropic.js';
 import { OpenAIResponsesProvider } from './openai-responses.js';
 import { OpenAIChatCompletionsProvider } from './openai-chatcompletions.js';
+import { getSecret } from '../../core/config.js';
 
 /**
  * Registry of OpenAI Chat Completions-compatible providers.
@@ -68,17 +69,20 @@ export function resolveProvider(model: string): InferenceProvider {
 
   // Native providers
   switch (backend) {
-    case 'anthropic':
-      return new AnthropicProvider();
+    case 'anthropic': {
+      const apiKey = getSecret('ANTHROPIC_API_KEY');
+      if (!apiKey) throw new Error('ANTHROPIC_API_KEY is required for anthropic/ models');
+      return new AnthropicProvider(apiKey);
+    }
 
     case 'openai': {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = getSecret('OPENAI_API_KEY');
       if (!apiKey) throw new Error('OPENAI_API_KEY is required for openai/ models');
       return new OpenAIResponsesProvider({ apiKey });
     }
 
     case 'xai': {
-      const apiKey = process.env.XAI_API_KEY;
+      const apiKey = getSecret('XAI_API_KEY');
       if (!apiKey) throw new Error('XAI_API_KEY is required for xai/ models');
       return new OpenAIResponsesProvider({
         apiKey,
@@ -89,17 +93,17 @@ export function resolveProvider(model: string): InferenceProvider {
     }
 
     case 'local': {
-      const baseURL = process.env.LOCAL_PROVIDER_BASE_URL || 'http://localhost:1234/v1';
+      const baseURL = getSecret('LOCAL_PROVIDER_BASE_URL') || 'http://localhost:1234/v1';
       return new OpenAIChatCompletionsProvider({
-        apiKey: process.env.LOCAL_PROVIDER_API_KEY || 'local',
+        apiKey: getSecret('LOCAL_PROVIDER_API_KEY') || 'local',
         baseURL,
         name: 'local',
       });
     }
 
     case 'custom': {
-      const apiKey = process.env.CUSTOM_PROVIDER_API_KEY;
-      const baseURL = process.env.CUSTOM_PROVIDER_BASE_URL;
+      const apiKey = getSecret('CUSTOM_PROVIDER_API_KEY');
+      const baseURL = getSecret('CUSTOM_PROVIDER_BASE_URL');
       if (!apiKey) throw new Error('CUSTOM_PROVIDER_API_KEY is required for custom/ models');
       if (!baseURL) throw new Error('CUSTOM_PROVIDER_BASE_URL is required for custom/ models');
       return new OpenAIChatCompletionsProvider({
@@ -113,7 +117,7 @@ export function resolveProvider(model: string): InferenceProvider {
   // Chat Completions-compatible registry
   const entry = CHAT_COMPLETIONS_REGISTRY[backend];
   if (entry) {
-    const apiKey = process.env[entry.envKey];
+    const apiKey = getSecret(entry.envKey);
     if (!apiKey) throw new Error(`${entry.envKey} is required for ${backend}/ models`);
     return new OpenAIChatCompletionsProvider({
       apiKey,
