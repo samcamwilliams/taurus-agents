@@ -24,6 +24,7 @@ import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
 import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config.js';
+import { loadLogo, box } from './utils/cli.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);
 
@@ -101,28 +102,20 @@ async function main() {
 
   const agentCount = daemon.agentCount();
   server.listen(PORT, () => {
-    console.log('');
-    console.log('  ┌──────────────────────────────────────────┐');
-    console.log('  │            Taurus Daemon v0.1.0          │');
-    console.log('  ├──────────────────────────────────────────┤');
-    console.log(`  │  URL:      http://localhost:${String(PORT).padEnd(13)}│`);
-    console.log(`  │  Agents:   ${String(agentCount).padEnd(30)}│`);
-    console.log(`  │  Data:     ${TAURUS_DATA_PATH.padEnd(30).slice(0, 30)}│`);
-    console.log(`  │  Drives:   ${TAURUS_DRIVE_PATH.padEnd(30).slice(0, 30)}│`);
-    console.log(`  │  Mounts:   ${(ALLOW_ARBITRARY_BIND_MOUNTS ? 'allowed' : 'disabled').padEnd(30)}│`);
+    const rows: Array<[string, string] | null> = [
+      ['URL', `http://localhost:${PORT}`],
+      ['Agents', String(agentCount)],
+      ['Data', TAURUS_DATA_PATH],
+      ['Drives', TAURUS_DRIVE_PATH],
+      ['Mounts', ALLOW_ARBITRARY_BIND_MOUNTS ? 'allowed' : 'disabled'],
+      null,
+    ];
     if (defaultPassword) {
-      console.log('  ├──────────────────────────────────────────┤');
-      console.log('  │  Auto-generated user:                    │');
-      console.log('  │                                          │');
-      console.log(`  │  Login:    ${defaultUser.username.padEnd(30)}│`);
-      console.log(`  │  Password: ${defaultPassword.padEnd(30)}│`);
+      rows.push(['Login', defaultUser.username], ['Password', defaultPassword]);
     } else {
-      console.log('  ├──────────────────────────────────────────┤');
-      console.log(`  │  User:     ${defaultUser.username.padEnd(30)}│`);
-      console.log('  │  Password has been changed               │');
+      rows.push(['User', defaultUser.username]);
     }
-    console.log('  └──────────────────────────────────────────┘');
-    console.log('');
+    console.log('\n' + loadLogo() + '\n\n' + box('v0.1.0', rows) + '\n');
   });
 
   // Graceful shutdown — debounce to avoid double-fire from terminal signal propagation
