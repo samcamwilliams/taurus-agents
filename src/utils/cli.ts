@@ -80,11 +80,9 @@ export function banner(title: string, rows: BoxRow[], logo?: string): string {
     ? tableStr.split('\n')[0].length
     : tableStr.length;
 
-  // Center each logo line relative to the table width
-  const centeredLogo = logoLines.map(line => {
-    const pad = Math.max(0, Math.floor((tableWidth - line.length) / 2));
-    return ' '.repeat(pad) + line;
-  }).join('\n');
+  // Center the logo block relative to the table width (uniform left padding)
+  const blockPad = Math.max(0, Math.floor((tableWidth - logoWidth) / 2));
+  const centeredLogo = logoLines.map(line => ' '.repeat(blockPad) + line).join('\n');
 
   return '\n' + centeredLogo + '\n\n' + tableStr + '\n';
 }
