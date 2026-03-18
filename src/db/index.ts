@@ -49,7 +49,7 @@ export class Database {
       // Table may not exist yet on first run — that's fine
     }
 
-    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
+    execSync('npx sequelize-cli db:migrate', { stdio: 'inherit', env: { ...process.env, DOTENV_CONFIG_QUIET: 'true' } });
   }
 
   static async close() {
