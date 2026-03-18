@@ -57,6 +57,11 @@ export class ShellGrepTool extends Tool {
     return this.hasRg;
   }
 
+  private safeInt(value: unknown, fallback: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+    return Math.max(0, Math.floor(value));
+  }
+
   async execute(input: GrepInput, ctx: ToolContext): Promise<ToolResult> {
     const searchPath = input.path
       ? (input.path.startsWith('/') ? input.path : `${ctx.cwd}/${input.path}`)
@@ -94,8 +99,8 @@ export class ShellGrepTool extends Tool {
 
   private buildRgCommand(input: GrepInput, searchPath: string): string {
     const mode = input.output_mode ?? 'content';
-    const limit = input.head_limit ?? 200;
-    const offset = input.offset ?? 0;
+    const limit = this.safeInt(input.head_limit, 200);
+    const offset = this.safeInt(input.offset, 0);
 
     const flags: string[] = ['--color=never', '--no-heading', '-M', '500'];
 
@@ -131,8 +136,8 @@ export class ShellGrepTool extends Tool {
 
   private buildGrepCommand(input: GrepInput, searchPath: string): string {
     const mode = input.output_mode ?? 'content';
-    const limit = input.head_limit ?? 200;
-    const offset = input.offset ?? 0;
+    const limit = this.safeInt(input.head_limit, 200);
+    const offset = this.safeInt(input.offset, 0);
 
     const flags: string[] = ['-rn', '--color=never'];
 
