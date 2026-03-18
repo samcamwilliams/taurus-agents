@@ -129,15 +129,26 @@ export async function authenticate(req: http.IncomingMessage): Promise<AuthResul
  * Returns AuthUser on success, null on failure.
  */
 export async function authenticateWs(req: http.IncomingMessage): Promise<AuthUser | null> {
+  const ip = req.socket.remoteAddress ?? 'unknown';
+
   // Bearer token in query string
   const url = new URL(req.url!, 'http://localhost');
   const token = url.searchParams.get('token');
   if (token) {
+    if (!checkLoginRateLimit(ip)) return null;
+
     if (verifyApiKey(token)) {
+      clearLoginFailures(ip);
       return await getApiKeyUser() ?? null;
     }
     const session = getSession(token);
-    if (session) return { id: session.userId, role: session.role, isLoggedIn: true };
+    if (session) {
+      clearLoginFailures(ip);
+      return { id: session.userId, role: session.role, isLoggedIn: true };
+    }
+
+    recordLoginFailure(ip);
+    return null;
   }
 
   // Session cookie
