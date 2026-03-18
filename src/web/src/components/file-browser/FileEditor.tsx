@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
+import { Printer } from 'lucide-react';
 import { fileApi } from './api';
 import { DataTable, isTabularJson } from '../DataTable';
 import { Markdown } from '../Markdown';
@@ -58,6 +59,7 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('raw');
   const editorRef = useRef<any>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Parse JSON for table view (memoized, based on saved content to avoid flicker)
   const tableData = useMemo(() => {
@@ -118,6 +120,36 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
     );
   };
 
+  const handlePrint = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const fileName = filePath.split('/').pop() || filePath;
+
+    // Monaco editor DOM doesn't serialize to printable HTML — use raw text.
+    // Any other rendered view (table, markdown, future views) prints via innerHTML.
+    const hasCodeEditor = el.querySelector('.monaco-editor');
+    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const body = hasCodeEditor
+      ? `<pre style="white-space:pre-wrap;word-break:break-word;font-family:'SF Mono','Fira Code',Consolas,'Liberation Mono',Menlo,monospace;font-size:13px;line-height:1.5;margin:0">${esc(content ?? '')}</pre>`
+      : el.innerHTML;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileName}</title><style>
+body{margin:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;line-height:1.6}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}
+th{background:#f0f0f0;font-weight:600}
+pre{background:#f6f6f6;padding:16px;border-radius:4px;overflow-x:auto}
+code{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:13px}
+img{max-width:100%}
+@media print{body{margin:0}}
+</style></head><body>${body}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }, [content, filePath]);
+
   const isDirty = content !== savedContent;
 
   useEffect(() => {
@@ -171,12 +203,20 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
         )}
         <button
           className="btn btn--sm"
+          onClick={handlePrint}
+          title="Print"
+        >
+          <Printer size={14} />
+        </button>
+        <button
+          className="btn btn--sm"
           onClick={handleSave}
           disabled={!isDirty || saving}
         >
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
+      <div ref={contentRef} style={{ display: 'contents' }}>
       {viewMode === 'table' && tableData ? (
         <DataTable data={tableData} />
       ) : viewMode === 'rendered' && isMarkdown ? (
@@ -209,6 +249,7 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
           />
         </div>
       )}
+      </div>
     </div>
   );
 }
