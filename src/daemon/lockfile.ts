@@ -10,6 +10,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { TAURUS_DATA_PATH } from '../core/config.js';
 
 export interface LockfileInfo {
   pid: number;
@@ -17,7 +18,7 @@ export interface LockfileInfo {
   port: number;
 }
 
-const DEFAULT_LOCK_PATH = path.join(process.cwd(), 'data', 'taurus.lock');
+const DEFAULT_LOCK_PATH = path.join(TAURUS_DATA_PATH, 'taurus.lock');
 
 /**
  * Check if a process with the given PID is running.

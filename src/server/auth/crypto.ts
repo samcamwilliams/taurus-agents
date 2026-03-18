@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type http from 'node:http';
+import { TAURUS_DATA_PATH } from '../../core/config.js';
 
 // ── Configuration ──
 
@@ -20,7 +21,7 @@ const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 function resolveAuthSecret(): string {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
 
-  const secretPath = path.join(process.cwd(), 'data', '.auth_secret');
+  const secretPath = path.join(TAURUS_DATA_PATH, '.auth_secret');
   try {
     const existing = fs.readFileSync(secretPath, 'utf-8').trim();
     if (existing) return existing;

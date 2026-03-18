@@ -8,6 +8,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { TAURUS_DATA_PATH } from '../../core/config.js';
 
 // ── Types ──
 
@@ -23,7 +24,7 @@ export interface Session {
 // ── State ──
 
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
+const SESSIONS_DIR = path.join(TAURUS_DATA_PATH, 'sessions');
 
 const sessions = new Map<string, Session>();
 

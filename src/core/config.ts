@@ -1,9 +1,11 @@
 /**
  * Environment-driven configuration — resolved once at import time.
  *
+ * TAURUS_DATA_PATH:   Base directory for all Taurus persistent data (DB, sessions,
+ *                     lockfile, auth secret, drives). Default: ./data
+ *
  * TAURUS_DRIVE_PATH:  Base directory for agent storage (workspace + shared volumes).
- *                     Resolved to an absolute, canonicalized path at startup.
- *                     Default: ./data/taurus-drives (relative to project root).
+ *                     Default: ${TAURUS_DATA_PATH}/taurus-drives.
  *
  * ALLOW_ARBITRARY_BIND_MOUNTS:  Whether the agent `mounts` field (arbitrary host
  *                               bind mounts) is allowed. Default: true when
@@ -24,9 +26,18 @@
 import path from 'node:path';
 import fs from 'node:fs';
 
+// ── Data base path ──
+
+const rawDataPath = process.env.TAURUS_DATA_PATH || './data';
+const resolvedDataPath = path.resolve(rawDataPath);
+fs.mkdirSync(resolvedDataPath, { recursive: true });
+
+/** Canonicalized absolute path for all Taurus persistent data. */
+export const TAURUS_DATA_PATH = fs.realpathSync(resolvedDataPath);
+
 // ── Drive base path ──
 
-const rawDrivePath = process.env.TAURUS_DRIVE_PATH || './data/taurus-drives';
+const rawDrivePath = process.env.TAURUS_DRIVE_PATH || path.join(TAURUS_DATA_PATH, 'taurus-drives');
 const resolvedDrivePath = path.resolve(rawDrivePath);
 fs.mkdirSync(resolvedDrivePath, { recursive: true });
 
