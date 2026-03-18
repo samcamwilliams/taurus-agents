@@ -115,7 +115,7 @@ export const api = {
 
   listTools(): Promise<{
     tools: { name: string; group: string; description: string }[];
-    defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; supervisor_tools: string[]; max_turns: number; timeout_ms: number };
+    defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; supervisor_tools: string[]; max_turns: number; timeout_ms: number; allow_bind_mounts: boolean };
   }> {
     return request('/api/tools');
   },

@@ -75,7 +75,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
   const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
   const [propagateChildren, setPropagateChildren] = useState(false);
   const [modelTouched, setModelTouched] = useState(false);
-  const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number } | null>(null);
+  const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number; allow_bind_mounts: boolean } | null>(null);
   const [allToolNames, setAllToolNames] = useState<string[]>([]);
   const [readonlyTools, setReadonlyTools] = useState<string[]>([]);
 
@@ -184,71 +184,75 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
 
-      <div className="label-with-actions">
-        <label>Bind Mounts</label>
-        <span className="label-actions">
-          <button type="button" className="label-action-btn" onClick={() => setMounts([...mounts, { host: '', container: '', readonly: false }])}>+ Add</button>
-        </span>
-      </div>
-      <div className="mounts-group">
-        {mounts.length === 0 ? (
-          <div className="field-hint">No host directories mounted</div>
-        ) : (
-          <table className="mounts-table">
-            <thead className="mounts-table__head">
-              <tr>
-                <th>Host path</th>
-                <th>Container path</th>
-                <th>RO</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {mounts.map((m, i) => {
-                const hasContent = m.host || m.container;
-                const hostBad = hasContent && (!m.host || !m.host.startsWith('/'));
-                const containerBad = hasContent && (!m.container || !m.container.startsWith('/'));
-                return (
-                <tr key={i}>
-                  <td>
-                    <input
-                      type="text"
-                      className={hostBad ? 'mount-invalid' : ''}
-                      value={m.host}
-                      onChange={e => { const next = [...mounts]; next[i] = { ...m, host: e.target.value }; setMounts(next); }}
-                      placeholder="/host/path"
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      className={containerBad ? 'mount-invalid' : ''}
-                      value={m.container}
-                      onChange={e => { const next = [...mounts]; next[i] = { ...m, container: e.target.value }; setMounts(next); }}
-                      placeholder="/container/path"
-                    />
-                  </td>
-                  <td>
-                    <label className="mount-ro">
-                      <input
-                        type="checkbox"
-                        checked={m.readonly ?? false}
-                        onChange={e => { const next = [...mounts]; next[i] = { ...m, readonly: e.target.checked }; setMounts(next); }}
-                      />
-                    </label>
-                  </td>
-                  <td>
-                    <button type="button" className="mount-delete" onClick={() => setMounts(mounts.filter((_, j) => j !== i))}>
-                      <Trash2 />
-                    </button>
-                  </td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {defaults?.allow_bind_mounts !== false && (
+        <>
+          <div className="label-with-actions">
+            <label>Bind Mounts</label>
+            <span className="label-actions">
+              <button type="button" className="label-action-btn" onClick={() => setMounts([...mounts, { host: '', container: '', readonly: false }])}>+ Add</button>
+            </span>
+          </div>
+          <div className="mounts-group">
+            {mounts.length === 0 ? (
+              <div className="field-hint">No host directories mounted</div>
+            ) : (
+              <table className="mounts-table">
+                <thead className="mounts-table__head">
+                  <tr>
+                    <th>Host path</th>
+                    <th>Container path</th>
+                    <th>RO</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mounts.map((m, i) => {
+                    const hasContent = m.host || m.container;
+                    const hostBad = hasContent && (!m.host || !m.host.startsWith('/'));
+                    const containerBad = hasContent && (!m.container || !m.container.startsWith('/'));
+                    return (
+                    <tr key={i}>
+                      <td>
+                        <input
+                          type="text"
+                          className={hostBad ? 'mount-invalid' : ''}
+                          value={m.host}
+                          onChange={e => { const next = [...mounts]; next[i] = { ...m, host: e.target.value }; setMounts(next); }}
+                          placeholder="/host/path"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className={containerBad ? 'mount-invalid' : ''}
+                          value={m.container}
+                          onChange={e => { const next = [...mounts]; next[i] = { ...m, container: e.target.value }; setMounts(next); }}
+                          placeholder="/container/path"
+                        />
+                      </td>
+                      <td>
+                        <label className="mount-ro">
+                          <input
+                            type="checkbox"
+                            checked={m.readonly ?? false}
+                            onChange={e => { const next = [...mounts]; next[i] = { ...m, readonly: e.target.checked }; setMounts(next); }}
+                          />
+                        </label>
+                      </td>
+                      <td>
+                        <button type="button" className="mount-delete" onClick={() => setMounts(mounts.filter((_, j) => j !== i))}>
+                          <Trash2 />
+                        </button>
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
 
       <label>Schedule (optional)</label>
       <input
