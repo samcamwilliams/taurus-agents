@@ -24,7 +24,7 @@ import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
 import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config.js';
-import { loadLogo, box } from './utils/cli.js';
+import { banner } from './utils/cli.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);
 
@@ -115,7 +115,7 @@ async function main() {
     } else {
       rows.push(['User', defaultUser.username]);
     }
-    console.log('\n' + loadLogo() + '\n\n' + box('v0.1.0', rows) + '\n');
+    console.log(banner('v0.1.0', rows));
   });
 
   // Graceful shutdown — debounce to avoid double-fire from terminal signal propagation
