@@ -110,7 +110,7 @@ async function main() {
       ['Mounts', ALLOW_ARBITRARY_BIND_MOUNTS ? 'allowed' : 'disabled'],
       null,
     ];
-    if (defaultPassword) {
+    if (defaultPassword && process.env.NODE_ENV !== 'production') {
       rows.push(['Login', defaultUser.username], ['Password', defaultPassword]);
     } else {
       rows.push(['User', defaultUser.username]);

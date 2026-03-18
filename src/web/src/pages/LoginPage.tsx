@@ -51,7 +51,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             id="username"
             type="text"
             name="username"
-            autoComplete="username"
+            autoComplete="off"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Enter username"
@@ -70,8 +70,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             placeholder="Enter password"
             disabled={loading}
           />
-
-          <p className="login-card__hint">Check the CLI output for default credentials.</p>
 
           {error && <div className="login-card__error">{error}</div>}
 
