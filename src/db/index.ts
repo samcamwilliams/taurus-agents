@@ -29,6 +29,26 @@ export class Database {
   static async sync() {
     const sequelize = Database.init();
     await sequelize.query('PRAGMA journal_mode=WAL');
+
+    // Fix migration tracking after filenames were zero-padded (1-foo.cjs → 001-foo.cjs).
+    // Without this, existing DBs would try to re-run all migrations.
+    try {
+      const [rows] = await sequelize.query(
+        `SELECT name FROM SequelizeMeta WHERE name GLOB '[0-9]-*' OR name GLOB '[0-9][0-9]-*'`
+      ) as [Array<{ name: string }>, unknown];
+      for (const row of rows) {
+        const num = parseInt(row.name, 10);
+        const suffix = row.name.slice(row.name.indexOf('-'));
+        const padded = String(num).padStart(3, '0') + suffix;
+        await sequelize.query(
+          `UPDATE SequelizeMeta SET name = ? WHERE name = ?`,
+          { replacements: [padded, row.name] }
+        );
+      }
+    } catch {
+      // Table may not exist yet on first run — that's fine
+    }
+
     execSync('npx sequelize-cli db:migrate', { stdio: 'inherit' });
   }
 
