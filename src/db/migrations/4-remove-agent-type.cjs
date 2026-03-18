@@ -1,12 +1,13 @@
 'use strict';
 
-var Sequelize = require('sequelize');
-
 /**
  * Actions summary:
  *
  * removeColumn "type" from table "Agents"
  *
+ * Uses raw SQL because Sequelize's removeColumn on SQLite
+ * fails with "Cannot set properties of undefined (setting 'unique')"
+ * due to a bug in how it recreates the table to drop a column.
  **/
 
 var info = {
@@ -16,75 +17,19 @@ var info = {
     "comment": ""
 };
 
-var migrationCommands = function(transaction) {
-    return [{
-            fn: "removeColumn",
-            params: [
-                "Agents",
-                "type",
-                {
-                    transaction: transaction
-                }
-            ]
-        }
-    ];
-};
-var rollbackCommands = function(transaction) {
-    return [{
-            fn: "addColumn",
-            params: [
-                "Agents",
-                "type",
-                {
-                    "type": Sequelize.STRING,
-                    "field": "type",
-                    "allowNull": false,
-                    "defaultValue": "observer"
-                },
-                {
-                    transaction: transaction
-                }
-            ]
-        }
-    ];
-};
-
 module.exports = {
     pos: 0,
     useTransaction: true,
-    execute: function(queryInterface, Sequelize, _commands)
-    {
-        var index = this.pos;
-        function run(transaction) {
-            const commands = _commands(transaction);
-            return new Promise(function(resolve, reject) {
-                function next() {
-                    if (index < commands.length)
-                    {
-                        let command = commands[index];
-                        console.log("[#"+index+"] execute: " + command.fn);
-                        index++;
-                        queryInterface[command.fn].apply(queryInterface, command.params).then(next, reject);
-                    }
-                    else
-                        resolve();
-                }
-                next();
-            });
-        }
-        if (this.useTransaction) {
-            return queryInterface.sequelize.transaction(run);
-        } else {
-            return run(null);
-        }
+    up: async function(queryInterface) {
+        // SQLite 3.35+ supports ALTER TABLE DROP COLUMN natively
+        await queryInterface.sequelize.query('ALTER TABLE "Agents" DROP COLUMN "type";');
     },
-    up: function(queryInterface, Sequelize)
-    {
-        return this.execute(queryInterface, Sequelize, migrationCommands);
-    },
-    down: function(queryInterface, Sequelize)
-    {
-        return this.execute(queryInterface, Sequelize, rollbackCommands);
+    down: async function(queryInterface, Sequelize) {
+        await queryInterface.addColumn('Agents', 'type', {
+            type: Sequelize.STRING,
+            allowNull: false,
+            defaultValue: 'observer',
+        });
     },
     info: info
 };
