@@ -1,16 +1,19 @@
 /**
  * DockerService — manages container lifecycle.
  *
- * Handles create/start/stop/remove of Docker containers and volumes.
- * All calls are async (uses execFile instead of execSync).
+ * Handles create/start/stop/remove of Docker containers.
+ * Agent storage uses host bind mounts under TAURUS_DRIVE_PATH instead of
+ * Docker named volumes — data is visible on the host and survives `docker volume prune`.
  */
 
 import { execFile, spawn as nodeSpawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Agent from '../db/models/Agent.js';
 import type { LogLevel } from './types.js';
+import { drivePath, ALLOW_ARBITRARY_BIND_MOUNTS } from '../core/config.js';
 
 const exec = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,19 +59,19 @@ export class DockerService {
     }
   }
 
-  async ensureContainer(agent: Agent): Promise<void> {
+  async ensureContainer(agent: Agent, rootAgentId: string): Promise<void> {
     const { container_id } = agent;
 
     // Deduplicate concurrent calls for the same container
     const pending = this.ensureLocks.get(container_id);
     if (pending) { await pending; return; }
 
-    const promise = this._ensureContainer(agent);
+    const promise = this._ensureContainer(agent, rootAgentId);
     this.ensureLocks.set(container_id, promise);
     try { await promise; } finally { this.ensureLocks.delete(container_id); }
   }
 
-  private async _ensureContainer(agent: Agent): Promise<void> {
+  private async _ensureContainer(agent: Agent, rootAgentId: string): Promise<void> {
     const { container_id, docker_image } = agent;
 
     if (await this.isContainerRunning(container_id)) return;
@@ -83,31 +86,29 @@ export class DockerService {
       return;
     }
 
-    // Create volumes
-    const volumeName = `taurus-vol-${agent.id}`;
-    const sharedVolumeName = `taurus-shared-${agent.id}`;
-    for (const vol of [volumeName, sharedVolumeName]) {
-      try { await this.docker('volume', 'create', vol); } catch { /* may already exist */ }
-    }
+    // Compute bind-mount paths under TAURUS_DRIVE_PATH.
+    // Workspace is per-agent; shared is per-tree (all agents in a hierarchy share the root's).
+    const workspacePath = drivePath(agent.user_id, agent.id, 'workspace');
+    const sharedPath = drivePath(agent.user_id, rootAgentId, 'shared');
 
-    // Determine which shared volume to mount:
-    // - If agent has a parent, mount the parent's shared volume (team collaboration)
-    // - Otherwise, mount its own shared volume (it's the team root)
-    const sharedMount = agent.parent_agent_id
-      ? `taurus-shared-${agent.parent_agent_id}`
-      : sharedVolumeName;
+    // Ensure directories exist on host before docker create
+    fs.mkdirSync(workspacePath, { recursive: true });
+    fs.mkdirSync(sharedPath, { recursive: true });
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host
     const createArgs = [
       'create', '--name', container_id,
       '--shm-size=256m',
-      '-v', `${volumeName}:/workspace`,
-      '-v', `${sharedMount}:/shared`,
+      '-v', `${workspacePath}:/workspace`,
+      '-v', `${sharedPath}:/shared`,
     ];
 
-    // Add bind mounts (validate paths are absolute)
+    // Add arbitrary bind mounts (disabled in production by default)
     const mounts = typeof agent.mounts === 'string' ? JSON.parse(agent.mounts) : (agent.mounts ?? []);
+    if (!ALLOW_ARBITRARY_BIND_MOUNTS && mounts.length > 0) {
+      throw new Error('Arbitrary bind mounts are disabled (TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS)');
+    }
     for (const m of mounts) {
       if (!m.host.startsWith('/')) throw new Error(`Bind mount host path must be absolute: ${m.host}`);
       if (!m.container.startsWith('/')) throw new Error(`Bind mount container path must be absolute: ${m.container}`);
@@ -119,13 +120,13 @@ export class DockerService {
     await this.docker(...createArgs);
     await this.docker('start', container_id);
 
-    // Copy scaffold into /workspace
-    const scaffoldDir = path.join(__dirname, '..', '..', 'scaffold');
+    // Copy workspace template into /workspace
+    const templateDir = path.join(__dirname, '..', '..', 'resources', 'workspace-template');
     try {
-      await this.docker('cp', `${scaffoldDir}/.`, `${container_id}:/workspace/`);
-      this.logger('info', `Scaffold copied into ${container_id}:/workspace/`);
+      await this.docker('cp', `${templateDir}/.`, `${container_id}:/workspace/`);
+      this.logger('info', `Workspace template copied into ${container_id}:/workspace/`);
     } catch {
-      this.logger('warn', `No scaffold directory found or copy failed — container starts empty`);
+      this.logger('warn', `No workspace template found or copy failed — container starts empty`);
     }
 
     this.logger('info', `Container created and started: ${container_id} (image: ${docker_image})`);
@@ -168,17 +169,15 @@ export class DockerService {
     }
   }
 
-  /** Remove container only (keep volume). Will be recreated on next ensureContainer. */
+  /** Remove container only (keep drive dirs). Will be recreated on next ensureContainer. */
   async destroyContainer(container_id: string): Promise<void> {
     try { await this.docker('rm', '-f', container_id); } catch { /* ignore */ }
-    this.logger('info', `Container destroyed (volume preserved): ${container_id}`);
+    this.logger('info', `Container destroyed (drive preserved): ${container_id}`);
   }
 
+  /** Remove container. Drive directories are intentionally preserved (user data). */
   async removeContainer(container_id: string): Promise<void> {
-    const agentId = container_id.replace('taurus-agent-', '');
     try { await this.docker('rm', '-f', container_id); } catch { /* ignore */ }
-    try { await this.docker('volume', 'rm', `taurus-vol-${agentId}`); } catch { /* ignore */ }
-    try { await this.docker('volume', 'rm', `taurus-shared-${agentId}`); } catch { /* ignore */ }
     this.logger('info', `Container removed: ${container_id}`);
   }
 

@@ -366,8 +366,8 @@ function expandSystemPrompt(prompt: string, asOf?: Date): string {
     'timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 
-  // First pass: resolve {{include:name}} directives from prompts/ directory (recursive, max 5 deep)
-  const promptsDir = fs.realpathSync(path.resolve('prompts'));
+  // First pass: resolve {{include:name}} directives from resources/prompts/ directory (recursive, max 5 deep)
+  const promptsDir = fs.realpathSync(path.resolve('resources', 'prompts'));
   const resolveInclude = (name: string): string => {
     const clean = name.trim()
       .replace(/\0/g, '')           // strip null bytes

@@ -23,6 +23,7 @@ import { acquireLock, releaseLock } from './daemon/lockfile.js';
 import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
+import { TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);
 
@@ -106,6 +107,8 @@ async function main() {
     console.log('  ├──────────────────────────────────────────┤');
     console.log(`  │  URL:      http://localhost:${String(PORT).padEnd(13)}│`);
     console.log(`  │  Agents:   ${String(agentCount).padEnd(30)}│`);
+    console.log(`  │  Drives:   ${TAURUS_DRIVE_PATH.padEnd(30).slice(0, 30)}│`);
+    console.log(`  │  Mounts:   ${(ALLOW_ARBITRARY_BIND_MOUNTS ? 'allowed' : 'disabled').padEnd(30)}│`);
     if (defaultPassword) {
       console.log('  ├──────────────────────────────────────────┤');
       console.log('  │  Auto-generated user:                    │');

@@ -378,7 +378,7 @@ export class Daemon {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
 
-    await this.docker.ensureContainer(managed.agent);
+    await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
 
     const run = await Run.create({
       cwd: managed.agent.cwd,
@@ -405,7 +405,7 @@ export class Daemon {
       if (activeRun.status === 'paused') {
         // Ensure the container is running — it may have been paused by OrbStack
         // (e.g. laptop sleep) while the agent was waiting for user input.
-        await this.docker.ensureContainer(managed.agent);
+        await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
         activeRun.process.send({ type: 'resume', message: input } as ParentMessage);
         activeRun.status = 'running';
         await this.deriveAgentStatus(agentId);
@@ -418,7 +418,7 @@ export class Daemon {
     const run = await Run.findByPk(runId);
     if (!run) throw new Error(`Run not found: ${runId}`);
 
-    await this.docker.ensureContainer(managed.agent);
+    await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
 
     await this.forkWorker(agentId, runId, null, {
       type: 'start', agentId, runId, trigger: 'manual', input, images, resume: true,
@@ -521,7 +521,7 @@ export class Daemon {
     if (!run) throw new Error('No active run to inject into');
 
     if (run.status === 'paused') {
-      await this.docker.ensureContainer(managed.agent);
+      await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
       run.process.send({ type: 'resume', message } as ParentMessage);
       run.status = 'running';
       await this.deriveAgentStatus(agentId);
@@ -598,6 +598,19 @@ export class Daemon {
   }
 
   // ── Hierarchy helpers ──
+
+  /** Walk up parent_agent_id chain to find the root of an agent's tree.
+   *  Uses the in-memory agents Map — no DB queries. */
+  findRootAgentId(agentId: string): string {
+    let current = agentId;
+    const visited = new Set<string>();
+    while (true) {
+      visited.add(current);
+      const parentId = this.agents.get(current)?.agent.parent_agent_id;
+      if (!parentId || visited.has(parentId)) return current;
+      current = parentId;
+    }
+  }
 
   getChildren(agentId: string): Agent[] {
     const children: Agent[] = [];
@@ -970,7 +983,7 @@ export class Daemon {
     if (!targetManaged) throw new Error(`Target agent not loaded: ${targetAgent.id}`);
 
     // Ensure the child's container is running (lazy start)
-    await this.docker.ensureContainer(targetAgent);
+    await this.docker.ensureContainer(targetAgent, this.findRootAgentId(targetAgent.id));
 
     let runId: string;
 
@@ -1364,7 +1377,7 @@ export class Daemon {
   async ensureContainerForBrowsing(agentId: string): Promise<string> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
-    await this.docker.ensureContainer(managed.agent);
+    await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
     // Reset idle timer — container is being actively used
     this.scheduleIdleCheck(agentId);
     return managed.agent.container_id;
