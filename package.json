@@ -11,7 +11,7 @@
     "start": "node --loader tsx src/index.ts",
     "daemon": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "makemigration": "tsx node_modules/sequelize-auto-migrations/bin/makemigration.js && for f in src/db/migrations/*.js; do [ -f \"$f\" ] && mv \"$f\" \"${f%.js}.cjs\"; done",
+    "makemigration": "tsx node_modules/sequelize-auto-migrations/bin/makemigration.js && for f in src/db/migrations/*.js; do [ -f \"$f\" ] && base=$(basename \"$f\" .js) && num=${base%%-*} && name=${base#*-} && padded=$(printf '%03d' \"$num\") && mv \"$f\" \"src/db/migrations/${padded}-${name}.cjs\"; done",
     "migrate": "npx sequelize-cli db:migrate",
     "test": "vitest run",
     "test:watch": "vitest"
