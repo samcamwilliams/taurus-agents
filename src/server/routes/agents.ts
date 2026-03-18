@@ -22,10 +22,11 @@ async function handleAsk(
 
   const forceNew = body.new === true;
   const full = body.full === true;
-  const timeoutMs = body.timeout ?? 300_000;
+  const MAX_ASK_TIMEOUT = 900_000; // 15 minutes
+  const timeoutMs = Math.min(body.timeout ?? 300_000, MAX_ASK_TIMEOUT);
 
-  // Disable socket timeout for long-running requests
-  req.socket.setTimeout(0);
+  // Set socket timeout to match the request timeout (+ small buffer for cleanup)
+  req.socket.setTimeout(timeoutMs + 5_000);
   
   const agent = await daemon.getAgent(agentId);
   if (!agent) return error(res, 'Agent not found', 404);
