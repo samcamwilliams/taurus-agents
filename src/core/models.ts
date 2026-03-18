@@ -106,8 +106,8 @@ export const MODEL_REGISTRY: ModelDef[] = [
   // ── Anthropic ──
   {
     id: 'anthropic/claude-opus-4-6',
-    title: 'Claude Opus 4.6', description: 'Most capable. Superior reasoning, coding, agentic performance.',
-    contextTokens: 200_000, maxOutputTokens: 128_000, pricing: OPUS_46,
+    title: 'Claude Opus 4.6', description: 'Most capable, 1M context. Superior reasoning, coding, agentic performance.',
+    contextTokens: 1_000_000, maxOutputTokens: 128_000, pricing: OPUS_46,
   },
   {
     id: 'anthropic/claude-opus-4-5-20251101',
@@ -116,8 +116,8 @@ export const MODEL_REGISTRY: ModelDef[] = [
   },
   {
     id: 'anthropic/claude-sonnet-4-6',
-    title: 'Claude Sonnet 4.6', description: 'Best balance of intelligence, speed, and cost.',
-    contextTokens: 200_000, maxOutputTokens: 64_000, pricing: SONNET,
+    title: 'Claude Sonnet 4.6', description: 'Best balance of intelligence, speed, and cost. 1M context.',
+    contextTokens: 1_000_000, maxOutputTokens: 64_000, pricing: SONNET,
   },
   {
     id: 'anthropic/claude-sonnet-4-5-20250929',
