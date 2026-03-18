@@ -18,6 +18,7 @@ import {
 import { DisplayableError, NotFoundError } from '../../core/errors.js';
 import User from '../../db/models/User.js';
 import UserSecret, { SECRET_KEYS } from '../../db/models/UserSecret.js';
+import { getMonthlySpend } from '../../core/budget.js';
 
 export function authRoutes(): Route[] {
   return [
@@ -146,6 +147,32 @@ export function authRoutes(): Route[] {
       }
       await UserSecret.bulkSetForUser(ctx.user.id, body);
       json(ctx.res, { ok: true });
+    }),
+
+    // Usage / budget info for the current user
+    route('GET', '/api/auth/usage', async (ctx) => {
+      const user = await User.findByPk(ctx.user.id);
+      const isLocal = process.env.NODE_ENV === 'local';
+      const defaultBudget = parseFloat(process.env.TAURUS_DEFAULT_MONTHLY_BUDGET || '50');
+      const monthlyLimit = user?.meta?.monthly_budget_usd ?? defaultBudget;
+      const isExempt = ctx.user.role === 'admin' || !!user?.meta?.budget_exempt || isLocal;
+
+      const monthlySpent = await getMonthlySpend(ctx.user.id);
+
+      // Per-provider BYOK status
+      const userSecrets = await UserSecret.getForUser(ctx.user.id);
+      const hasOwnKeys: Record<string, boolean> = {};
+      for (const provider of ['anthropic', 'openai', 'openrouter', 'xai', 'gemini', 'groq', 'together', 'fireworks']) {
+        hasOwnKeys[provider] = !!userSecrets[`${provider.toUpperCase()}_API_KEY`];
+      }
+
+      json(ctx.res, {
+        monthly_spent_usd: Math.round(monthlySpent * 100) / 100,
+        monthly_limit_usd: monthlyLimit,
+        is_exempt: isExempt,
+        month: new Date().toISOString().slice(0, 7),
+        has_own_keys: hasOwnKeys,
+      });
     }),
   ];
 }

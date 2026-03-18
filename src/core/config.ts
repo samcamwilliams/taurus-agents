@@ -67,9 +67,37 @@ export function setSecrets(secrets: Record<string, string>): void {
   }
 }
 
-/** Read a secret — checks worker-local overrides first, then process.env. */
+/** Check if the user has their own override for a key (via UserSecret, not env). */
+export function hasSecretOverride(key: string): boolean {
+  return secretOverrides.has(key);
+}
+
+/**
+ * Env fallback allowlist — controls which process.env keys are accessible
+ * to non-admin workers. null = allow all (admin / local mode).
+ */
+let allowedEnvFallback: Set<string> | null = null;
+
+/** Set the env fallback allowlist. null = allow all (admin/local). */
+export function setAllowedEnvFallback(keys: string[] | null): void {
+  allowedEnvFallback = keys ? new Set(keys) : null;
+}
+
+/**
+ * Read a secret — checks worker-local overrides (user's own keys) first,
+ * then process.env filtered by the allowlist.
+ *
+ * In local mode or for admin users, allowedEnvFallback is null (allow all).
+ * In production for non-admin users, only keys in the allowlist fall through.
+ */
 export function getSecret(key: string): string | undefined {
-  return secretOverrides.get(key) ?? process.env[key];
+  const override = secretOverrides.get(key);
+  if (override) return override;
+
+  if (allowedEnvFallback === null || allowedEnvFallback.has(key)) {
+    return process.env[key];
+  }
+  return undefined;
 }
 
 // ── Secure path builder ──

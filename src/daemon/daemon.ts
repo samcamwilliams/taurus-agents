@@ -24,6 +24,8 @@ import AgentLog from '../db/models/AgentLog.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
 import UserSecret from '../db/models/UserSecret.js';
+import User from '../db/models/User.js';
+import { parseSharedSecrets } from '../core/budget.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');
@@ -432,7 +434,17 @@ export class Daemon {
 
     // Per-user API keys — passed via IPC, not env, to avoid overriding system vars.
     const secrets = await UserSecret.getSecrets(managed.agent.user_id);
-    if (startMsg.type === 'start') startMsg.secrets = secrets;
+    if (startMsg.type === 'start') {
+      startMsg.secrets = secrets;
+
+      // Shared secrets: controls which server-side .env keys fall through to this worker.
+      // Local mode / admin: null → allow all env (current behavior).
+      // Production non-admin: restricted to TAURUS_SHARED_SECRETS list.
+      const user = await User.findByPk(managed.agent.user_id, { attributes: ['role'] });
+      const isAdmin = user?.role === 'admin';
+      const isLocal = process.env.NODE_ENV === 'local';
+      startMsg.sharedSecrets = (isLocal || isAdmin) ? null : parseSharedSecrets();
+    }
 
     const child = fork(WORKER_PATH, [], {
       execArgv: ['--import', 'tsx'],
@@ -829,7 +841,7 @@ export class Daemon {
           completedRun.delegateRequestId = null;
         }
 
-        await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed');
+        await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed', msg.error || undefined);
         this.scheduler.onRunComplete(agentId);
 
         this.sse.broadcast(agentId, {
@@ -911,7 +923,7 @@ export class Daemon {
           erroredRun.delegateRequestId = null;
         }
 
-        await this.updateRunStatus(agentId, runId, 'error');
+        await this.updateRunStatus(agentId, runId, 'error', msg.error);
 
         this.sse.broadcast(agentId, {
           type: 'agent_error',
@@ -1249,8 +1261,10 @@ export class Daemon {
     this.scheduleIdleCheck(agentId);
   }
 
-  private async updateRunStatus(agentId: string, runId: string, status: 'running' | 'paused' | 'completed' | 'error' | 'stopped'): Promise<void> {
-    await Run.update({ status }, { where: { id: runId } });
+  private async updateRunStatus(agentId: string, runId: string, status: 'running' | 'paused' | 'completed' | 'error' | 'stopped', runError?: string): Promise<void> {
+    const update: Record<string, any> = { status };
+    if (runError !== undefined) update.run_error = runError;
+    await Run.update(update, { where: { id: runId } });
     this.sse.broadcast(agentId, {
       type: 'run_status',
       agentId,

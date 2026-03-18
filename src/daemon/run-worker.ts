@@ -35,7 +35,9 @@ import { FileTracker } from '../tools/shell/file-tracker.js';
 import { computeCost } from '../core/models.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
-import { setSecrets, getSecret } from '../core/config.js';
+import { setSecrets, setAllowedEnvFallback, getSecret } from '../core/config.js';
+import { checkBudget, type BudgetContext } from '../core/budget.js';
+import User from '../db/models/User.js';
 import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
 import { DelegateTool, type DelegateRequest, type DelegateResult } from '../tools/control/delegate.js';
 import { SupervisorTool } from '../tools/control/supervisor.js';
@@ -429,6 +431,15 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   const { getLimitOutputTokens } = await import('../core/models.js');
   const limitOutputTokens = getLimitOutputTokens(agent.model);
 
+  // 3b. Budget context — checked before each inference call
+  const user = await User.findByPk(agent.user_id, { attributes: ['role', 'meta'] });
+  const budgetCtx: BudgetContext = {
+    userId: agent.user_id,
+    userRole: user?.role ?? 'user',
+    userMeta: user?.meta ?? null,
+    model: agent.model,
+  };
+
   // 4. Initialize persistent shell
   const shell = new PersistentShell({
     mode: 'docker',
@@ -486,6 +497,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
       model: agent.model,
       limitOutputTokens,
       getInjectedMessages: () => injectQueue.splice(0),
+      beforeInference: () => checkBudget(budgetCtx),
     })) {
       switch (event.type) {
         case 'stream':
@@ -664,10 +676,16 @@ process.on('message', async (msg: ParentMessage) => {
   switch (msg.type) {
     case 'start':
       if (msg.secrets) setSecrets(msg.secrets);
+      setAllowedEnvFallback(msg.sharedSecrets ?? null);
       try {
         await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.tools);
       } catch (err: any) {
-        send({ type: 'error', error: err.message, stack: err.stack });
+        let errorMsg = err.message || String(err);
+        // Enhance "X_KEY is required" factory errors with BYOK guidance
+        if (/is required for .* models/.test(errorMsg)) {
+          errorMsg += ' Set it in Account Settings → API Keys.';
+        }
+        send({ type: 'error', error: errorMsg, stack: err.stack });
       }
       process.exit(0);
       break;

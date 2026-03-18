@@ -7,7 +7,7 @@ interface AccountSettingsModalProps {
 }
 
 export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
-  const [tab, setTab] = useState<'keys' | 'password'>('keys');
+  const [tab, setTab] = useState<'usage' | 'keys' | 'password'>('usage');
   const [keys, setKeys] = useState<Record<string, string | null>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -18,8 +18,18 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
 
+  // Usage / budget
+  const [usage, setUsage] = useState<{
+    monthly_spent_usd: number;
+    monthly_limit_usd: number;
+    is_exempt: boolean;
+    month: string;
+    has_own_keys: Record<string, boolean>;
+  } | null>(null);
+
   useEffect(() => {
     api.getApiKeys().then(res => setKeys(res.keys)).catch(() => {});
+    api.getUsage().then(setUsage).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -102,6 +112,12 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--c-border)' }}>
           <button
+            className={`account-tab${tab === 'usage' ? ' account-tab--active' : ''}`}
+            onClick={() => { setTab('usage'); setMessage(null); }}
+          >
+            Usage
+          </button>
+          <button
             className={`account-tab${tab === 'keys' ? ' account-tab--active' : ''}`}
             onClick={() => { setTab('keys'); setMessage(null); }}
           >
@@ -115,6 +131,80 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
           </button>
         </div>
         <div className="modal__body">
+          {tab === 'usage' && (
+            <>
+              {!usage ? (
+                <p style={{ fontSize: 12, color: 'var(--c-muted)' }}>Loading...</p>
+              ) : usage.is_exempt ? (
+                <p style={{ fontSize: 13, color: 'var(--c-muted)', margin: 0 }}>
+                  No spending limit — {usage.monthly_spent_usd > 0 ? `$${usage.monthly_spent_usd.toFixed(2)} used this month` : 'no usage this month'}.
+                </p>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                      <span>Monthly usage ({usage.month})</span>
+                      <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                        ${usage.monthly_spent_usd.toFixed(2)} / ${usage.monthly_limit_usd.toFixed(2)}
+                      </span>
+                    </div>
+                    <div style={{ height: 8, background: 'var(--c-bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${Math.min(100, (usage.monthly_spent_usd / usage.monthly_limit_usd) * 100)}%`,
+                        background: usage.monthly_spent_usd >= usage.monthly_limit_usd
+                          ? 'var(--c-red)'
+                          : usage.monthly_spent_usd >= usage.monthly_limit_usd * 0.8
+                            ? 'var(--c-yellow, #e5a100)'
+                            : 'var(--c-green)',
+                        borderRadius: 4,
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                  </div>
+                  {usage.monthly_spent_usd >= usage.monthly_limit_usd && (
+                    <p style={{ fontSize: 12, color: 'var(--c-red)', margin: '0 0 12px' }}>
+                      Budget exceeded. Add your own API keys in the <button
+                        style={{ background: 'none', border: 'none', color: 'var(--c-accent)', cursor: 'pointer', padding: 0, fontSize: 12, textDecoration: 'underline' }}
+                        onClick={() => setTab('keys')}
+                      >API Keys</button> tab to continue.
+                    </p>
+                  )}
+                  {usage.monthly_spent_usd >= usage.monthly_limit_usd * 0.8 && usage.monthly_spent_usd < usage.monthly_limit_usd && (
+                    <p style={{ fontSize: 12, color: 'var(--c-yellow, #e5a100)', margin: '0 0 12px' }}>
+                      Approaching limit. Add your own API keys to avoid interruptions.
+                    </p>
+                  )}
+                </>
+              )}
+              {usage && Object.keys(usage.has_own_keys).length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <p style={{ fontSize: 12, color: 'var(--c-muted)', margin: '0 0 8px' }}>Your API keys</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {Object.entries(usage.has_own_keys).map(([provider, hasKey]) => (
+                      <span
+                        key={provider}
+                        style={{
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: hasKey ? 'var(--c-green-bg, rgba(0,180,0,0.1))' : 'var(--c-bg-elevated)',
+                          color: hasKey ? 'var(--c-green)' : 'var(--c-muted)',
+                          fontFamily: 'var(--font-mono, monospace)',
+                        }}
+                      >
+                        {provider} {hasKey ? '✓' : '—'}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="modal__actions" style={{ marginTop: 16 }}>
+                <button className="btn" onClick={onClose}>Close</button>
+              </div>
+            </>
+          )}
+
           {tab === 'keys' && (
             <>
               <p style={{ fontSize: 12, color: 'var(--c-muted)', margin: '0 0 16px' }}>

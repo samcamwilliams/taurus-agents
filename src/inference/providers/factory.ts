@@ -127,8 +127,7 @@ export function resolveProvider(model: string): InferenceProvider {
     });
   }
 
-  const supported = ['anthropic', 'openai', 'xai', ...Object.keys(CHAT_COMPLETIONS_REGISTRY), 'local', 'custom'];
   throw new Error(
-    `Unknown provider "${backend}" in model "${model}". Supported: ${supported.join(', ')}.`,
+    `Unknown provider "${backend}" in model "${model}".`,
   );
 }

@@ -26,7 +26,7 @@ async function handleAsk(
 
   // Disable socket timeout for long-running requests
   req.socket.setTimeout(0);
-
+  
   const agent = await daemon.getAgent(agentId);
   if (!agent) return error(res, 'Agent not found', 404);
 

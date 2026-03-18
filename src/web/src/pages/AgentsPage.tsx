@@ -669,7 +669,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
+                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} runError={selectedRun.run_error} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
                     <RunFooter
                       run={selectedRun}
                       messages={messages}

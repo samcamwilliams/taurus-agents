@@ -320,13 +320,14 @@ interface MessageViewProps {
   streamingToolOutput?: string;
   isCompacting?: boolean;
   runStatus?: string;
+  runError?: string | null;
   showMetadata?: boolean;
   onInspect?: (message: MessageRecord) => void;
   onDelete?: (message: MessageRecord) => void;
   children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
+export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -498,6 +499,12 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
             )}
             {streamingText && <Markdown>{streamingText}</Markdown>}
           </div>
+        </div>
+      )}
+      {runError && !isStreaming && (
+        <div className="run-error-block">
+          <span className="run-error-block__icon">⚠</span>
+          <span className="run-error-block__text">{runError}</span>
         </div>
       )}
       {children}

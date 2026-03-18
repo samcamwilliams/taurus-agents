@@ -29,6 +29,9 @@ export interface AgentLoopParams {
 
   /** Returns queued injected messages (drains the queue). Used for mid-run user messages. */
   getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
+
+  /** Called before each inference call. Throw to abort the run (e.g. budget exceeded). */
+  beforeInference?: () => Promise<void>;
 }
 
 const TRANSIENT_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EPIPE', 'UND_ERR_SOCKET']);
@@ -50,7 +53,7 @@ function isTransientError(err: any): boolean {
  * Yields AgentEvents that the UI (or any consumer) can render.
  */
 export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentEvent> {
-  const { chatml, inference, tools, allowedTools, cwd, requestApproval = async () => true, maxTurns = 0, signal, model, limitOutputTokens, getInjectedMessages } = params;
+  const { chatml, inference, tools, allowedTools, cwd, requestApproval = async () => true, maxTurns = 0, signal, model, limitOutputTokens, getInjectedMessages, beforeInference } = params;
   let turns = 0;
   chatml.setTools(tools.getToolDefinitions(allowedTools));
 
@@ -96,6 +99,9 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
         }
       }
     }
+
+    // ── Pre-inference check (budget etc.) ──
+    if (beforeInference) await beforeInference();
 
     // ── Think: stream inference (with retry for transient errors) ──
     let stopReason = '';

@@ -14,6 +14,7 @@ class User extends Model {
   declare email: string;
   declare password_hash: string;
   declare role: 'admin' | 'user';
+  declare meta: Record<string, any> | null;
   declare deleted_at: Date | null;
   declare created_at: Date;
   declare updated_at: Date;
@@ -98,6 +99,10 @@ User.init(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user',
+    },
+    meta: {
+      type: DataTypes.JSON,
+      allowNull: true,
     },
   },
   {

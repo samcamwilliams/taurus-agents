@@ -1072,3 +1072,28 @@
     }
   }
 }
+
+// ── Run Error Block ──
+
+.run-error-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 16px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: rgba(220, 50, 50, 0.08);
+  border: 1px solid rgba(220, 50, 50, 0.25);
+  font-size: 13px;
+  line-height: 1.5;
+
+  &__icon {
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+
+  &__text {
+    color: var(--c-red);
+    word-break: break-word;
+  }
+}

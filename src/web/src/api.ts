@@ -135,4 +135,14 @@ export const api = {
   changePassword(current_password: string, new_password: string): Promise<{ ok: boolean }> {
     return request('/api/auth/password', { method: 'PUT', body: { current_password, new_password } });
   },
+
+  getUsage(): Promise<{
+    monthly_spent_usd: number;
+    monthly_limit_usd: number;
+    is_exempt: boolean;
+    month: string;
+    has_own_keys: Record<string, boolean>;
+  }> {
+    return request('/api/auth/usage');
+  },
 };
