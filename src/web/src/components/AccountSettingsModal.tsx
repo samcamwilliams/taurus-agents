@@ -177,23 +177,23 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
                   )}
                 </>
               )}
-              {usage && Object.keys(usage.has_own_keys).length > 0 && (
+              {usage && Object.values(usage.has_own_keys).some(Boolean) && (
                 <div style={{ marginTop: 16 }}>
                   <p style={{ fontSize: 12, color: 'var(--c-muted)', margin: '0 0 8px' }}>Your API keys</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {Object.entries(usage.has_own_keys).map(([provider, hasKey]) => (
+                    {Object.entries(usage.has_own_keys).filter(([, hasKey]) => hasKey).map(([provider]) => (
                       <span
                         key={provider}
                         style={{
                           fontSize: 11,
                           padding: '2px 8px',
                           borderRadius: 4,
-                          background: hasKey ? 'var(--c-green-bg, rgba(0,180,0,0.1))' : 'var(--c-bg-elevated)',
-                          color: hasKey ? 'var(--c-green)' : 'var(--c-muted)',
+                          background: 'var(--c-green-bg, rgba(0,180,0,0.1))',
+                          color: 'var(--c-green)',
                           fontFamily: 'var(--font-mono, monospace)',
                         }}
                       >
-                        {provider} {hasKey ? '✓' : '—'}
+                        {provider} ✓
                       </span>
                     ))}
                   </div>
