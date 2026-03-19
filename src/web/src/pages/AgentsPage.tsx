@@ -95,7 +95,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const { theme, cycleTheme } = useTheme();
   const conn = useConnectionStatus();
   const isMobile = useIsMobile();
-  const { canInstall, isInstalled, install } = usePwaInstall();
+  const { canInstall, isInstalled, install, installLabel, installHelpText } = usePwaInstall();
   const notifications = useAgentNotifications(showToast);
 
   // Remember last selected run per agent so switching back restores it
@@ -121,7 +121,8 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     if (typeof window === 'undefined') return;
 
     const setViewportHeight = () => {
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${Math.round(viewportHeight)}px`);
     };
 
     setViewportHeight();
@@ -608,8 +609,18 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
         : 'Enable Taurus notifications';
 
   async function handleInstall() {
-    const accepted = await install();
-    if (accepted) showToast('Taurus installed on this device.', 'info');
+    const outcome = await install();
+    if (outcome === 'accepted') {
+      showToast('Taurus installed on this device.', 'info');
+      return;
+    }
+    if (outcome === 'manual') {
+      showToast('In Safari, tap Share and then Add to Home Screen.', 'info');
+      return;
+    }
+    if (outcome === 'unavailable') {
+      showToast(installHelpText, 'info');
+    }
   }
 
   async function handleNotificationClick() {
@@ -764,42 +775,51 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                 </div>
               </div>
               <div className="panel-header__actions">
-                {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
-                {isMobile && activeTab === 'runs' && (
-                  <button
-                    className={`btn icon-btn${mobileRunsOpen ? ' btn--active' : ''}`}
-                    onClick={() => {
-                      setMobileRunsOpen(v => !v);
-                      setMobileAgentsOpen(false);
-                    }}
-                    title={hasRuns ? 'Runs' : 'No runs yet'}
-                    disabled={!hasRuns}
-                  >
-                    <List size={13} />
-                  </button>
-                )}
-                {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
-                {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
-                {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> {isMobile ? 'Stop' : 'Stop All'}</button>}
-                {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
-                {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
-                {canInstall && !isInstalled && (
-                  <button className="btn icon-btn" onClick={handleInstall} title="Install Taurus">
-                    <Download size={13} />
-                  </button>
-                )}
-                {notifications.supported && (
-                  <button
-                    className={`btn icon-btn${notifications.enabled ? ' btn--active' : ''}`}
-                    onClick={handleNotificationClick}
-                    title={notificationTitle}
-                  >
-                    {notifications.enabled ? <Bell size={13} /> : <BellOff size={13} />}
-                  </button>
-                )}
-                <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
-                <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
-                {authEnabled && <UserMenu onLogout={onLogout} />}
+                <div className="panel-header__action-row panel-header__action-row--primary">
+                  {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
+                  {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
+                  {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> {isMobile ? 'Stop' : 'Stop All'}</button>}
+                  {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
+                  {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
+                </div>
+                <div className="panel-header__action-row panel-header__action-row--utility">
+                  {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
+                  {isMobile && activeTab === 'runs' && (
+                    <button
+                      className={`btn icon-btn${mobileRunsOpen ? ' btn--active' : ''}`}
+                      onClick={() => {
+                        setMobileRunsOpen(v => !v);
+                        setMobileAgentsOpen(false);
+                      }}
+                      title={hasRuns ? 'Runs' : 'No runs yet'}
+                      disabled={!hasRuns}
+                    >
+                      <List size={13} />
+                    </button>
+                  )}
+                  {canInstall && !isInstalled && (
+                    <button
+                      className={`btn${isMobile ? ' btn--sm' : ' icon-btn'}`}
+                      onClick={handleInstall}
+                      title={installLabel}
+                    >
+                      <Download size={13} />
+                      {isMobile && <span>Install</span>}
+                    </button>
+                  )}
+                  {notifications.supported && (
+                    <button
+                      className={`btn icon-btn${notifications.enabled ? ' btn--active' : ''}`}
+                      onClick={handleNotificationClick}
+                      title={notificationTitle}
+                    >
+                      {notifications.enabled ? <Bell size={13} /> : <BellOff size={13} />}
+                    </button>
+                  )}
+                  <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
+                  <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
+                  {authEnabled && <UserMenu onLogout={onLogout} />}
+                </div>
               </div>
             </div>
 

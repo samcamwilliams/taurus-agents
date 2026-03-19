@@ -268,6 +268,22 @@
     justify-content: flex-end;
   }
 
+  &__action-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  &__action-row--primary {
+    flex: 1 1 auto;
+  }
+
+  &__action-row--utility {
+    flex: 0 1 auto;
+    align-items: center;
+  }
+
   &__title {
     display: flex;
     flex-direction: column;
@@ -453,6 +469,7 @@
     &:focus-within { border-color: var(--c-muted); }
 
     textarea {
+      display: block;
       flex: 1;
       background: none;
       border: none;
@@ -466,6 +483,9 @@
       line-height: 1.4;
       min-height: 32px;
       max-height: 200px;
+      overflow-y: auto;
+      appearance: none;
+      -webkit-appearance: none;
     }
   }
 
@@ -823,6 +843,26 @@
     &__actions {
       width: 100%;
       justify-content: flex-start;
+      gap: 6px;
+    }
+
+    &__action-row {
+      width: 100%;
+      justify-content: flex-start;
+      gap: 6px;
+    }
+
+    &__action-row--utility {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+
+      .btn,
+      .user-menu,
+      .conn-label {
+        flex: 0 0 auto;
+      }
     }
   }
 
@@ -840,10 +880,50 @@
 
   .runs-panel {
     display: none;
+
+    &--drawer {
+      display: flex;
+    }
   }
 
   .messages-area {
     min-height: 0;
+  }
+
+  .input-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 8;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--c-bg2) 94%, transparent);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 -12px 26px rgba(0, 0, 0, 0.08);
+
+    &__input-wrap {
+      align-items: center;
+      min-height: 56px;
+      border-radius: 16px;
+      padding-right: 2px;
+    }
+
+    textarea {
+      font-size: 16px;
+      line-height: 1.45;
+      min-height: 44px;
+      padding: 12px 4px 10px 0;
+    }
+
+    &__send,
+    &__plus {
+      align-self: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 0;
+    }
+
+    &__plus-wrap {
+      align-items: center;
+    }
   }
 
   .run-controls {

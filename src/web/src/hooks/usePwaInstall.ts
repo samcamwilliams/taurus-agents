@@ -10,9 +10,19 @@ function getStandaloneState(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
+function isIosSafari(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const webkit = /WebKit/.test(ua);
+  const excluded = /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|Mercury/.test(ua);
+  return ios && webkit && !excluded;
+}
+
 export function usePwaInstall() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(() => getStandaloneState());
+  const manualInstall = isIosSafari() && !isInstalled;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -47,8 +57,10 @@ export function usePwaInstall() {
     };
   }, []);
 
-  const install = useCallback(async (): Promise<boolean> => {
-    if (!promptEvent) return false;
+  const install = useCallback(async (): Promise<'accepted' | 'dismissed' | 'manual' | 'unavailable'> => {
+    if (!promptEvent) {
+      return manualInstall ? 'manual' : 'unavailable';
+    }
 
     await promptEvent.prompt();
     const choice = await promptEvent.userChoice;
@@ -56,12 +68,16 @@ export function usePwaInstall() {
       setIsInstalled(true);
     }
     setPromptEvent(null);
-    return choice.outcome === 'accepted';
-  }, [promptEvent]);
+    return choice.outcome;
+  }, [manualInstall, promptEvent]);
 
   return {
-    canInstall: !!promptEvent && !isInstalled,
+    canInstall: (!isInstalled && !!promptEvent) || manualInstall,
     isInstalled,
     install,
+    installLabel: manualInstall ? 'Add to Home Screen' : 'Install Taurus',
+    installHelpText: manualInstall
+      ? 'In Safari, tap Share and then Add to Home Screen.'
+      : 'Taurus can be installed from a supported browser over HTTPS.',
   };
 }
