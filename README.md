@@ -241,10 +241,24 @@ TAURUS_PORT=7777       # Server port
 
 ## Authentication
 
-By default, Taurus runs without authentication (suitable for local development). To secure a production deployment, set `AUTH_PASSWORD` in `.env`:
+Taurus now uses per-user authentication with username + password login. Auth is always enabled for API routes, and the web app will show a login screen when you are not signed in.
+
+On first boot, Taurus ensures there is at least one admin user:
+
+- If there are no users yet, it creates `taurus` as the default admin.
+- The default password is `AUTH_PASSWORD` if you set it in `.env`.
+- Otherwise, Taurus derives a deterministic local password from the instance secret and prints it in the startup banner in non-production mode, until that password is changed.
+
+You can create additional users from the CLI:
 
 ```bash
-AUTH_PASSWORD=my-secret       # Enables login gate for the web UI
+./taurus adduser --username <name> --password <password> --email <email> [--role admin|user]
+```
+
+Relevant auth env vars:
+
+```bash
+AUTH_PASSWORD=my-secret       # Optional initial password for the default `taurus` admin
 AUTH_API_KEY=my-api-key       # Optional — static key for programmatic API access
 # AUTH_SECRET=                # Optional — HMAC signing key (auto-generated if not set)
 TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
@@ -252,7 +266,7 @@ TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
 
 ### How it works
 
-- **Web UI**: password login sets an `HttpOnly; SameSite=Strict` session cookie (7-day TTL). Mutation requests (POST/PUT/PATCH/DELETE) require an `X-CSRF-Token` header.
+- **Web UI**: username + password login sets an `HttpOnly; SameSite=Strict` session cookie (7-day TTL). Mutation requests (POST/PUT/PATCH/DELETE) require an `X-CSRF-Token` header.
 - **API access**: use `Authorization: Bearer <AUTH_API_KEY>` for programmatic access. No CSRF needed for Bearer auth.
 - **WebSocket terminal**: authenticated via session cookie, or `?token=<key>` query param for external clients.
 - **Rate limiting**: max 5 failed login attempts per IP per minute, then 429.
@@ -264,7 +278,7 @@ TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
 # Login (returns session cookie + CSRF token)
 curl -c cookies.txt localhost:7777/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"password": "my-secret"}'
+  -d '{"username": "taurus", "password": "my-secret"}'
 
 # Authenticated request with cookie + CSRF
 curl -b cookies.txt localhost:7777/api/agents \
@@ -274,8 +288,6 @@ curl -b cookies.txt localhost:7777/api/agents \
 curl localhost:7777/api/agents \
   -H 'Authorization: Bearer my-api-key'
 ```
-
-When `AUTH_PASSWORD` is not set, all endpoints are open (current default behavior).
 
 ## License
 

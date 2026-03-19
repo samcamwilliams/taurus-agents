@@ -1,6 +1,6 @@
 // ── Theme system ──
 // Themes are defined as CSS custom properties on [data-theme].
-// Default (no attribute or data-theme="dark") = GitHub Dark.
+// Initial default is bootstrapped in index.html before React mounts.
 // Add new themes by adding a new [data-theme="..."] block.
 
 :root,
@@ -240,35 +240,35 @@
 }
 
 [data-theme="light"] {
-  // GitHub Light inspired
+  // Minimal light lab
   // Backgrounds
-  --c-bg:      #ffffff;
-  --c-bg2:     #f6f8fa;
-  --c-bg3:     #eaeef2;
-  --c-border:  #d0d7de;
+  --c-bg:      #f7faf7;
+  --c-bg2:     #ffffff;
+  --c-bg3:     #eff4f0;
+  --c-border:  #dbe4dd;
 
   // Text
-  --c-text:    #1f2328;
-  --c-muted:   #656d76;
+  --c-text:    #11181c;
+  --c-muted:   #67747a;
 
-  // Accents (lighter/softer than dark theme — readable on white, gentle as fills)
-  --c-accent:  #4493f8;
-  --c-green:   #3fb950;
-  --c-red:     #fa538c;
-  --c-yellow:  #d29922;
-  --c-amber:   #db6d28;
+  // Accents
+  --c-accent:  #0f766e;
+  --c-green:   #11885d;
+  --c-red:     #d84d5f;
+  --c-yellow:  #9a6b1e;
+  --c-amber:   #b66c23;
 
   // UI accent family
-  --c-accent-ui:         #C249C6;
-  --c-accent-ui-strong:  #9A2C9E;
-  --c-accent-ui-fill:    rgba(187, 66, 192, 0.06);
-  --c-accent-ui-glow1:   rgba(187, 66, 192, 0.25);
-  --c-accent-ui-glow2:   rgba(187, 66, 192, 0.12);
-  --c-accent-ui-glow3:   rgba(187, 66, 192, 0.06);
+  --c-accent-ui:         #0f766e;
+  --c-accent-ui-strong:  #0b4f4a;
+  --c-accent-ui-fill:    rgba(15, 118, 110, 0.06);
+  --c-accent-ui-glow1:   rgba(15, 118, 110, 0.22);
+  --c-accent-ui-glow2:   rgba(15, 118, 110, 0.12);
+  --c-accent-ui-glow3:   rgba(15, 118, 110, 0.05);
 
   // Back-compat aliases for existing styles
   --c-purple:        var(--c-accent-ui);
-  --c-marker:        #BB42C0;
+  --c-marker:        #0f766e;
   --c-marker-bright: var(--c-accent-ui-strong);
   --c-marker-glow1:  var(--c-accent-ui-glow1);
   --c-marker-glow2:  var(--c-accent-ui-glow2);
@@ -281,19 +281,78 @@
   --c-status-error:   #ffebe9;
   --c-status-success: #dafbe1;
 
-  // Buttons — primary (magenta)
-  --c-btn-primary-from:  rgba(187, 66, 192, 0.12);
-  --c-btn-primary-to:    rgba(187, 66, 192, 0.06);
-  --c-btn-primary-hover-from: rgba(187, 66, 192, 0.20);
-  --c-btn-primary-hover-to:   rgba(187, 66, 192, 0.10);
-  --c-btn-primary-text:  #9A2C9E;
-  --c-btn-primary-shine: rgba(187, 66, 192, 0.08);
-  --c-btn-primary-border: rgba(187, 66, 192, 0.35);
-  --c-btn-primary-border-hover: rgba(187, 66, 192, 0.55);
-  --c-btn-primary-glow:  rgba(187, 66, 192, 0.08);
-  --c-btn-primary-glow-hover: rgba(187, 66, 192, 0.15);
+  // Buttons — primary (ink)
+  --c-btn-primary-from:  rgba(17, 24, 28, 0.98);
+  --c-btn-primary-to:    rgba(17, 24, 28, 0.94);
+  --c-btn-primary-hover-from: rgba(17, 24, 28, 0.92);
+  --c-btn-primary-hover-to:   rgba(17, 24, 28, 0.88);
+  --c-btn-primary-text:  #ffffff;
+  --c-btn-primary-shine: rgba(255, 255, 255, 0.14);
+  --c-btn-primary-border: rgba(17, 24, 28, 0.98);
+  --c-btn-primary-border-hover: rgba(17, 24, 28, 0.98);
+  --c-btn-primary-glow:  rgba(15, 118, 110, 0.08);
+  --c-btn-primary-glow-hover: rgba(15, 118, 110, 0.16);
 
   // Buttons — danger
   --c-btn-danger:        #cf222e;
   --c-btn-danger-hover:  #a40e26;
+}
+
+[data-theme="night"] {
+  // Inverted executive lab
+  // Backgrounds
+  --c-bg:      #061316;
+  --c-bg2:     #091a1f;
+  --c-bg3:     #10252b;
+  --c-border:  #18333a;
+
+  // Text
+  --c-text:    #dbe7e4;
+  --c-muted:   #7f9a94;
+
+  // Accents
+  --c-accent:  #63e6cf;
+  --c-green:   #52e2a0;
+  --c-red:     #ff7d92;
+  --c-yellow:  #dfc26f;
+  --c-purple:  #6fb8ff;
+  --c-amber:   #ffaf67;
+
+  // Active marker
+  --c-marker:       #63e6cf;
+  --c-marker-bright: #b9f8ec;
+  --c-marker-glow1: rgba(99, 230, 207, 0.62);
+  --c-marker-glow2: rgba(99, 230, 207, 0.28);
+  --c-marker-glow3: rgba(99, 230, 207, 0.12);
+  --c-hover:        rgba(99, 230, 207, 0.08);
+
+  // Status backgrounds
+  --c-status-running: #1f2d16;
+  --c-status-paused:  #2b2417;
+  --c-status-error:   #32151d;
+  --c-status-success: #132821;
+
+  // Buttons — primary
+  --c-btn-primary-from:  rgba(99, 230, 207, 0.18);
+  --c-btn-primary-to:    rgba(99, 230, 207, 0.08);
+  --c-btn-primary-hover-from: rgba(99, 230, 207, 0.28);
+  --c-btn-primary-hover-to:   rgba(99, 230, 207, 0.14);
+  --c-btn-primary-text:  #dffcf5;
+  --c-btn-primary-shine: rgba(99, 230, 207, 0.12);
+  --c-btn-primary-border: rgba(99, 230, 207, 0.35);
+  --c-btn-primary-border-hover: rgba(99, 230, 207, 0.62);
+  --c-btn-primary-glow:  rgba(99, 230, 207, 0.14);
+  --c-btn-primary-glow-hover: rgba(99, 230, 207, 0.26);
+
+  // Buttons — danger
+  --c-btn-danger:        #cf4960;
+  --c-btn-danger-hover:  #f0667d;
+
+  // Semantic aliases
+  --c-accent-ui:         var(--c-marker);
+  --c-accent-ui-strong:  var(--c-marker-bright);
+  --c-accent-ui-fill:    var(--c-hover);
+  --c-accent-ui-glow1:   var(--c-marker-glow1);
+  --c-accent-ui-glow2:   var(--c-marker-glow2);
+  --c-accent-ui-glow3:   var(--c-marker-glow3);
 }

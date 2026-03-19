@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Terminal, FileText, FilePen, FolderSearch, Search,
   Pause, Globe, Download, MonitorPlay, Eye,
-  Wrench, Minimize2, Maximize2, X,
+  Wrench, Minimize2, Maximize2, X, ArrowDown,
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
@@ -314,6 +314,7 @@ function MessageContent({ content, role, showMetadata, toolMeta }: { content: un
 // ── Main message view ──
 
 interface MessageViewProps {
+  runId?: string;
   messages: MessageRecord[];
   streamingText?: string;
   streamingThinking?: string;
@@ -327,29 +328,55 @@ interface MessageViewProps {
   children?: React.ReactNode;
 }
 
-export function MessageView({ messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
+export function MessageView({ runId, messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
   const toolOutputNearBottom = useRef(true);
-  const prevMessageCount = useRef(messages.length);
+  const scrollFrameRef = useRef<number | null>(null);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
 
-  // When a new message is added (user sends or assistant responds), always scroll to bottom
+  const syncPinnedState = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return true;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    wasNearBottom.current = nearBottom;
+    setIsPinnedToBottom(prev => prev === nearBottom ? prev : nearBottom);
+    return nearBottom;
+  }, []);
+
+  const scrollToPresent = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  const scheduleScrollToPresent = useCallback((behavior: ScrollBehavior = 'auto') => {
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollToPresent(behavior);
+      scrollFrameRef.current = null;
+    });
+  }, [scrollToPresent]);
+
   useEffect(() => {
-    if (messages.length > prevMessageCount.current) {
-      wasNearBottom.current = true;
-    }
-    prevMessageCount.current = messages.length;
-  }, [messages.length]);
+    return () => {
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    wasNearBottom.current = true;
+    setIsPinnedToBottom(true);
+    scheduleScrollToPresent('auto');
+  }, [runId, scheduleScrollToPresent]);
 
   // After new messages or streaming text render, scroll to bottom if we were already near it
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
     if (wasNearBottom.current) {
-      el.scrollTop = el.scrollHeight;
+      scheduleScrollToPresent('auto');
     }
-  }, [messages, streamingText, streamingThinking, streamingToolOutput, showMetadata]);
+  }, [messages, streamingText, streamingThinking, streamingToolOutput, showMetadata, isCompacting, runError, scheduleScrollToPresent]);
 
   // Auto-scroll the tool output <pre> to its bottom as new content streams in
   useEffect(() => {
@@ -370,18 +397,16 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
     if (!el) return;
     const observer = new ResizeObserver(() => {
       if (wasNearBottom.current) {
-        el.scrollTop = el.scrollHeight;
+        scheduleScrollToPresent('auto');
       }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [scheduleScrollToPresent]);
 
   // On scroll, record whether we're near the bottom
   function handleScroll() {
-    const el = containerRef.current;
-    if (!el) return;
-    wasNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    syncPinnedState();
   }
 
   // Build tool_use_id → metadata lookup from all user messages with toolMeta
@@ -404,110 +429,127 @@ export function MessageView({ messages, streamingText, streamingThinking, stream
   const thinkingDone = !!streamingText;
 
   return (
-    <div className="message-list" ref={containerRef} onScroll={handleScroll}>
-      {messages.map(msg => {
-        if (msg.role === 'system') {
-          const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-          return (
-            <div key={msg.id} className="message message--system">
-              <div className="message__header">
-                <span className="message__role">system</span>
-              </div>
-              <div className="message__body">
-                <SystemPromptBlock text={text} />
-              </div>
-            </div>
-          );
-        }
-        if (msg.role === 'compaction') {
-          return (
-            <div key={msg.id} className="message message--compaction">
-              <CompactionBlock msg={msg} />
-              {showMetadata && msg.usage && (
-                <div className="message__footer">
-                  <UsageSummary usage={msg.usage} cost={msg.cost} />
-                  {msg.model && <span className="message__model">{msg.model}</span>}
+    <div className={`message-list-shell${isPinnedToBottom ? '' : ' message-list-shell--detached'}`}>
+      <div className="message-list" ref={containerRef} onScroll={handleScroll}>
+        {messages.map(msg => {
+          if (msg.role === 'system') {
+            const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            return (
+              <div key={msg.id} className="message message--system">
+                <div className="message__header">
+                  <span className="message__role">system</span>
                 </div>
-              )}
-            </div>
-          );
-        }
-        const isOptimistic = msg.id.startsWith('_optimistic_');
-        return (
-        <div key={msg.id} className={`message message--${msg.role}${isOptimistic ? ' message--optimistic' : ''}`}>
-          <div className="message__header">
-            <span className="message__role">{msg.role}</span>
-            <span className="message__meta">
-              {isOptimistic
-                ? <span className="message__pill message__pill--sending">sending</span>
-                : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
-              {!isOptimistic && fmtSmartTime(new Date(msg.created_at))}
-            </span>
-            {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
-          </div>
-          <div className="message__body">
-            <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
-          </div>
-          {showMetadata && msg.usage && (
-            <div className="message__footer">
-              <UsageSummary usage={msg.usage} cost={msg.cost} />
-                  {msg.model && <span className="message__model">{msg.model}</span>}
-            </div>
-          )}
-        </div>
-        );
-      })}
-      {isCompacting && (
-        <div className="message message--compaction">
-          <div className="compaction-block">
-            <div className="compaction-block__header compaction-block__header--live">
-              <Minimize2 size={11} className="compaction-block__icon" />
-              <span className="compaction-block__label">Compacting context...</span>
-            </div>
-          </div>
-        </div>
-      )}
-      {streamingToolOutput && (
-        <div className="message message--user">
-          <div className="message__header">
-            <span className="message__role">user</span>
-          </div>
-          <div className="message__body">
-            <div className="msg-tool-result">
-              <div className="msg-tool-result__header">Result</div>
-              <pre ref={toolOutputRef} className="msg-tool-result__content" onScroll={() => {
-                const el = toolOutputRef.current;
-                if (el) toolOutputNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-              }}>{streamingToolOutput}</pre>
-            </div>
-          </div>
-        </div>
-      )}
-      {isStreaming && (
-        <div className="message message--assistant message--streaming">
-          <div className="message__header">
-            <span className="message__role">assistant</span>
-            <span className="message__meta">
-              <span className="message__pill message__pill--streaming">
-                {thinkingDone ? 'streaming' : 'thinking'}
+                <div className="message__body">
+                  <SystemPromptBlock text={text} />
+                </div>
+              </div>
+            );
+          }
+          if (msg.role === 'compaction') {
+            return (
+              <div key={msg.id} className="message message--compaction">
+                <CompactionBlock msg={msg} />
+                {showMetadata && msg.usage && (
+                  <div className="message__footer">
+                    <UsageSummary usage={msg.usage} cost={msg.cost} />
+                    {msg.model && <span className="message__model">{msg.model}</span>}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          const isOptimistic = msg.id.startsWith('_optimistic_');
+          return (
+          <div key={msg.id} className={`message message--${msg.role}${isOptimistic ? ' message--optimistic' : ''}`}>
+            <div className="message__header">
+              <span className="message__role">{msg.role}</span>
+              <span className="message__meta">
+                {isOptimistic
+                  ? <span className="message__pill message__pill--sending">sending</span>
+                  : msg.stop_reason && <span className="message__pill message__pill--stop">{msg.stop_reason}</span>}
+                {!isOptimistic && fmtSmartTime(new Date(msg.created_at))}
               </span>
-            </span>
-          </div>
-          <div className="message__body">
-            {streamingThinking && (
-              <ThinkingBlock text={streamingThinking} defaultCollapsed={thinkingDone} showTokens={showMetadata} />
+              {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
+            </div>
+            <div className="message__body">
+              <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
+            </div>
+            {showMetadata && msg.usage && (
+              <div className="message__footer">
+                <UsageSummary usage={msg.usage} cost={msg.cost} />
+                    {msg.model && <span className="message__model">{msg.model}</span>}
+              </div>
             )}
-            {streamingText && <Markdown>{streamingText}</Markdown>}
           </div>
-        </div>
-      )}
-      {runError && !isStreaming && (
-        <div className="run-error-block">
-          <span className="run-error-block__icon">⚠</span>
-          <span className="run-error-block__text">{runError}</span>
-        </div>
-      )}
-      {children}
+          );
+        })}
+        {isCompacting && (
+          <div className="message message--compaction">
+            <div className="compaction-block">
+              <div className="compaction-block__header compaction-block__header--live">
+                <Minimize2 size={11} className="compaction-block__icon" />
+                <span className="compaction-block__label">Compacting context...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {streamingToolOutput && (
+          <div className="message message--user">
+            <div className="message__header">
+              <span className="message__role">user</span>
+            </div>
+            <div className="message__body">
+              <div className="msg-tool-result">
+                <div className="msg-tool-result__header">Result</div>
+                <pre ref={toolOutputRef} className="msg-tool-result__content" onScroll={() => {
+                  const el = toolOutputRef.current;
+                  if (el) toolOutputNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+                }}>{streamingToolOutput}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+        {isStreaming && (
+          <div className="message message--assistant message--streaming">
+            <div className="message__header">
+              <span className="message__role">assistant</span>
+              <span className="message__meta">
+                <span className="message__pill message__pill--streaming">
+                  {thinkingDone ? 'streaming' : 'thinking'}
+                </span>
+              </span>
+            </div>
+            <div className="message__body">
+              {streamingThinking && (
+                <ThinkingBlock text={streamingThinking} defaultCollapsed={thinkingDone} showTokens={showMetadata} />
+              )}
+              {streamingText && <Markdown>{streamingText}</Markdown>}
+            </div>
+          </div>
+        )}
+        {runError && !isStreaming && (
+          <div className="run-error-block">
+            <span className="run-error-block__icon">⚠</span>
+            <span className="run-error-block__text">{runError}</span>
+          </div>
+        )}
+        {children}
+      </div>
+      <div className={`message-list__return${isPinnedToBottom ? '' : ' message-list__return--visible'}`}>
+        <div className="message-list__return-fade" />
+        <button
+          type="button"
+          className="message-list__return-btn"
+          onClick={() => {
+            wasNearBottom.current = true;
+            setIsPinnedToBottom(true);
+            scrollToPresent('smooth');
+          }}
+        >
+          <ArrowDown size={14} />
+          <span>Back to Present</span>
+        </button>
+      </div>
     </div>
   );
 }

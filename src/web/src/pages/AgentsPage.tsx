@@ -839,7 +839,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} runError={selectedRun.run_error} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
+                  <MessageView runId={selectedRun.id} messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} runError={selectedRun.run_error} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
                     <RunFooter
                       run={selectedRun}
                       messages={messages}
@@ -862,13 +862,13 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
 
             {mountedTabs.has('editor') && (
               <div style={{ display: activeTab === 'editor' ? 'flex' : 'none', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <FileBrowser agentId={selectedAgent.id} />
+                <FileBrowser agentId={selectedAgent.id} theme={theme} />
               </div>
             )}
 
             {mountedTabs.has('terminal') && (
               <div className="terminal-fullpane" style={{ display: activeTab === 'terminal' ? undefined : 'none' }}>
-                <Terminal agentId={selectedAgent.id} focused={activeTab === 'terminal'} />
+                <Terminal agentId={selectedAgent.id} focused={activeTab === 'terminal'} theme={theme} />
               </div>
             )}
           </>

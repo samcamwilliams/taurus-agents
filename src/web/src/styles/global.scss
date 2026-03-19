@@ -1,4 +1,5 @@
 @use 'themes';
+@use 'variables' as *;
 
 * {
   margin: 0;
@@ -244,34 +245,87 @@ body {
 // ── Light theme overrides ──
 
 [data-theme="light"] {
-  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  color-scheme: light;
+  scrollbar-color: rgba(17, 24, 28, 0.16) transparent;
+
+  body {
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f7faf8 100%),
+      linear-gradient(rgba(17, 24, 28, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(17, 24, 28, 0.03) 1px, transparent 1px);
+    background-size: auto, 28px 28px, 28px 28px;
+  }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    &:hover { background: rgba(0, 0, 0, 0.25); }
+    background: rgba(17, 24, 28, 0.14);
+    &:hover { background: rgba(17, 24, 28, 0.24); }
   }
 
-  // ── Panel differentiation ──
-  // Sidebar slightly tinted, runs panel between sidebar and messages
+  .app {
+    background: transparent;
+  }
+
   .sidebar {
-    background: #f0f3f7;
-  }
-  .runs-panel {
-    background: #f5f7fa;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 40px rgba(16, 24, 28, 0.04);
   }
 
-  // ── Status dots: light, pastel, cohesive ──
+  .runs-panel {
+    background: rgba(250, 252, 250, 0.96);
+  }
+
+  .panel-header,
+  .tab-bar,
+  .input-bar,
+  .fb__tree-pane,
+  .fb__tree-mobile-head,
+  .fb__mobile-bar,
+  .fb-editor__toolbar,
+  .user-menu__dropdown,
+  .run-controls,
+  .toast--info,
+  .modal,
+  .inspect-modal {
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 30px rgba(16, 24, 28, 0.04);
+  }
+
+  .sidebar__header h1 {
+    font-family: $font-mono;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: #0f1720;
+  }
+
+  .panel-header h2 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .panel-header__meta,
+  .countdown,
+  .usage-summary,
+  .tab-bar__tab,
+  .status-dot__label {
+    font-family: $font-mono;
+  }
+
   .status-dot {
-    &--idle      { background: #b4b9c1; }
-    &--running   {
+    &--idle { background: #b4b9c1; }
+    &--running {
       background: #ff9a25;
       animation: light-glow-pulse 2s ease-in-out infinite;
       box-shadow: 0 0 6px rgba(255, 230, 140, 0.75);
     }
-    &--error     { background: var(--c-red); }
+    &--error { background: var(--c-red); }
     &--completed { background: #42c87d; }
   }
-  .status-dot-icon.status-dot--paused { color: #d4ad42; fill: #d4ad42; }
+
+  .status-dot-icon.status-dot--paused {
+    color: #d4ad42;
+    fill: #d4ad42;
+  }
 
   @keyframes light-glow-pulse {
     0%, 100% {
@@ -284,97 +338,107 @@ body {
     }
   }
 
-  // ── Agent names: tinted, not plain black ──
-  .agent-item__name {
-    color: color-mix(in srgb, var(--c-accent) 40%, var(--c-text));
-  }
-
-  // ── Run labels: subtle accent tint ──
+  .agent-item__name,
   .runs-panel .tv__label {
-    color: color-mix(in srgb, var(--c-accent-ui) 30%, var(--c-text));
+    color: var(--c-text);
   }
 
-  // ── Buttons ──
+  .message {
+    border-color: #e3e9e4;
+  }
+
+  .message--user {
+    background: #fbfcfb;
+  }
+
+  .message--assistant {
+    background: #ffffff;
+  }
+
+  .llm-stream,
+  .markdown pre,
+  .msg-tool-use__input,
+  .msg-tool-use__cmd,
+  .msg-tool-result__content,
+  .msg-raw,
+  .fb-editor__view-toggle,
+  .tool-picker,
+  .mounts-group,
+  .agent-settings__value.pre {
+    background: #f3f7f4;
+    border-color: var(--c-border);
+  }
+
+  .msg-tool-use__header,
+  .msg-tool-result__header,
+  .system-prompt-block__header,
+  .thinking-block__header,
+  .compaction-block__header {
+    background: #ecf2ee;
+  }
+
+  .markdown :not(pre) > code,
+  .run-footer__menu-dropdown,
+  .input-bar__menu,
+  .fb__places-menu {
+    background: #eff4f0;
+  }
+
   .btn {
-    background: var(--c-bg);
-    border: 1px solid var(--c-border);
-    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #d5ded7;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.84),
+      0 8px 24px rgba(16, 24, 28, 0.04);
     color: var(--c-text);
 
     &:hover {
-      background: var(--c-bg3);
-      border-color: var(--c-border);
-      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+      background: #f8fbf8;
+      border-color: color-mix(in srgb, var(--c-accent-ui) 26%, #c9d3cc);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.9),
+        0 12px 28px rgba(16, 24, 28, 0.06);
     }
 
     &:active {
-      background: var(--c-bg3);
-      box-shadow: inset 0 1px 0 rgba(27, 31, 36, 0.1);
-      transform: none;
+      background: #eef4ef;
+      box-shadow: inset 0 1px 2px rgba(16, 24, 28, 0.06);
     }
 
-    // Primary: polished gradient with shine
     &.primary {
-      background:
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, var(--c-accent-ui) 85%, #fff) 0%,
-          var(--c-accent-ui) 50%,
-          color-mix(in srgb, var(--c-accent-ui) 92%, #000) 100%
-        );
-      border-color: color-mix(in srgb, var(--c-accent-ui) 80%, #000);
+      background: linear-gradient(180deg, #192229 0%, #10181d 100%);
+      border-color: #10181d;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.25),
-        0 1px 3px rgba(0, 0, 0, 0.12);
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 12px 28px rgba(15, 118, 110, 0.12);
       color: #fff;
-      font-weight: 500;
+      font-weight: 600;
 
       &:hover {
-        background:
-          linear-gradient(
-            180deg,
-            var(--c-accent-ui) 0%,
-            color-mix(in srgb, var(--c-accent-ui) 88%, #000) 100%
-          );
-        border-color: color-mix(in srgb, var(--c-accent-ui) 75%, #000);
+        background: linear-gradient(180deg, #1c2a30 0%, #11191d 100%);
+        border-color: #11191d;
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.15),
-          0 2px 8px color-mix(in srgb, var(--c-accent-ui) 30%, transparent);
-        transform: translateY(-0.5px);
+          inset 0 1px 0 rgba(255, 255, 255, 0.12),
+          0 14px 32px rgba(15, 118, 110, 0.16);
       }
 
       &:active {
-        background: color-mix(in srgb, var(--c-accent-ui) 78%, #000);
-        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-        transform: translateY(0.5px);
+        background: #10181d;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.16);
       }
     }
 
     &.danger {
-      background: var(--c-btn-danger);
-      border-color: var(--c-btn-danger);
-      color: #fff;
-      box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
-
-      &:hover {
-        background: var(--c-btn-danger-hover);
-        border-color: var(--c-btn-danger-hover);
-        box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
-        transform: none;
-      }
-
-      &:active {
-        box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.15);
-        transform: none;
-      }
+      box-shadow: 0 8px 20px rgba(216, 77, 95, 0.12);
     }
 
     &.btn--active {
-      color: #fff;
+      background: color-mix(in srgb, var(--c-accent-ui) 12%, #ffffff);
+      border-color: color-mix(in srgb, var(--c-accent-ui) 35%, #d5ded7);
+      color: var(--c-accent-ui-strong);
     }
   }
 
-  // ── Tree selection: flat ──
   .tv__node {
     &:hover:not(.tv__node--selected)::before {
       background: var(--c-border);
@@ -382,8 +446,11 @@ body {
     }
 
     &--selected {
-      background: var(--c-hover);
-      &:hover { background: var(--c-hover); }
+      background: color-mix(in srgb, var(--c-accent-ui) 8%, #ffffff);
+
+      &:hover {
+        background: color-mix(in srgb, var(--c-accent-ui) 8%, #ffffff);
+      }
 
       &::before {
         background: var(--c-marker);
@@ -393,7 +460,6 @@ body {
     }
   }
 
-  // ── Tab bar: flat underline ──
   .tab-bar__tab {
     &:hover:not(.tab-bar__tab--active)::after {
       background: var(--c-border);
@@ -401,7 +467,7 @@ body {
     }
 
     &--active {
-      background: var(--c-hover);
+      background: color-mix(in srgb, var(--c-accent-ui) 6%, #ffffff);
 
       &::after {
         background: var(--c-marker);
@@ -412,52 +478,140 @@ body {
     }
   }
 
-  // ── Sidebar selection: flat ──
-  .sidebar__item {
-    &:hover:not(.sidebar__item--active)::before {
-      background: var(--c-border);
-      box-shadow: none;
-    }
-
-    &--active {
-      background: var(--c-hover);
-
-      &::after {
-        background: var(--c-marker);
-        box-shadow: none;
-        height: 2px;
-      }
-    }
-  }
-
-  // File browser: flat hover
   .fb-tree__item:hover:not(.fb-tree__item--selected)::before {
     background: var(--c-border);
     box-shadow: none;
   }
 
-  // ── Punchier diffs ──
+  .fb-tree__item--selected {
+    background: color-mix(in srgb, var(--c-accent-ui) 8%, #ffffff);
+    color: var(--c-accent-ui-strong);
+  }
+
   .diff-view__line {
     &--added {
       background: color-mix(in srgb, var(--c-green) 20%, transparent);
-      color: #1a7f37;  // dark green — readable on white
+      color: #1a7f37;
     }
+
     &--removed {
       background: color-mix(in srgb, var(--c-red) 20%, transparent);
-      color: #cf222e;  // dark red — readable on white
+      color: #cf222e;
     }
   }
+
   .diff-view__sign { opacity: 1; }
   .diff-view__ln   { opacity: 0.6; }
 
-  // Softer borders
   .panel-header {
     border-color: var(--c-border);
   }
 
-  // Modal overlay: lighter
   .modal-overlay {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(250, 252, 250, 0.74);
+    backdrop-filter: blur(8px);
+  }
+}
+
+[data-theme="night"] {
+  color-scheme: dark;
+  scrollbar-color: rgba(99, 230, 207, 0.18) transparent;
+
+  body {
+    background:
+      radial-gradient(circle at top, rgba(99, 230, 207, 0.08), transparent 36%),
+      linear-gradient(180deg, #061316 0%, #08191d 100%),
+      linear-gradient(rgba(99, 230, 207, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 230, 207, 0.035) 1px, transparent 1px);
+    background-size: auto, auto, 30px 30px, 30px 30px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(99, 230, 207, 0.18);
+    &:hover { background: rgba(99, 230, 207, 0.3); }
+  }
+
+  .app {
+    background: transparent;
+  }
+
+  .sidebar,
+  .runs-panel {
+    background: rgba(7, 19, 22, 0.86);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.26);
+    backdrop-filter: blur(18px);
+  }
+
+  .panel-header,
+  .tab-bar,
+  .input-bar,
+  .fb__tree-pane,
+  .fb__tree-mobile-head,
+  .fb__mobile-bar,
+  .fb-editor__toolbar,
+  .user-menu__dropdown,
+  .run-controls,
+  .toast--info,
+  .modal,
+  .inspect-modal {
+    background: rgba(9, 24, 28, 0.78);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(18px);
+  }
+
+  .sidebar__header h1 {
+    font-family: $font-mono;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: #e2efec;
+  }
+
+  .panel-header__meta,
+  .countdown,
+  .usage-summary,
+  .tab-bar__tab,
+  .status-dot__label {
+    font-family: $font-mono;
+  }
+
+  .message--user {
+    background: rgba(6, 19, 22, 0.92);
+  }
+
+  .message--assistant {
+    background: rgba(9, 26, 31, 0.94);
+  }
+
+  .llm-stream,
+  .markdown pre,
+  .msg-tool-use__input,
+  .msg-tool-use__cmd,
+  .msg-tool-result__content,
+  .msg-raw,
+  .fb-editor__view-toggle,
+  .tool-picker,
+  .mounts-group,
+  .agent-settings__value.pre {
+    background: rgba(11, 28, 33, 0.92);
+  }
+
+  .btn {
+    border-color: color-mix(in srgb, var(--c-border) 88%, transparent);
+
+    &.btn--active {
+      background: color-mix(in srgb, var(--c-accent-ui) 16%, transparent);
+      color: var(--c-accent-ui-strong);
+    }
+  }
+
+  .panel-header {
+    border-color: color-mix(in srgb, var(--c-border) 80%, transparent);
+  }
+
+  .modal-overlay {
+    background: rgba(3, 9, 12, 0.66);
+    backdrop-filter: blur(10px);
   }
 }
 

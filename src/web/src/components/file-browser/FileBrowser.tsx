@@ -3,10 +3,12 @@ import { FileTree } from './FileTree';
 import { FileEditor } from './FileEditor';
 import { ChevronDown, ChevronLeft, Folder, HardDrive } from 'lucide-react';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import type { Theme } from '../../hooks/useTheme';
 import './file-browser.scss';
 
 interface Props {
   agentId: string;
+  theme: Theme;
 }
 
 const QUICK_PLACES = [
@@ -14,7 +16,7 @@ const QUICK_PLACES = [
   { path: '/shared', label: 'Shared', icon: HardDrive },
 ];
 
-export function FileBrowser({ agentId }: Props) {
+export function FileBrowser({ agentId, theme }: Props) {
   const isMobile = useIsMobile();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
@@ -149,7 +151,7 @@ export function FileBrowser({ agentId }: Props) {
       <div className="fb__right-pane">
         <div className="fb__content">
           {selectedFile ? (
-            <FileEditor agentId={agentId} filePath={selectedFile} onDirtyChange={handleDirtyChange} />
+            <FileEditor agentId={agentId} filePath={selectedFile} onDirtyChange={handleDirtyChange} theme={theme} />
           ) : (
             <div className="fb__empty">Select a file to edit</div>
           )}

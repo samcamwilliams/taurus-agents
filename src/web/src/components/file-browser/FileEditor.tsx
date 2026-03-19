@@ -4,11 +4,13 @@ import { Printer } from 'lucide-react';
 import { fileApi } from './api';
 import { DataTable, isTabularJson } from '../DataTable';
 import { Markdown } from '../Markdown';
+import { getMonacoTheme, type Theme } from '../../hooks/useTheme';
 
 interface Props {
   agentId: string;
   filePath: string;
   onDirtyChange?: (path: string, dirty: boolean) => void;
+  theme: Theme;
 }
 
 type ViewMode = 'raw' | 'table' | 'rendered';
@@ -51,7 +53,7 @@ function detectLanguage(filePath: string): string {
   return EXT_TO_LANG[ext] || 'plaintext';
 }
 
-export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
+export function FileEditor({ agentId, filePath, onDirtyChange, theme }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [savedContent, setSavedContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,7 +230,7 @@ img{max-width:100%}
           <Editor
             value={content ?? ''}
             language={detectLanguage(filePath)}
-            theme="vs-dark"
+            theme={getMonacoTheme(theme)}
             onChange={(val) => setContent(val ?? '')}
             onMount={handleMount}
             options={{

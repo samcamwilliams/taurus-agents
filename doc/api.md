@@ -6,7 +6,7 @@ All endpoints accept and return JSON. Set `Content-Type: application/json` on re
 
 ## Authentication
 
-When `AUTH_PASSWORD` is set in `.env`, all API endpoints (except those listed below) require authentication.
+Authentication is always enabled for API routes, except the public endpoints listed below.
 
 ### Auth methods
 
@@ -24,14 +24,16 @@ GET /api/auth/check
 Always public. Returns:
 
 ```json
-{ "authenticated": true, "authEnabled": true, "csrfToken": "..." }
+{ "authenticated": true, "authEnabled": true, "csrfToken": "...", "username": "taurus", "role": "admin" }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `authEnabled` | Whether auth is configured on the server |
+| `authEnabled` | Whether auth is enabled on the server. Currently always `true`. |
 | `authenticated` | Whether the current request has a valid session |
 | `csrfToken` | Present when authenticated — use as `X-CSRF-Token` header |
+| `username` | Present when authenticated — current username |
+| `role` | Present when authenticated — current role (`admin` or `user`) |
 
 ### Login
 
@@ -41,9 +43,10 @@ POST /api/auth/login
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `password` | string | yes | The `AUTH_PASSWORD` value |
+| `username` | string | yes | Username to sign in as |
+| `password` | string | yes | Password for that user |
 
-Returns `200` with `{ ok: true, csrfToken: "..." }` and sets a session cookie.
+Returns `200` with `{ ok: true, csrfToken: "...", username: "taurus", role: "admin" }` and sets a session cookie.
 
 Rate limited: max 5 failed attempts per IP per 60 seconds. Returns `429` when exceeded.
 

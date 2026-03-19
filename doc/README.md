@@ -28,7 +28,7 @@ Internal reference for contributors. For the public overview, see the root [READ
 - **Daemon** (parent process): manages agent lifecycle, coordinates via IPC, broadcasts SSE events.
 - **Workers** (forked child processes): one per running agent. Owns the agent loop, persists messages to SQLite, talks to the LLM.
 - **Docker containers**: one per agent. Persistent shell session across commands. Tools execute inside the container.
-- **SQLite**: stores agents, runs, messages, logs, folders. Located at `data/taurus.sqlite`.
+- **SQLite**: stores agents, runs, messages, logs, folders, users, and user secrets. Located at `data/taurus.sqlite`.
 
 ## Concepts
 
@@ -106,11 +106,11 @@ src/
     registry.ts         # Tool registration + execution
     shell/              # File and exec tools (Read, Write, Edit, Glob, Grep, Bash)
     web/                # Web tools (WebFetch, WebSearch, Browser)
-    control/            # Control tools (Pause, Spawn)
+    control/            # Control tools (Pause, Notify, Spawn)
   server/
     server.ts           # HTTP server + routing
     ws.ts               # WebSocket terminal (persistent sessions with replay)
-    auth.ts             # Authentication (sessions, rate limiting, CSRF, cookies)
+    auth/               # Authentication helpers (sessions, rate limiting, CSRF, cookies)
     helpers.ts          # json(), error(), parseBody(), route()
     routes/
       auth.ts           # Login, logout, auth check endpoints
@@ -121,7 +121,7 @@ src/
       tools.ts          # Tool listing
   db/
     index.ts            # Sequelize + SQLite setup
-    models/             # Agent, Run, Message, AgentLog, Folder
+    models/             # Agent, Run, Message, AgentLog, Folder, User, UserSecret
   web/
     src/                # React frontend (Vite, React 19, Monaco, xterm.js)
 docker/
@@ -142,6 +142,7 @@ doc/
 ./taurus build        # Build web UI only
 ./taurus watch        # Build web UI in watch mode
 ./taurus status       # Check if daemon is running
+./taurus adduser --username <name> --password <pass> --email <email> [--role admin|user]
 ./taurus seed         # Create a test agent via API
 ```
 
