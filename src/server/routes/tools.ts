@@ -1,6 +1,6 @@
 import { json, route, type Route } from '../helpers.js';
 import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_TOOLS, READ_ONLY_TOOLS, SUPERVISOR_TOOLS, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT_MS } from '../../core/defaults.js';
-import { TOOL_CATALOG } from '../../tools/catalog.js';
+import { TOOL_CATALOG, TOOL_DEFINITIONS } from '../../tools/catalog.js';
 import { listModels } from '../../core/models.js';
 import { ALLOW_ARBITRARY_BIND_MOUNTS } from '../../core/config.js';
 
@@ -20,6 +20,15 @@ export function toolRoutes(): Route[] {
           allow_bind_mounts: ALLOW_ARBITRARY_BIND_MOUNTS,
         },
       });
+    }),
+
+    route('GET', '/api/tools/definitions', async (ctx) => {
+      const name = ctx.url.searchParams.get('name');
+      const group = ctx.url.searchParams.get('group');
+      let defs = TOOL_DEFINITIONS;
+      if (name) defs = defs.filter(d => d.name === name);
+      if (group) defs = defs.filter(d => d.group === group);
+      json(ctx.res, defs);
     }),
 
     route('GET', '/api/models', async (ctx) => {

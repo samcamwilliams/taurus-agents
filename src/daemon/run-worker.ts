@@ -6,7 +6,6 @@
  * IPC is used only for coordination signals (status, logs for SSE, completion).
  */
 
-import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ParentMessage, ChildMessage, TriggerType, LogLevel, IpcImage } from './types.js';
@@ -506,6 +505,9 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           }
           if (event.event.type === 'text_delta') {
             log('debug', 'llm.text', event.event.text);
+          }
+          if (event.event.type === 'image_gen_status') {
+            log('info', 'image_gen.' + event.event.status, `Image generation: ${event.event.status}`);
           }
           if (event.event.type === 'message_complete') {
             const u = event.event.usage;

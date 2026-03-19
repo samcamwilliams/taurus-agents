@@ -5,8 +5,6 @@
  * ./taurus runs this. Web UI on :7777.
  */
 
-import dotenv from 'dotenv';
-dotenv.config({ quiet: true });
 import { Database, setupAssociations } from './db/index.js';
 
 // Import models so Sequelize registers them

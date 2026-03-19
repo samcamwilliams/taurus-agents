@@ -11,7 +11,7 @@ case "${1:-}" in
   dev)
     # Build web first, then start daemon
     npx vite build --config src/web/vite.config.ts
-    exec npx tsx src/index.ts "${@:2}"
+    exec npx tsx --env-file=.env src/index.ts "${@:2}"
     ;;
   seed)
     # Create a test agent via the API
@@ -66,6 +66,6 @@ case "${1:-}" in
       echo "Building web UI..."
       npx vite build --config src/web/vite.config.ts
     fi
-    exec npx tsx src/index.ts "$@"
+    exec npx tsx --env-file=.env src/index.ts "$@"
     ;;
 esac

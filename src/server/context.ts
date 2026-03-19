@@ -10,6 +10,7 @@ export interface AuthUser {
 export interface Ctx {
   req: http.IncomingMessage;
   res: http.ServerResponse;
+  url: URL;
   params: Record<string, string>;
   user: AuthUser;
 }

@@ -80,7 +80,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
       if (req.method !== r.method) continue;
       const match = url.pathname.match(r.pattern);
       if (match) {
-        const ctx: Ctx = { req, res, params: match.groups ?? {}, user: auth.user };
+        const ctx: Ctx = { req, res, url, params: match.groups ?? {}, user: auth.user };
         try {
           await r.handler(ctx);
         } catch (err: any) {

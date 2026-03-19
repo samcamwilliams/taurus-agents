@@ -51,3 +51,26 @@ export const TOOL_CATALOG: ToolMeta[] = ALL_TOOLS.map(t => ({
   group: t.group,
   description: t.description.split('\n')[0],
 }));
+
+/**
+ * Full tool definitions exactly as the LLM sees them.
+ * Mirrors ToolRegistry.getToolDefinitions() but without needing a live registry.
+ */
+export const TOOL_DEFINITIONS = ALL_TOOLS.map(t => {
+  const schema = t.inputSchema as Record<string, any>;
+  return {
+    name: t.name,
+    group: t.group,
+    description: t.description,
+    input_schema: {
+      ...schema,
+      properties: {
+        description: {
+          type: 'string',
+          description: 'Brief reason for this tool call (shown to the user)',
+        },
+        ...schema.properties,
+      },
+    },
+  };
+});
