@@ -28,7 +28,7 @@ export class OpenAIResponsesProvider extends InferenceProvider {
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
     const model = this.stripPrefix(params.model!);
-    const input = this.convertInput(params.messages);
+    const input = this.convertInput(this.convertImageGenBlocks(params.messages));
     const functionTools = params.tools?.length ? this.convertTools(params.tools) : [];
     const tools: Responses.Tool[] = [...this.serverTools, ...functionTools];
     const maxTokens = params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;
@@ -164,7 +164,7 @@ export class OpenAIResponsesProvider extends InferenceProvider {
   async countTokens(params: InferenceRequest): Promise<number> {
     try {
       const model = this.stripPrefix(params.model!);
-      const input = this.convertInput(params.messages);
+      const input = this.convertInput(this.convertImageGenBlocks(params.messages));
       const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
       const result = await this.client.responses.inputTokens.count({
         model,
@@ -245,20 +245,8 @@ export class OpenAIResponsesProvider extends InferenceProvider {
                 name: block.name,
                 arguments: JSON.stringify(block.input),
               });
-            } else if (block.type === 'image_gen') {
-              // Pass back image generation calls for multi-turn continuity
-              if (textParts.length > 0) {
-                input.push({ role: 'assistant', content: textParts.join('\n') });
-                textParts.length = 0;
-              }
-              input.push({
-                type: 'image_generation_call',
-                id: block.id,
-                result: block.result,
-                status: 'completed',
-              } as any);
             }
-            // Skip thinking blocks — OpenAI doesn't accept them back
+            // Skip thinking/image_gen blocks — image_gen is converted upstream by convertImageGenBlocks
           }
           if (textParts.length > 0) {
             input.push({ role: 'assistant', content: textParts.join('\n') });

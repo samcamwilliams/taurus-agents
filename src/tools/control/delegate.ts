@@ -14,6 +14,7 @@ export interface DelegateResult {
   runId?: string;
   error?: string;
   tokens?: { input: number; output: number; cost: number };
+  images?: { base64: string; mediaType: string }[];
 }
 
 /**
@@ -98,6 +99,10 @@ export class DelegateTool extends Tool {
       output: `${result.summary}${tokenInfo}${runInfo}`,
       isError: false,
       durationMs: 0,
+      images: result.images?.map(img => ({
+        base64: img.base64,
+        mediaType: img.mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+      })),
     };
   }
 }

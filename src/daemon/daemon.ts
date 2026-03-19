@@ -836,6 +836,7 @@ export class Daemon {
               runId,
               error: msg.error,
               tokens: msg.tokens,
+              images: msg.images,
             } as ParentMessage);
           }
           completedRun.delegateRequestId = null;

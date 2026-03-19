@@ -34,7 +34,8 @@ import { FileTracker } from '../tools/shell/file-tracker.js';
 import { computeCost } from '../core/models.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
-import { setSecrets, setAllowedEnvFallback, getSecret } from '../core/config.js';
+import { setSecrets, setAllowedEnvFallback, getSecret, drivePath } from '../core/config.js';
+import sharp from 'sharp';
 import { checkBudget, type BudgetContext } from '../core/budget.js';
 import User from '../db/models/User.js';
 import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
@@ -484,6 +485,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   }
 
   // 7. Agent loop
+  // Accumulate resized images across turns for delegate result IPC (full-res saved to disk).
+  const savedRunImages: IpcImage[] = [];
   try {
     for await (const event of agentLoop({
       chatml,
@@ -532,6 +535,46 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
               },
             });
             log('info', 'message.saved', 'assistant');
+
+            // Auto-save generated images to /workspace/runs/{runId}/ so the agent can reference them.
+            // Full-res saved to host filesystem (bind-mounted as /workspace). A resized thumbnail
+            // replaces the raw base64 in chatml (prevents 700K+ token bloat) and is accumulated
+            // for delegate result IPC so the parent agent can see the image.
+            const content = event.event.message.content;
+            if (Array.isArray(content)) {
+              const imageGenIndices: number[] = [];
+              for (let i = 0; i < content.length; i++) {
+                if (content[i].type === 'image_gen') imageGenIndices.push(i);
+              }
+              if (imageGenIndices.length > 0) {
+                try {
+                  const hostDir = path.join(drivePath(agent.user_id, agent.id, 'workspace'), 'runs', runId);
+                  fs.mkdirSync(hostDir, { recursive: true });
+                  const savedPaths: string[] = [];
+                  for (let i = 0; i < imageGenIndices.length; i++) {
+                    const block = content[imageGenIndices[i]];
+                    if (block.type !== 'image_gen') continue;
+                    const filename = imageGenIndices.length === 1 ? 'image.png' : `image-${i + 1}.png`;
+                    const rawBuf = Buffer.from(block.result, 'base64');
+                    // Save full-res to disk
+                    fs.writeFileSync(path.join(hostDir, filename), rawBuf);
+                    const containerPath = `/workspace/runs/${runId}/${filename}`;
+                    savedPaths.push(containerPath);
+                    log('info', 'image_gen.saved', `Saved generated image to ${containerPath}`);
+                    // Resize for in-memory use (chatml + delegate IPC)
+                    const thumbBuf = await sharp(rawBuf).resize(512, 512, { fit: 'inside' }).png().toBuffer();
+                    const thumbB64 = thumbBuf.toString('base64');
+                    savedRunImages.push({ base64: thumbB64, mediaType: 'image/png' });
+                    // Replace raw base64 in chatml with resized version
+                    (content[imageGenIndices[i]] as any).result = thumbB64;
+                  }
+                  // Inject a note so the agent knows where its images were saved
+                  chatml.appendUser([{ type: 'text', text: `[System: generated image${savedPaths.length > 1 ? 's' : ''} saved to ${savedPaths.join(', ')}]` }]);
+                } catch (err: any) {
+                  log('warn', 'image_gen.save_failed', `Failed to save generated images: ${err.message}`);
+                }
+              }
+            }
           }
           break;
 
@@ -615,10 +658,11 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     await shell.close();
   }
 
-  // 7. Get final text from ChatML as summary
+  // 7. Get final text from ChatML as summary + accumulated resized images for delegate IPC
   const messages = chatml.getMessages();
   const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
   let summary = 'Run completed.';
+  const summaryImages: IpcImage[] | undefined = savedRunImages.length > 0 ? savedRunImages : undefined;
   if (lastAssistant) {
     if (typeof lastAssistant.content === 'string') {
       summary = lastAssistant.content;
@@ -669,7 +713,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   });
 
   // 9. Notify parent (for SSE broadcast) — flush before worker exits
-  await sendAndFlush({ type: 'run_complete', summary, tokens });
+  await sendAndFlush({ type: 'run_complete', summary, tokens, images: summaryImages });
 }
 
 // ── IPC message handling ──
@@ -723,7 +767,7 @@ process.on('message', async (msg: ParentMessage) => {
       const resolver = delegateResolvers.get(msg.requestId);
       if (resolver) {
         delegateResolvers.delete(msg.requestId);
-        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, tokens: msg.tokens });
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, tokens: msg.tokens, images: msg.images });
       }
       break;
     }
