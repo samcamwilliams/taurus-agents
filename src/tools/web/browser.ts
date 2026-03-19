@@ -113,7 +113,8 @@ export class BrowserTool extends Tool {
     const command = `node ${CLI_SCRIPT} ${shellEscape(jsonInput)}`;
 
     try {
-      const result = await this.shell.exec(command, { timeout: DEFAULT_TIMEOUT });
+      const outputLimit = input.action === 'screenshot' ? 5_000_000 : undefined; // 5MB for base64 screenshots
+      const result = await this.shell.exec(command, { timeout: DEFAULT_TIMEOUT, outputLimit });
       const output = result.stdout || `(exit code ${result.exitCode})`;
 
       // Parse structured screenshot response
