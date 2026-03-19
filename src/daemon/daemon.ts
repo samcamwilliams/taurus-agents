@@ -69,6 +69,8 @@ export class Daemon {
   private agents = new Map<string, ManagedAgent>();
   /** Keyed by runId — allows concurrent /api/ask calls to the same agent */
   private completionWaiters = new Map<string, CompletionWaiter[]>();
+  /** Per-user notification SSE clients (userId → set of response streams) */
+  private notificationClients = new Map<string, Set<import('node:http').ServerResponse>>();
   private logger: (level: LogLevel, msg: string) => void;
   readonly docker: DockerService;
   readonly sse: SSEBroadcaster;
@@ -924,7 +926,7 @@ export class Daemon {
 
           if (message) {
             this.logger('info', `[${managed.agent.name}] Notification: ${message}`);
-            this.sse.broadcastGlobal({
+            this.broadcastNotificationToUser(managed.agent.user_id, {
               type: 'agent_notification',
               agentId,
               agentName: managed.agent.name,
@@ -1407,9 +1409,36 @@ export class Daemon {
     }
   }
 
-  addNotificationClient(res: import('node:http').ServerResponse): void {
-    this.sse.addGlobalClient(res);
+  addNotificationClient(res: import('node:http').ServerResponse, userId: string): void {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+
+    if (!this.notificationClients.has(userId)) {
+      this.notificationClients.set(userId, new Set());
+    }
+    this.notificationClients.get(userId)!.add(res);
+
     res.write(`data: ${JSON.stringify({ type: 'ready', timestamp: new Date().toISOString() })}\n\n`);
+
+    res.on('close', () => {
+      const set = this.notificationClients.get(userId);
+      if (set) {
+        set.delete(res);
+        if (set.size === 0) this.notificationClients.delete(userId);
+      }
+    });
+  }
+
+  private broadcastNotificationToUser(userId: string, data: object): void {
+    const set = this.notificationClients.get(userId);
+    if (!set) return;
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    for (const client of set) {
+      client.write(payload);
+    }
   }
 
   // ── Queries (for HTTP API) ──

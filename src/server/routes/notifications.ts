@@ -4,7 +4,7 @@ import { route, type Route } from '../helpers.js';
 export function notificationRoutes(daemon: Daemon): Route[] {
   return [
     route('GET', '/api/notifications/stream', async (ctx) => {
-      daemon.addNotificationClient(ctx.res);
+      daemon.addNotificationClient(ctx.res, ctx.user.id);
     }),
   ];
 }
