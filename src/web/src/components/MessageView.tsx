@@ -194,6 +194,15 @@ function ContentBlockView({ block, showMetadata, toolMeta }: { block: any; showM
       />
     );
   }
+  if (block.type === 'image_gen' && block.result) {
+    return (
+      <Lightbox
+        src={`data:${block.media_type || 'image/png'};base64,${block.result}`}
+        alt="Generated image"
+        className="msg-tool-result__image"
+      />
+    );
+  }
   if (block.type === 'tool_use') {
     const { description, ...inputRest } = block.input ?? {};
     if (block.name === 'Edit' && inputRest.old_string != null && inputRest.new_string != null) {

@@ -31,7 +31,7 @@ export class OpenAIChatCompletionsProvider extends InferenceProvider {
 
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
     const model = this.stripPrefix(params.model!);
-    const messages = this.convertMessages(params.system, params.messages);
+    const messages = this.convertMessages(params.system, this.convertImageGenBlocks(params.messages));
     const tools = params.tools?.length ? this.convertTools(params.tools) : undefined;
 
     const maxTokens = params.maxTokens ?? DEFAULT_LIMIT_OUTPUT_TOKENS;

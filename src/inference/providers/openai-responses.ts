@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import type { Responses } from 'openai/resources/responses/responses';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock, ToolDef } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
-import { assembleContent, estimateTokens } from './openai-helpers.js';
+import { assembleContent, estimateTokens, type ImageGenResult } from './openai-helpers.js';
 import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
 
 /**
@@ -45,6 +45,7 @@ export class OpenAIResponsesProvider extends InferenceProvider {
 
     // Track state across streaming events
     const toolCalls = new Map<string, { id: string; name: string; arguments: string }>();
+    const imageGens = new Map<string, ImageGenResult>();
     let textContent = '';
     let reasoningContent = '';
     let usage: any = null;
@@ -90,6 +91,28 @@ export class OpenAIResponsesProvider extends InferenceProvider {
             const callId = item.call_id || item.id;
             toolCalls.set(item.id, { id: callId, name: item.name, arguments: '' });
             yield { type: 'tool_use_start', id: callId, name: item.name };
+          } else if (item.type === 'image_generation_call') {
+            yield { type: 'image_gen_status', status: 'started' };
+          }
+          break;
+        }
+
+        // ── Image generation lifecycle ──
+        case 'response.image_generation_call.generating':
+          yield { type: 'image_gen_status', status: 'generating' };
+          break;
+
+        case 'response.image_generation_call.completed':
+          break; // final image arrives in output_item.done
+
+        // ── Output item done (final state — carries image gen results) ──
+        case 'response.output_item.done': {
+          const item = event.item as any;
+          if (item.type === 'image_generation_call' && item.result) {
+            imageGens.set(item.id, { id: item.id, result: item.result, media_type: 'image/png' });
+            yield { type: 'image_gen_status', status: 'completed' };
+          } else if (item.type === 'image_generation_call') {
+            yield { type: 'image_gen_status', status: 'failed' };
           }
           break;
         }
@@ -110,7 +133,8 @@ export class OpenAIResponsesProvider extends InferenceProvider {
     }
 
     // Assemble the final message
-    const content = assembleContent(textContent, reasoningContent, toolCalls);
+    const imageGenResults = imageGens.size > 0 ? [...imageGens.values()] : undefined;
+    const content = assembleContent(textContent, reasoningContent, toolCalls, imageGenResults);
     const stopReason = hasToolCalls ? 'tool_use' : 'end_turn';
 
     // Normalize usage
@@ -221,6 +245,18 @@ export class OpenAIResponsesProvider extends InferenceProvider {
                 name: block.name,
                 arguments: JSON.stringify(block.input),
               });
+            } else if (block.type === 'image_gen') {
+              // Pass back image generation calls for multi-turn continuity
+              if (textParts.length > 0) {
+                input.push({ role: 'assistant', content: textParts.join('\n') });
+                textParts.length = 0;
+              }
+              input.push({
+                type: 'image_generation_call',
+                id: block.id,
+                result: block.result,
+                status: 'completed',
+              } as any);
             }
             // Skip thinking blocks — OpenAI doesn't accept them back
           }

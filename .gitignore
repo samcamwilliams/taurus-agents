@@ -10,3 +10,4 @@ data/
 .claude/
 doc/todo.txt
 doc/_local/
+.DS_Store

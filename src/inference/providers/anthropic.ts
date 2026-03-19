@@ -19,16 +19,19 @@ export class AnthropicProvider extends InferenceProvider {
   async *stream(params: InferenceRequest): AsyncGenerator<StreamEvent> {
     const model = this.stripPrefix(params.model!);
 
+    // Convert image_gen blocks → native ImageBlocks (injected into user messages).
+    const converted = this.convertImageGenBlocks(params.messages);
+
     // Strip thinking blocks without signatures (from non-Anthropic providers).
     // Anthropic requires a cryptographic signature on every thinking block;
     // blocks from OpenAI/OpenRouter/etc. don't have one and cause a 400.
-    const messages = params.messages.map(msg => {
+    const messages = converted.map(msg => {
       if (msg.role !== 'assistant' || typeof msg.content === 'string') return msg;
       const filtered = msg.content.filter(b =>
         b.type !== 'thinking' || ('signature' in b && b.signature),
       );
       if (filtered.length === msg.content.length) return msg;
-      return { ...msg, content: filtered.length > 0 ? filtered : [{ type: 'text' as const, text: '' }] };
+      return { ...msg, content: filtered.length > 0 ? filtered : [{ type: 'text' as const, text: '...' }] };
     });
 
     // Base request params

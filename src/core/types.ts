@@ -6,7 +6,9 @@ export type ImageBlock = { type: 'image'; source: { type: 'base64'; media_type: 
 export type ToolUseBlock = { type: 'tool_use'; id: string; name: string; input: any };
 export type ToolResultBlock = { type: 'tool_result'; tool_use_id: string; content: string | (TextBlock | ImageBlock)[]; is_error?: boolean };
 export type CompactionBlock = { type: 'compaction'; content: string };
-export type ContentBlock = ThinkingBlock | TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock | CompactionBlock;
+/** Server-side image generation result (OpenAI Responses API). */
+export type ImageGenBlock = { type: 'image_gen'; id: string; result: string; media_type: string };
+export type ContentBlock = ThinkingBlock | TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock | CompactionBlock | ImageGenBlock;
 
 export type ChatMessage = {
   role: 'user' | 'assistant';
@@ -21,6 +23,7 @@ export type StreamEvent =
   | { type: 'tool_use_start'; id: string; name: string }
   | { type: 'tool_input_delta'; id: string; partialJson: string }
   | { type: 'tool_use_end'; id: string; input: any }
+  | { type: 'image_gen_status'; status: 'started' | 'generating' | 'completed' | 'failed' }
   | { type: 'message_complete'; message: ChatMessage; usage: TokenUsage; stopReason: string }
   | { type: 'error'; error: Error };
 

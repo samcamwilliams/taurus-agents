@@ -78,7 +78,10 @@ export function resolveProvider(model: string): InferenceProvider {
     case 'openai': {
       const apiKey = getSecret('OPENAI_API_KEY');
       if (!apiKey) throw new Error('OPENAI_API_KEY is required for openai/ models');
-      return new OpenAIResponsesProvider({ apiKey });
+      return new OpenAIResponsesProvider({
+        apiKey,
+        serverTools: [{ type: 'image_generation' }],
+      });
     }
 
     case 'xai': {
