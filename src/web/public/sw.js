@@ -68,8 +68,19 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const raw = event.notification.data?.url || '/';
-  const targetUrl = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+  let targetUrl = '/';
+  const raw = event.notification.data?.url;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = new URL(raw, self.location.origin);
+      if (parsed.origin === self.location.origin
+          && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) {
+        // Collapse leading slashes to prevent "//evil.com" being treated as protocol-relative
+        const safePath = parsed.pathname.replace(/^\/\/+/, '/');
+        targetUrl = safePath + parsed.search + parsed.hash;
+      }
+    } catch { /* invalid URL, use default */ }
+  }
 
   event.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
