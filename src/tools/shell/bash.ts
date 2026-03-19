@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 150;
 export class PersistentBashTool extends Tool {
   readonly name = 'Bash';
   readonly group = 'Exec';
-  readonly description = 'Execute a bash command in a persistent shell. Working directory and environment persist between calls.';
+  readonly description = 'Execute a bash command in a persistent shell. Working directory and environment persist between calls. Note: `set -e` is automatically scoped to each command — it will NOT cause early exit on failure across commands. If you need strict error-on-failure behavior within a single call, use an explicit subshell: `(set -e; cmd1; cmd2)`.';
   readonly requiresApproval = true;
   readonly inputSchema = {
     type: 'object' as const,

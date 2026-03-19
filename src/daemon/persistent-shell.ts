@@ -209,10 +209,15 @@ export class PersistentShell {
       // - Background commands (cmd &) work — & inside braces backgrounds the child,
       //   the group itself completes immediately, sentinel fires right away
       // - stderr is merged via 2>&1 on the brace group
+      //
+      // The `if` wrapper prevents `set -e` from killing the persistent shell:
+      // bash suppresses -e exit behavior inside `if` conditions (POSIX spec).
+      // `set +e` after the `if` clears the flag so it doesn't affect future commands.
+      // cd/export still persist since `{ }` runs in the current shell (not a subshell).
       const wrappedCmd = [
-        `{ ${command}`,
-        `} </dev/null 2>&1`,
-        `__taurus_rc=$?`,
+        `if { ${command}`,
+        `} </dev/null 2>&1; then __taurus_rc=0; else __taurus_rc=$?; fi`,
+        `set +e`,
         `echo`,
         `echo "TAURUS_SENTINEL_${sentinelId}_EXIT_$__taurus_rc"`,
         ``,

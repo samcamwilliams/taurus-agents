@@ -145,29 +145,36 @@ export class ChatML {
    * Good enough for context budget checks. Use the inference service for accurate counts.
    */
   getTokenEstimate(): number {
-    let chars = this.systemPrompt.length;
+    // Image tokens are NOT proportional to base64 length — providers tokenize
+    // based on pixel dimensions (Anthropic: w*h/750, OpenAI: tile system).
+    // We use a fixed ~1,000 tokens per image as a reasonable cross-provider estimate.
+    const IMAGE_TOKENS = 1000;
+
+    let tokens = Math.ceil(this.systemPrompt.length / 4);
     for (const msg of this.messages) {
       if (typeof msg.content === 'string') {
-        chars += msg.content.length;
+        tokens += Math.ceil(msg.content.length / 4);
       } else {
         for (const block of msg.content) {
-          if (block.type === 'text') chars += block.text.length;
-          else if (block.type === 'compaction') chars += (block.content?.length ?? 0);
-          else if (block.type === 'tool_use') chars += JSON.stringify(block.input).length;
+          if (block.type === 'text') tokens += Math.ceil(block.text.length / 4);
+          else if (block.type === 'image') tokens += IMAGE_TOKENS;
+          else if (block.type === 'image_gen') tokens += IMAGE_TOKENS;
+          else if (block.type === 'compaction') tokens += Math.ceil((block.content?.length ?? 0) / 4);
+          else if (block.type === 'tool_use') tokens += Math.ceil(JSON.stringify(block.input).length / 4);
           else if (block.type === 'tool_result') {
             if (typeof block.content === 'string') {
-              chars += block.content.length;
+              tokens += Math.ceil(block.content.length / 4);
             } else {
               for (const sub of block.content) {
-                if (sub.type === 'text') chars += sub.text.length;
-                else if (sub.type === 'image') chars += 6400; // ~1600 tokens * 4 chars/token
+                if (sub.type === 'text') tokens += Math.ceil(sub.text.length / 4);
+                else if (sub.type === 'image') tokens += IMAGE_TOKENS;
               }
             }
           }
         }
       }
     }
-    return Math.ceil(chars / 4);
+    return tokens;
   }
 
   /**

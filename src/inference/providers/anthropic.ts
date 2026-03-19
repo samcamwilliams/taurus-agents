@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { InferenceRequest, StreamEvent, ChatMessage, ContentBlock } from '../../core/types.js';
 import { InferenceProvider } from './base.js';
+import { estimateTokens } from './openai-helpers.js';
 import { DEFAULT_LIMIT_OUTPUT_TOKENS } from '../../core/defaults.js';
 // Server-side context management betas — disabled, kept for reference.
 // const COMPACTION_MODELS = new Set(['claude-opus-4-6', 'claude-sonnet-4-6']);
@@ -167,9 +168,8 @@ export class AnthropicProvider extends InferenceProvider {
       });
       return result.input_tokens;
     } catch {
-      // Fallback: rough estimate
-      const json = JSON.stringify(params.messages);
-      return Math.ceil(json.length / 4);
+      // Fallback: rough estimate (image-aware — see estimateTokens docs)
+      return estimateTokens(params.messages);
     }
   }
 }
