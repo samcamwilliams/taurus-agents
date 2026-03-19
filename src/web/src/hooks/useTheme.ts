@@ -1,10 +1,11 @@
-import { useLayoutEffect, useState } from 'react';
+import { createContext, createElement, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 
 const THEMES = ['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin'] as const;
 export type Theme = typeof THEMES[number];
 export const DEFAULT_THEME: Theme = 'light';
 
 const THEME_STORAGE_KEY = 'taurus-theme';
+const THEME_COOKIE_KEY = 'taurus_theme';
 const THEME_MIGRATION_KEY = 'taurus-theme-clean-light-migrated';
 
 const THEME_LABELS: Record<Theme, string> = {
@@ -14,6 +15,15 @@ const THEME_LABELS: Record<Theme, string> = {
   vivid: 'Vivid',
   catppuccin: 'Catppuccin',
   'vivid-catppuccin': 'Vivid Catppuccin',
+};
+
+const THEME_DESCRIPTIONS: Record<Theme, string> = {
+  light: 'White, quiet, exact.',
+  night: 'Dark, restrained, executive.',
+  dark: 'Classic dark console.',
+  vivid: 'Cold, technical contrast.',
+  catppuccin: 'Soft dusk, lower contrast.',
+  'vivid-catppuccin': 'Electric dusk with more punch.',
 };
 
 const THEME_BROWSER_COLORS: Record<Theme, string> = {
@@ -69,13 +79,46 @@ const TERMINAL_THEMES: Record<Theme, {
   },
 };
 
-export { THEMES, THEME_LABELS };
+export { THEMES, THEME_LABELS, THEME_DESCRIPTIONS };
 
 function isTheme(value: string | null): value is Theme {
   return value !== null && THEMES.includes(value as Theme);
 }
 
-export function resolveTheme(storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined): Theme {
+function readCookie(cookieSource: string | null | undefined, name: string): string | null {
+  if (!cookieSource) return null;
+
+  for (const pair of cookieSource.split(';')) {
+    const [rawName, ...rawValue] = pair.trim().split('=');
+    if (rawName !== name) continue;
+    try {
+      return decodeURIComponent(rawValue.join('='));
+    } catch {
+      return rawValue.join('=');
+    }
+  }
+
+  return null;
+}
+
+function writeThemeCookie(theme: Theme, target: Document = document) {
+  const secure = target.defaultView?.location.protocol === 'https:' ? '; Secure' : '';
+  target.cookie = `${THEME_COOKIE_KEY}=${encodeURIComponent(theme)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+}
+
+export function resolveTheme(
+  storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined,
+  cookieSource?: string | null,
+): Theme {
+  const cookieTheme = readCookie(cookieSource, THEME_COOKIE_KEY);
+  if (isTheme(cookieTheme)) {
+    try {
+      storage?.setItem(THEME_STORAGE_KEY, cookieTheme);
+      storage?.setItem(THEME_MIGRATION_KEY, '1');
+    } catch {}
+    return cookieTheme;
+  }
+
   if (!storage) return DEFAULT_THEME;
 
   try {
@@ -115,22 +158,42 @@ export function getTerminalTheme(theme: Theme) {
   return TERMINAL_THEMES[theme];
 }
 
-export function useTheme() {
+type ThemeContextValue = {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  cycleTheme: () => void;
+};
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return DEFAULT_THEME;
-    return resolveTheme(window.localStorage);
+    return resolveTheme(window.localStorage, document.cookie);
   });
 
   useLayoutEffect(() => {
     applyTheme(theme);
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      localStorage.setItem(THEME_MIGRATION_KEY, '1');
+    } catch {}
+    writeThemeCookie(theme);
   }, [theme]);
 
-  const setTheme = (t: Theme) => setThemeState(t);
+  const setTheme = setThemeState;
   const cycleTheme = () => {
     const idx = THEMES.indexOf(theme);
     setThemeState(THEMES[(idx + 1) % THEMES.length]);
   };
 
-  return { theme, setTheme, cycleTheme };
+  return createElement(ThemeContext.Provider, { value: { theme, setTheme, cycleTheme } }, children);
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
 }

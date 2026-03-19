@@ -14,13 +14,13 @@ import { RunFooter, RunControls } from '../components/RunToolbar';
 import { InspectModal } from '../components/InspectModal';
 import { useToast, ToastContainer } from '../components/Toast';
 import { TreeView, type TreeItem } from '../components/TreeView';
-import { useTheme, THEME_LABELS } from '../hooks/useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, Download } from 'lucide-react';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, Download } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -92,7 +92,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const [mobileRunsOpen, setMobileRunsOpen] = useState(false);
   const mountedForAgent = useRef<string | null>(null);
   const { toasts, showToast, dismiss, pause, resume } = useToast();
-  const { theme, cycleTheme } = useTheme();
+  const { theme } = useTheme();
   const conn = useConnectionStatus();
   const isMobile = useIsMobile();
   const { canInstall, isInstalled, install, installLabel, installHelpText } = usePwaInstall();
@@ -816,7 +816,6 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                       {notifications.enabled ? <Bell size={13} /> : <BellOff size={13} />}
                     </button>
                   )}
-                  <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
                   <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
                   {authEnabled && <UserMenu onLogout={onLogout} />}
                 </div>

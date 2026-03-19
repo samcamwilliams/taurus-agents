@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Pencil, X } from 'lucide-react';
+import { THEMES, THEME_DESCRIPTIONS, THEME_LABELS, useTheme, type Theme } from '../hooks/useTheme';
 
 interface AccountSettingsModalProps {
   onClose: () => void;
 }
 
 export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
-  const [tab, setTab] = useState<'usage' | 'keys' | 'password'>('usage');
+  const [tab, setTab] = useState<'appearance' | 'usage' | 'keys' | 'password'>('appearance');
   const [keys, setKeys] = useState<Record<string, string | null>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const [appearanceMessage, setAppearanceMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const [appearanceSaving, setAppearanceSaving] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   // Password change
   const [currentPw, setCurrentPw] = useState('');
@@ -50,6 +54,25 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
 
   function handleClear(key: string) {
     setEdits(prev => ({ ...prev, [key]: '' }));
+  }
+
+  async function handleThemeSelect(nextTheme: Theme) {
+    if (nextTheme === theme || appearanceSaving) return;
+
+    const previousTheme = theme;
+    setTheme(nextTheme);
+    setAppearanceSaving(true);
+    setAppearanceMessage(null);
+
+    try {
+      await api.updatePreferences({ theme: nextTheme });
+      setAppearanceMessage({ text: 'Appearance saved' });
+    } catch (err: any) {
+      setTheme(previousTheme);
+      setAppearanceMessage({ text: err.message || 'Failed to save appearance', error: true });
+    } finally {
+      setAppearanceSaving(false);
+    }
   }
 
   async function handleSaveKeys() {
@@ -106,31 +129,71 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ width: 520 }}>
+      <div className="modal" style={{ width: 620, maxWidth: 'calc(100vw - 24px)' }}>
         <div className="modal__header">
           <h3>Account Settings</h3>
         </div>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--c-border)' }}>
           <button
+            className={`account-tab${tab === 'appearance' ? ' account-tab--active' : ''}`}
+            onClick={() => { setTab('appearance'); setMessage(null); setAppearanceMessage(null); }}
+          >
+            Appearance
+          </button>
+          <button
             className={`account-tab${tab === 'usage' ? ' account-tab--active' : ''}`}
-            onClick={() => { setTab('usage'); setMessage(null); }}
+            onClick={() => { setTab('usage'); setMessage(null); setAppearanceMessage(null); }}
           >
             Usage
           </button>
           <button
             className={`account-tab${tab === 'keys' ? ' account-tab--active' : ''}`}
-            onClick={() => { setTab('keys'); setMessage(null); }}
+            onClick={() => { setTab('keys'); setMessage(null); setAppearanceMessage(null); }}
           >
             API Keys
           </button>
           <button
             className={`account-tab${tab === 'password' ? ' account-tab--active' : ''}`}
-            onClick={() => { setTab('password'); setMessage(null); }}
+            onClick={() => { setTab('password'); setMessage(null); setAppearanceMessage(null); }}
           >
             Password
           </button>
         </div>
         <div className="modal__body">
+          {tab === 'appearance' && (
+            <>
+              <div className="appearance-grid">
+                {THEMES.map((option) => (
+                  <button
+                    key={option}
+                    className={`appearance-option${theme === option ? ' appearance-option--active' : ''}`}
+                    onClick={() => handleThemeSelect(option)}
+                    disabled={appearanceSaving}
+                  >
+                    <div className="appearance-option__header">
+                      <span className="appearance-option__title">{THEME_LABELS[option]}</span>
+                      {theme === option && <span className="appearance-option__badge">Active</span>}
+                    </div>
+                    <div className={`appearance-option__preview appearance-option__preview--${option}`}>
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                    <p className="appearance-option__description">{THEME_DESCRIPTIONS[option]}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="modal__actions">
+                {(appearanceMessage || appearanceSaving) && (
+                  <span style={{ fontSize: 12, color: appearanceMessage?.error ? 'var(--c-red)' : 'var(--c-muted)', marginRight: 'auto', alignSelf: 'center' }}>
+                    {appearanceSaving ? 'Saving…' : appearanceMessage?.text}
+                  </span>
+                )}
+                <button className="btn" onClick={onClose}>Close</button>
+              </div>
+            </>
+          )}
+
           {tab === 'usage' && (
             <>
               {!usage ? (

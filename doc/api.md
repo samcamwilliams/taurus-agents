@@ -24,7 +24,7 @@ GET /api/auth/check
 Always public. Returns:
 
 ```json
-{ "authenticated": true, "authEnabled": true, "csrfToken": "...", "username": "taurus", "role": "admin" }
+{ "authenticated": true, "authEnabled": true, "csrfToken": "...", "username": "taurus", "role": "admin", "theme": "light" }
 ```
 
 | Field | Description |
@@ -34,6 +34,7 @@ Always public. Returns:
 | `csrfToken` | Present when authenticated — use as `X-CSRF-Token` header |
 | `username` | Present when authenticated — current username |
 | `role` | Present when authenticated — current role (`admin` or `user`) |
+| `theme` | Present when authenticated — the user's preferred UI theme |
 
 ### Login
 
@@ -46,7 +47,7 @@ POST /api/auth/login
 | `username` | string | yes | Username to sign in as |
 | `password` | string | yes | Password for that user |
 
-Returns `200` with `{ ok: true, csrfToken: "...", username: "taurus", role: "admin" }` and sets a session cookie.
+Returns `200` with `{ ok: true, csrfToken: "...", username: "taurus", role: "admin", theme: "light" }` and sets a session cookie plus a theme cookie used to style the login page before the app loads.
 
 Rate limited: max 5 failed attempts per IP per 60 seconds. Returns `429` when exceeded.
 
@@ -57,6 +58,18 @@ POST /api/auth/logout
 ```
 
 Clears the session cookie and invalidates the server-side session. Requires authentication and CSRF token.
+
+### Update appearance preferences
+
+```
+PUT /api/auth/preferences
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `theme` | string | yes | One of `light`, `night`, `dark`, `vivid`, `catppuccin`, `vivid-catppuccin` |
+
+Returns `200` with `{ ok: true, theme: "night" }` and refreshes the theme cookie for future login screens.
 
 ---
 

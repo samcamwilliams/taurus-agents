@@ -86,6 +86,12 @@ export function sessionCookieHeader(token: string): string {
   return cookie;
 }
 
+export function themeCookieHeader(theme: string): string {
+  let cookie = `taurus_theme=${encodeURIComponent(theme)}; SameSite=Lax; Path=/; Max-Age=31536000`;
+  if (SECURE_COOKIE) cookie += '; Secure';
+  return cookie;
+}
+
 export function clearSessionCookieHeader(): string {
   let cookie = 'taurus_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0';
   if (SECURE_COOKIE) cookie += '; Secure';

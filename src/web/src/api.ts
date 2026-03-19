@@ -1,4 +1,5 @@
 import type { Agent, Run, MessageRecord } from './types';
+import type { Theme } from './hooks/useTheme';
 
 // ── CSRF token management ──
 
@@ -146,6 +147,10 @@ export const api = {
 
   changePassword(current_password: string, new_password: string): Promise<{ ok: boolean }> {
     return request('/api/auth/password', { method: 'PUT', body: { current_password, new_password } });
+  },
+
+  updatePreferences(preferences: { theme: Theme }): Promise<{ ok: boolean; theme: Theme }> {
+    return request('/api/auth/preferences', { method: 'PUT', body: preferences });
   },
 
   getUsage(): Promise<{

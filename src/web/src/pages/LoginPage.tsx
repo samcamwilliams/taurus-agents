@@ -1,7 +1,8 @@
+import type { Theme } from '../hooks/useTheme';
 import { useState, type FormEvent } from 'react';
 
 interface LoginPageProps {
-  onLogin: (csrfToken: string) => void;
+  onLogin: (payload: { csrfToken: string; username?: string | null; theme?: Theme | null }) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -29,7 +30,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         return;
       }
 
-      onLogin(data.csrfToken);
+      onLogin({
+        csrfToken: data.csrfToken,
+        username: data.username ?? null,
+        theme: data.theme ?? null,
+      });
     } catch {
       setError('Connection failed');
     } finally {

@@ -25,23 +25,44 @@
       };
       const defaultTheme = 'light';
       const key = 'taurus-theme';
+      const cookieKey = 'taurus_theme';
       const migratedKey = 'taurus-theme-clean-light-migrated';
 
-      try {
-        let theme = localStorage.getItem(key);
-        const migrated = localStorage.getItem(migratedKey) === '1';
+      const readCookie = (name) => {
+        for (const pair of document.cookie.split(';')) {
+          const [rawName, ...rawValue] = pair.trim().split('=');
+          if (rawName !== name) continue;
+          try {
+            return decodeURIComponent(rawValue.join('='));
+          } catch {
+            return rawValue.join('=');
+          }
+        }
+        return null;
+      };
 
-        if (!migrated) {
-          localStorage.setItem(migratedKey, '1');
-          if (!theme || theme === 'vivid-catppuccin') {
+      try {
+        let theme = readCookie(cookieKey);
+
+        if (!themes.has(theme)) {
+          theme = localStorage.getItem(key);
+          const migrated = localStorage.getItem(migratedKey) === '1';
+
+          if (!migrated) {
+            localStorage.setItem(migratedKey, '1');
+            if (!theme || theme === 'vivid-catppuccin') {
+              theme = defaultTheme;
+              localStorage.setItem(key, theme);
+            }
+          }
+
+          if (!themes.has(theme)) {
             theme = defaultTheme;
             localStorage.setItem(key, theme);
           }
-        }
-
-        if (!themes.has(theme)) {
-          theme = defaultTheme;
+        } else {
           localStorage.setItem(key, theme);
+          localStorage.setItem(migratedKey, '1');
         }
 
         document.documentElement.setAttribute('data-theme', theme);
