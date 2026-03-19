@@ -17,7 +17,10 @@ import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme, THEME_LABELS } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { usePwaInstall } from '../hooks/usePwaInstall';
+import { useAgentNotifications } from '../hooks/useAgentNotifications';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, Palette, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, Download } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -85,10 +88,15 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   // Lazy-mount: Terminal and FileBrowser trigger container startup on mount,
   // so only mount them once the user actually clicks their tab.
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set(['runs']));
+  const [mobileAgentsOpen, setMobileAgentsOpen] = useState(false);
+  const [mobileRunsOpen, setMobileRunsOpen] = useState(false);
   const mountedForAgent = useRef<string | null>(null);
   const { toasts, showToast, dismiss, pause, resume } = useToast();
   const { theme, cycleTheme } = useTheme();
   const conn = useConnectionStatus();
+  const isMobile = useIsMobile();
+  const { canInstall, isInstalled, install } = usePwaInstall();
+  const notifications = useAgentNotifications(showToast);
 
   // Remember last selected run per agent so switching back restores it
   const lastRunByAgent = useRef<Record<string, string>>({});
@@ -108,6 +116,25 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     if (agentId && runId) lastRunByAgent.current[agentId] = runId;
   }, [agentId, runId]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const setViewportHeight = () => {
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', setViewportHeight);
+    window.visualViewport?.addEventListener('resize', setViewportHeight);
+
+    return () => {
+      window.removeEventListener('resize', setViewportHeight);
+      window.removeEventListener('orientationchange', setViewportHeight);
+      window.visualViewport?.removeEventListener('resize', setViewportHeight);
+    };
+  }, []);
 
   // ── Model context windows (fetched once) ──
 
@@ -197,6 +224,21 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   useEffect(() => {
     setActiveTab('runs');
   }, [agentId]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileAgentsOpen(false);
+      setMobileRunsOpen(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
+    setMobileAgentsOpen(false);
+  }, [agentId]);
+
+  useEffect(() => {
+    setMobileRunsOpen(false);
+  }, [runId, activeTab, agentId]);
 
   function activateTab(tab: Tab) {
     setActiveTab(tab);
@@ -498,7 +540,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   }
 
   async function handleSend(message: string, images?: import('../components/InputBar').ImageAttachment[]) {
-    if (!agentId || !message.trim()) return;
+    if (!agentId || (!message.trim() && (!images || images.length === 0))) return;
     appendOptimisticUserMessage(message, images);
     const apiImages = images?.map(({ base64, mediaType }) => ({ base64, mediaType }));
 
@@ -528,6 +570,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
 
   async function handleCreated(newId: string) {
     setShowCreateModal(false);
+    setMobileAgentsOpen(false);
     await loadAgents();
     navigate(`/agents/${newId}`);
   }
@@ -535,6 +578,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   function handleSelectRun(id: string) {
     if (agentId) {
       setActiveTab('runs');
+      setMobileRunsOpen(false);
       navigate(`/agents/${agentId}/runs/${id}`);
     }
   }
@@ -553,17 +597,116 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const isRunning = selectedAgent?.status === 'running';
   const isPaused = selectedAgent?.status === 'paused';
   const isStopped = !isRunning && !isPaused;
+  const hasRuns = runs.length > 0;
+  const drawerOpen = mobileAgentsOpen || mobileRunsOpen;
+  const notificationTitle = !notifications.supported
+    ? 'Notifications unavailable'
+    : notifications.permission === 'denied'
+      ? 'Notifications blocked in browser settings'
+      : notifications.enabled
+        ? 'Pause Taurus notifications'
+        : 'Enable Taurus notifications';
+
+  async function handleInstall() {
+    const accepted = await install();
+    if (accepted) showToast('Taurus installed on this device.', 'info');
+  }
+
+  async function handleNotificationClick() {
+    if (!notifications.supported) {
+      showToast('This browser does not support notifications.', 'error');
+      return;
+    }
+    if (notifications.enabled) {
+      notifications.disable();
+      return;
+    }
+    await notifications.enable();
+  }
+
+  const runsTree = (
+    <TreeView
+      items={treeRuns}
+      selectedId={runId}
+      onSelect={handleSelectRun}
+      emptyMessage="No runs yet"
+      renderIcon={(run) => {
+        if (run.trigger !== 'schedule') {
+          return <StatusDot status={run.status} />;
+        }
+        const color = run.status === 'running' ? 'var(--c-amber)'
+          : run.status === 'error' ? 'var(--c-red)'
+          : run.status === 'completed' ? 'var(--c-green)'
+          : run.status === 'paused' ? 'var(--c-yellow)'
+          : 'var(--c-muted)';
+        return (
+          <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title="scheduled">
+            <Clock size={11} color={color} />
+          </span>
+        );
+      }}
+      renderLabel={(run) => (
+        <span style={{ fontSize: 12 }}>
+          {formatRunDate(run.created_at)}
+        </span>
+      )}
+      renderSecondary={(run) => {
+        if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;
+        if (run.run_summary) return <span>{run.run_summary.slice(0, 80)}</span>;
+        const activity = runActivity[run.id];
+        if (activity) return <span>{activity.slice(0, 80)}</span>;
+        if (run.status === 'running') return <span style={{ color: 'var(--c-accent)' }}>Running...</span>;
+        if (run.last_message) return <span>{run.last_message.text.slice(0, 80)}</span>;
+        return null;
+      }}
+    />
+  );
 
   // ── Render ──
 
   return (
-    <div className="app">
-      <Sidebar
-        agents={agents}
-        selectedId={agentId ?? null}
-        onCreateClick={() => setShowCreateModal(true)}
-        onTriggerSchedule={handleTriggerSchedule}
-      />
+    <div className={`app${isMobile ? ' app--mobile' : ''}`}>
+      {isMobile ? (
+        <>
+          <div
+            className={`app__backdrop${drawerOpen ? ' app__backdrop--open' : ''}`}
+            onClick={() => {
+              setMobileAgentsOpen(false);
+              setMobileRunsOpen(false);
+            }}
+          />
+
+          <aside className={`app-drawer app-drawer--agents${mobileAgentsOpen ? ' app-drawer--open' : ''}`}>
+            <Sidebar
+              agents={agents}
+              selectedId={agentId ?? null}
+              onCreateClick={() => {
+                setShowCreateModal(true);
+                setMobileAgentsOpen(false);
+              }}
+              onTriggerSchedule={handleTriggerSchedule}
+              onSelect={() => setMobileAgentsOpen(false)}
+            />
+          </aside>
+
+          <aside className={`app-drawer app-drawer--runs${mobileRunsOpen ? ' app-drawer--open' : ''}`}>
+            <div className="runs-panel runs-panel--drawer">
+              <div className="runs-panel__header">
+                <span>Runs ({runs.filter(r => !r.parent_run_id).length})</span>
+                <button className="btn btn--sm" onClick={() => setMobileRunsOpen(false)}>Close</button>
+              </div>
+              {runsTree}
+            </div>
+          </aside>
+        </>
+      ) : (
+        <Sidebar
+          agents={agents}
+          selectedId={agentId ?? null}
+          onCreateClick={() => setShowCreateModal(true)}
+          onTriggerSchedule={handleTriggerSchedule}
+        />
+      )}
 
       <div className="main">
         {!selectedAgent ? (
@@ -576,27 +719,84 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                 </div>
               </div>
             )}
-            <div className="empty-state">Select or create an agent</div>
+            <div className={`empty-state${isMobile ? ' empty-state--stacked' : ''}`}>
+              {isMobile ? (
+                <>
+                  <p>Select or create an agent</p>
+                  <div className="empty-state__actions">
+                    <button className="btn" onClick={() => setMobileAgentsOpen(true)}><Menu size={13} /> Agents</button>
+                    <button className="btn primary" onClick={() => setShowCreateModal(true)}>New Agent</button>
+                  </div>
+                </>
+              ) : (
+                'Select or create an agent'
+              )}
+            </div>
           </>
         ) : (
           <>
             {/* Agent header */}
             <div className="panel-header">
               <div className="panel-header__info">
-                <StatusDot status={selectedAgent.status} />
-                <h2>{selectedAgent.name}</h2>
-                <span className="panel-header__meta">{selectedAgent.model}</span>
-                {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
-                  <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} onClick={isStopped ? () => handleTriggerSchedule() : undefined} />
+                {isMobile && (
+                  <button
+                    className={`btn icon-btn${mobileAgentsOpen ? ' btn--active' : ''}`}
+                    onClick={() => {
+                      setMobileAgentsOpen(v => !v);
+                      setMobileRunsOpen(false);
+                    }}
+                    title="Agents"
+                  >
+                    <Menu size={13} />
+                  </button>
                 )}
+                <div className="panel-header__title">
+                  <div className="panel-header__title-main">
+                    <StatusDot status={selectedAgent.status} />
+                    <h2>{selectedAgent.name}</h2>
+                  </div>
+                  <div className="panel-header__details">
+                    <span className="panel-header__meta">{selectedAgent.model}</span>
+                    {selectedAgent.schedule && selectedAgent.next_run && !isRunning && (
+                      <Countdown targetDate={selectedAgent.next_run} schedule={selectedAgent.schedule} onClick={isStopped ? () => handleTriggerSchedule() : undefined} />
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="panel-header__actions">
                 {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
-                {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
+                {isMobile && activeTab === 'runs' && (
+                  <button
+                    className={`btn icon-btn${mobileRunsOpen ? ' btn--active' : ''}`}
+                    onClick={() => {
+                      setMobileRunsOpen(v => !v);
+                      setMobileAgentsOpen(false);
+                    }}
+                    title={hasRuns ? 'Runs' : 'No runs yet'}
+                    disabled={!hasRuns}
+                  >
+                    <List size={13} />
+                  </button>
+                )}
+                {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
                 {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
-                {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> Stop All</button>}
+                {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> {isMobile ? 'Stop' : 'Stop All'}</button>}
                 {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
-                {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> New Run</button>}
+                {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
+                {canInstall && !isInstalled && (
+                  <button className="btn icon-btn" onClick={handleInstall} title="Install Taurus">
+                    <Download size={13} />
+                  </button>
+                )}
+                {notifications.supported && (
+                  <button
+                    className={`btn icon-btn${notifications.enabled ? ' btn--active' : ''}`}
+                    onClick={handleNotificationClick}
+                    title={notificationTitle}
+                  >
+                    {notifications.enabled ? <Bell size={13} /> : <BellOff size={13} />}
+                  </button>
+                )}
                 <button className="btn icon-btn" onClick={cycleTheme} title={`Theme: ${THEME_LABELS[theme]}`}><Palette size={13} /></button>
                 <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
                 {authEnabled && <UserMenu onLogout={onLogout} />}
@@ -630,37 +830,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                 <div className="runs-panel__header">
                   <span>Runs ({runs.filter(r => !r.parent_run_id).length})</span>
                 </div>
-                <TreeView
-                  items={treeRuns}
-                  selectedId={runId}
-                  onSelect={handleSelectRun}
-                  emptyMessage="No runs yet"
-                  renderIcon={(run) => {
-                    if (run.trigger !== 'schedule') {
-                      return <StatusDot status={run.status} />;
-                    }
-                    const color = run.status === 'running' ? 'var(--c-amber)'
-                      : run.status === 'error' ? 'var(--c-red)'
-                      : run.status === 'completed' ? 'var(--c-green)'
-                      : run.status === 'paused' ? 'var(--c-yellow)'
-                      : 'var(--c-muted)';
-                    return <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title="scheduled">
-                      <Clock size={11} color={color} />
-                    </span>;
-                  }}
-                  renderLabel={(run) => (
-                    <span style={{ fontSize: 12 }}>{formatRunDate(run.created_at)}</span>
-                  )}
-                  renderSecondary={(run) => {
-                    if (run.run_error) return <span style={{ color: 'var(--c-red)' }}>{run.run_error}</span>;
-                    if (run.run_summary) return <span>{run.run_summary.slice(0, 80)}</span>;
-                    const activity = runActivity[run.id];
-                    if (activity) return <span>{activity.slice(0, 80)}</span>;
-                    if (run.status === 'running') return <span style={{ color: 'var(--c-accent)' }}>Running...</span>;
-                    if (run.last_message) return <span>{run.last_message.text.slice(0, 80)}</span>;
-                    return null;
-                  }}
-                />
+                {runsTree}
               </div>
 
               {/* Messages */}

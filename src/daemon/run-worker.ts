@@ -24,6 +24,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import { PersistentShell } from './persistent-shell.js';
 import { PersistentBashTool } from '../tools/shell/bash.js';
 import { PauseTool } from '../tools/control/pause.js';
+import { NotifyTool, type NotifyPayload } from '../tools/control/notify.js';
 import { ShellReadTool } from '../tools/shell/read.js';
 import { ShellWriteTool } from '../tools/shell/write.js';
 import { ShellEditTool } from '../tools/shell/edit.js';
@@ -72,6 +73,12 @@ function waitForResume(): Promise<string | undefined> {
   return new Promise((resolve) => {
     resumeResolve = resolve;
   });
+}
+
+// ── Notifications ──
+
+function emitNotification(payload: NotifyPayload): void {
+  send({ type: 'signal_emit', name: 'notify', payload });
 }
 
 // ── Spawn machinery ──
@@ -142,6 +149,7 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   }),
   Browser:   (s) => new BrowserTool(s),
   Pause:     ()  => new PauseTool(sendPause, waitForResume),
+  Notify:    ()  => new NotifyTool(emitNotification),
   Spawn:     ()  => new SpawnTool(sendSpawnRequest, waitForSpawnResult),
   Delegate:  ()  => new DelegateTool(sendDelegateRequest, waitForDelegateResult),
   Supervisor: () => new SupervisorTool(sendSupervisorRequest, waitForSupervisorResult),

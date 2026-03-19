@@ -21,6 +21,10 @@ input[type="radio"] {
   accent-color: var(--c-marker);
 }
 
+html, body, #root {
+  height: 100%;
+}
+
 html, body {
   overscroll-behavior: none;
 }
@@ -30,6 +34,8 @@ body {
   background: var(--c-bg);
   color: var(--c-text);
   font-size: 14px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 // ── Buttons ──
@@ -38,6 +44,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-height: 30px;
   padding: 5px 12px;
   white-space: nowrap;
   border-radius: 6px;
@@ -219,6 +226,7 @@ body {
   }
 
   &.icon-btn {
+    min-width: 30px;
     padding: 5px 6px;
   }
 
@@ -450,5 +458,11 @@ body {
   // Modal overlay: lighter
   .modal-overlay {
     background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (max-width: 900px) {
+  .btn {
+    min-height: 34px;
   }
 }

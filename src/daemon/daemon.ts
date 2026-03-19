@@ -884,7 +884,33 @@ export class Daemon {
         break;
 
       case 'signal_emit':
-        // TODO: route to other agents
+        if (msg.name === 'notify') {
+          const payload = (msg.payload ?? {}) as {
+            title?: string;
+            message?: string;
+            level?: 'info' | 'success' | 'warning' | 'error';
+            tag?: string;
+          };
+          const message = payload.message?.trim();
+
+          if (message) {
+            this.logger('info', `[${managed.agent.name}] Notification: ${message}`);
+            this.sse.broadcastGlobal({
+              type: 'agent_notification',
+              agentId,
+              agentName: managed.agent.name,
+              runId,
+              title: payload.title?.trim() || managed.agent.name,
+              message,
+              level: payload.level ?? 'info',
+              tag: payload.tag,
+              timestamp: new Date().toISOString(),
+            });
+            break;
+          }
+        }
+
+        // TODO: route generic signals to other agents
         this.logger('info', `[${managed.agent.name}] Signal emitted: ${msg.name}`);
         break;
 
@@ -1335,6 +1361,11 @@ export class Daemon {
         })}\n\n`);
       }
     }
+  }
+
+  addNotificationClient(res: import('node:http').ServerResponse): void {
+    this.sse.addGlobalClient(res);
+    res.write(`data: ${JSON.stringify({ type: 'ready', timestamp: new Date().toISOString() })}\n\n`);
   }
 
   // ── Queries (for HTTP API) ──

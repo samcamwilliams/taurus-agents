@@ -8,7 +8,8 @@ Self-hosted multi-agent platform. Each agent runs in an isolated Docker containe
 - **Agent hierarchies** — parent/child agent trees with Delegate and Supervisor tools for orchestrating teams of agents
 - **Shared volumes** — child agents automatically mount the parent's `/shared` volume for inter-agent file sharing
 - **Web UI** — real-time streaming of LLM thinking/text/tool output, file editor (Monaco) with data table and markdown views, interactive terminal (xterm.js), agent configuration
-- **14 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Spawn, Delegate, Supervisor)
+- **Mobile-friendly PWA** — installable Taurus dashboard with responsive drawers, safer mobile viewport handling, and browser/PWA notifications
+- **15 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Notify, Spawn, Delegate, Supervisor)
 - **Multi-provider** — Anthropic (default), OpenAI, OpenRouter (access to DeepSeek, Llama, etc.)
 - **Scheduling** — cron-based with overlap modes (skip, queue, kill)
 - **Composable prompts** — `{{include:path}}` directive to include reusable prompt fragments from `prompts/`
@@ -89,6 +90,7 @@ Set the corresponding API key in `.env` for each provider you use.
 | Grep | search | Search file contents with regex (ripgrep) |
 | Bash | exec | Run shell commands in the persistent container shell |
 | Pause | control | Pause execution, wait for human input |
+| Notify | control | Send a notification to Taurus web/PWA clients |
 | Spawn | control | Spawn sub-agents for parallel work |
 | Delegate | control | Delegate a task to a child agent and wait for the result |
 | Supervisor | control | Manage child agents: create, update, delete, inspect, inject messages, stop runs |
@@ -160,6 +162,8 @@ Agent system prompts support placeholders and includes:
 | `{{include:path}}` | Contents of `prompts/<path>` (recursive, up to 5 levels) |
 
 Place reusable prompt fragments in the `prompts/` directory and reference them with `{{include:filename.md}}`.
+
+To let an agent notify you about important milestones or blockers, enable the `Notify` tool and include `{{include:skills/notify-user.md}}` in its system prompt.
 
 ## HottestLang
 

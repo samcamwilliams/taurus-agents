@@ -287,6 +287,31 @@ Then streams live events:
 
 ---
 
+## Notification Stream
+
+```
+GET /api/notifications/stream
+```
+
+Global Server-Sent Events stream for Taurus notifications emitted by agents via the `Notify` tool.
+
+Example event payload:
+
+```json
+{
+  "type": "agent_notification",
+  "agentId": "uuid",
+  "agentName": "reviewer",
+  "runId": "uuid",
+  "title": "reviewer",
+  "message": "Draft review is complete.",
+  "level": "info",
+  "timestamp": "2026-03-18T14:22:00.000Z"
+}
+```
+
+---
+
 ## Tools
 
 ### List available tools

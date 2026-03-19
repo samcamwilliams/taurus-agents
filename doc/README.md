@@ -51,6 +51,7 @@ A run is a single execution of an agent. It contains a sequence of messages (use
 | Grep | search | Search file contents with regex (ripgrep) |
 | Bash | exec | Run shell commands |
 | Pause | control | Pause execution, wait for human input |
+| Notify | control | Send a notification to Taurus web/PWA clients |
 | Spawn | control | Spawn sub-agents |
 | WebSearch | web | Brave Search API |
 | WebFetch | web | Fetch and extract web pages |

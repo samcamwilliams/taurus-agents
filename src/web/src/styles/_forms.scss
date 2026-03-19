@@ -9,6 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 12px;
   z-index: 100;
 }
 
@@ -94,6 +95,7 @@
   border: 1px solid var(--c-border);
   border-radius: 10px;
   width: 480px;
+  max-width: min(480px, calc(100vw - 24px));
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -505,6 +507,41 @@
       border-radius: 4px;
       max-height: 200px;
       overflow-y: auto;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .modal {
+    max-height: calc(var(--app-height, 100vh) - 24px);
+
+    &__header,
+    &__body {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
+
+  .inspect-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(var(--app-height, 100vh) - 24px);
+  }
+
+  .agent-settings {
+    padding: 12px;
+
+    &__row {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    &__label {
+      width: auto;
+      padding-top: 0;
+    }
+
+    &__form {
+      max-width: none;
     }
   }
 }

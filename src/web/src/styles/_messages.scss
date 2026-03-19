@@ -958,6 +958,33 @@
   }
 }
 
+@media (max-width: 900px) {
+  .llm-stream,
+  .message {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .message-list__footer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .message__header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .message__meta {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .markdown pre {
+    padding: 12px;
+  }
+}
+
 // ── Message Footer (per-message metadata) ──
 
 .message__footer {

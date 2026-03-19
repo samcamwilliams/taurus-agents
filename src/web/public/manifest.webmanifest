@@ -1,0 +1,19 @@
+{
+  "name": "Taurus Agents",
+  "short_name": "Taurus",
+  "description": "Mobile-friendly Taurus dashboard for running and monitoring agents.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/taurus-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

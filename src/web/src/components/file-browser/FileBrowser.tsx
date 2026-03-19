@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
 import { FileTree } from './FileTree';
 import { FileEditor } from './FileEditor';
-import { ChevronDown, Folder, HardDrive } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Folder, HardDrive } from 'lucide-react';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import './file-browser.scss';
 
 interface Props {
@@ -14,11 +15,13 @@ const QUICK_PLACES = [
 ];
 
 export function FileBrowser({ agentId }: Props) {
+  const isMobile = useIsMobile();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
   const [rootPath, setRootPath] = useState('/workspace');
   const [pathInput, setPathInput] = useState('/workspace');
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
   const placesRef = useRef<HTMLDivElement>(null);
 
   const handleDirtyChange = useCallback((path: string, dirty: boolean) => {
@@ -41,6 +44,19 @@ export function FileBrowser({ agentId }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [placesOpen]);
 
+  useEffect(() => {
+    if (!isMobile) {
+      setTreeOpen(true);
+      return;
+    }
+    setTreeOpen(selectedFile === null);
+  }, [isMobile, selectedFile]);
+
+  useEffect(() => {
+    setSelectedFile(null);
+    setTreeOpen(!isMobile);
+  }, [agentId, isMobile]);
+
   function handlePathSubmit() {
     const p = pathInput.trim() || '/workspace';
     setRootPath(p);
@@ -57,9 +73,30 @@ export function FileBrowser({ agentId }: Props) {
   }
 
   return (
-    <div className="fb">
+    <div className={`fb${isMobile ? ' fb--mobile' : ''}${treeOpen ? ' fb--tree-open' : ''}`}>
+      {isMobile && (
+        <div className="fb__mobile-bar">
+          <button className="btn btn--sm" onClick={() => setTreeOpen(true)}>
+            <Folder size={13} /> Files
+          </button>
+          <div className="fb__mobile-path">{selectedFile ?? rootPath}</div>
+        </div>
+      )}
+
       {/* Left: file tree */}
       <div className="fb__tree-pane">
+        {isMobile && (
+          <div className="fb__tree-mobile-head">
+            <button
+              className="btn btn--sm"
+              onClick={() => setTreeOpen(false)}
+              disabled={!selectedFile}
+            >
+              <ChevronLeft size={13} /> Editor
+            </button>
+            <span className="fb__tree-mobile-title">Files</span>
+          </div>
+        )}
         <div className="fb__tree-header" ref={placesRef}>
           <input
             className="fb__path-input"
@@ -101,7 +138,10 @@ export function FileBrowser({ agentId }: Props) {
           rootPath={rootPath}
           selectedPath={selectedFile ?? undefined}
           dirtyPaths={dirtyPaths}
-          onSelect={(path) => setSelectedFile(path)}
+          onSelect={(path) => {
+            setSelectedFile(path);
+            if (isMobile) setTreeOpen(false);
+          }}
         />
       </div>
 
