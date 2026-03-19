@@ -1,6 +1,7 @@
 import { memo, useCallback, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check } from 'lucide-react';
 import 'highlight.js/styles/github-dark-dimmed.css';
@@ -42,7 +43,7 @@ export const Markdown = memo(function Markdown({ children }: MarkdownProps) {
   return (
     <div className="markdown">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           a({ href, children, ...props }) {

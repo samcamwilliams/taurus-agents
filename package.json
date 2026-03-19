@@ -38,6 +38,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.1",
     "rehype-highlight": "^7.0.2",
+    "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "sequelize": "^6.37.5",
     "sequelize-auto-migrations": "github:pointnetwork/sequelize-auto-migrations#all-the-changes",
