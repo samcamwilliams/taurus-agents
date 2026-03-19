@@ -16,6 +16,7 @@ import { WebFetchTool } from './web/web-fetch.js';
 import { WebSearchTool } from './web/web-search.js';
 import { BrowserTool } from './web/browser.js';
 import { PauseTool } from './control/pause.js';
+import { NotifyTool } from './control/notify.js';
 import { SpawnTool } from './control/spawn.js';
 import { DelegateTool } from './control/delegate.js';
 import { SupervisorTool } from './control/supervisor.js';
@@ -35,6 +36,7 @@ const ALL_TOOLS: Tool[] = [
   new WebFetchTool(),
   new BrowserTool(stub),
   new PauseTool(noop, noop),
+  new NotifyTool(noop),
   new SpawnTool(noop, noop),
   new DelegateTool(noop, noop),
   new SupervisorTool(noop, noop),

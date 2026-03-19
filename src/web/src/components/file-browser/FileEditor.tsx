@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import { Printer } from 'lucide-react';
+import { Download, Save } from 'lucide-react';
 import { fileApi } from './api';
 import { DataTable, isTabularJson } from '../DataTable';
 import { Markdown } from '../Markdown';
+import { getMonacoTheme, type Theme } from '../../hooks/useTheme';
 
 interface Props {
   agentId: string;
   filePath: string;
   onDirtyChange?: (path: string, dirty: boolean) => void;
+  theme: Theme;
 }
 
 type ViewMode = 'raw' | 'table' | 'rendered';
@@ -51,7 +53,7 @@ function detectLanguage(filePath: string): string {
   return EXT_TO_LANG[ext] || 'plaintext';
 }
 
-export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
+export function FileEditor({ agentId, filePath, onDirtyChange, theme }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [savedContent, setSavedContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,6 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('raw');
   const editorRef = useRef<any>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   // Parse JSON for table view (memoized, based on saved content to avoid flicker)
   const tableData = useMemo(() => {
@@ -120,34 +121,18 @@ export function FileEditor({ agentId, filePath, onDirtyChange }: Props) {
     );
   };
 
-  const handlePrint = useCallback(() => {
-    const el = contentRef.current;
-    if (!el) return;
-
+  const handleDownload = useCallback(() => {
+    if (content === null) return;
     const fileName = filePath.split('/').pop() || filePath;
-
-    // Monaco editor DOM doesn't serialize to printable HTML — use raw text.
-    // Any other rendered view (table, markdown, future views) prints via innerHTML.
-    const hasCodeEditor = el.querySelector('.monaco-editor');
-    const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const body = hasCodeEditor
-      ? `<pre style="white-space:pre-wrap;word-break:break-word;font-family:'SF Mono','Fira Code',Consolas,'Liberation Mono',Menlo,monospace;font-size:13px;line-height:1.5;margin:0">${esc(content ?? '')}</pre>`
-      : el.innerHTML;
-
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileName}</title><style>
-body{margin:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;line-height:1.6}
-table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}
-th{background:#f0f0f0;font-weight:600}
-pre{background:#f6f6f6;padding:16px;border-radius:4px;overflow-x:auto}
-code{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:13px}
-img{max-width:100%}
-@media print{body{margin:0}}
-</style></head><body>${body}</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }, [content, filePath]);
 
   const isDirty = content !== savedContent;
@@ -168,7 +153,7 @@ img{max-width:100%}
     <div className="fb-editor">
       <div className="fb-editor__toolbar">
         <span className="fb-editor__path">{filePath}</span>
-        {isDirty && <span className="fb-editor__dirty">modified</span>}
+        {isDirty && <span className="fb-editor__dirty">Modified</span>}
         {hasTableView && (
           <div className="fb-editor__view-toggle">
             <button
@@ -202,21 +187,23 @@ img{max-width:100%}
           </div>
         )}
         <button
-          className="btn btn--sm"
-          onClick={handlePrint}
-          title="Print"
+          className="btn btn--sm icon-btn"
+          onClick={handleDownload}
+          title="Download to your device"
+          aria-label="Download to your device"
         >
-          <Printer size={14} />
+          <Download size={14} />
         </button>
         <button
-          className="btn btn--sm"
+          className="btn btn--sm icon-btn"
           onClick={handleSave}
           disabled={!isDirty || saving}
+          title={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
+          aria-label={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
         >
-          {saving ? 'Saving...' : 'Save'}
+          <Save size={14} />
         </button>
       </div>
-      <div ref={contentRef} style={{ display: 'contents' }}>
       {viewMode === 'table' && tableData ? (
         <DataTable data={tableData} />
       ) : viewMode === 'rendered' && isMarkdown ? (
@@ -228,7 +215,7 @@ img{max-width:100%}
           <Editor
             value={content ?? ''}
             language={detectLanguage(filePath)}
-            theme="vs-dark"
+            theme={getMonacoTheme(theme)}
             onChange={(val) => setContent(val ?? '')}
             onMount={handleMount}
             options={{
@@ -249,7 +236,6 @@ img{max-width:100%}
           />
         </div>
       )}
-      </div>
     </div>
   );
 }

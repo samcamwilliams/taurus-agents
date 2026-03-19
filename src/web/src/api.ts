@@ -1,4 +1,5 @@
 import type { Agent, Run, MessageRecord } from './types';
+import type { Theme } from './hooks/useTheme';
 
 // ── CSRF token management ──
 
@@ -52,6 +53,7 @@ export const api = {
     max_turns?: number;
     timeout_ms?: number;
     mounts?: { host: string; container: string; readonly?: boolean }[];
+    resource_limits?: { cpus: number; memory_gb: number; pids_limit: number };
     parent_agent_id?: string;
   }): Promise<Agent & { error?: string }> {
     return request('/api/agents', { method: 'POST', body: data });
@@ -69,6 +71,7 @@ export const api = {
     max_turns: number;
     timeout_ms: number;
     mounts: { host: string; container: string; readonly?: boolean }[];
+    resource_limits: { cpus: number; memory_gb: number; pids_limit: number };
     propagate_children: boolean;
   }>): Promise<Agent> {
     return request(`/api/agents/${id}`, { method: 'PUT', body: data });
@@ -115,7 +118,17 @@ export const api = {
 
   listTools(): Promise<{
     tools: { name: string; group: string; description: string }[];
-    defaults: { model: string; docker_image: string; tools: string[]; readonly_tools: string[]; supervisor_tools: string[]; max_turns: number; timeout_ms: number; allow_bind_mounts: boolean };
+    defaults: {
+      model: string;
+      docker_image: string;
+      tools: string[];
+      readonly_tools: string[];
+      supervisor_tools: string[];
+      max_turns: number;
+      timeout_ms: number;
+      allow_bind_mounts: boolean;
+      resource_limits: { cpus: number; memory_gb: number; pids_limit: number };
+    };
   }> {
     return request('/api/tools');
   },
@@ -134,6 +147,10 @@ export const api = {
 
   changePassword(current_password: string, new_password: string): Promise<{ ok: boolean }> {
     return request('/api/auth/password', { method: 'PUT', body: { current_password, new_password } });
+  },
+
+  updatePreferences(preferences: { theme: Theme }): Promise<{ ok: boolean; theme: Theme }> {
+    return request('/api/auth/preferences', { method: 'PUT', body: preferences });
   },
 
   getUsage(): Promise<{

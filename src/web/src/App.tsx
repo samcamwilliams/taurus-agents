@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
 import { setCsrfToken } from './api';
+import { useTheme } from './hooks/useTheme';
 
 type AuthState = 'loading' | 'authenticated' | 'login';
 
@@ -10,6 +11,7 @@ export function App() {
   const [auth, setAuth] = useState<AuthState>('loading');
   const [username, setUsername] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     fetch('/api/auth/check')
@@ -18,21 +20,24 @@ export function App() {
         if (data.authenticated) {
           if (data.csrfToken) setCsrfToken(data.csrfToken);
           if (data.username) setUsername(data.username);
+          if (data.theme) setTheme(data.theme);
           setAuth('authenticated');
         } else {
           setAuth('login');
         }
       })
       .catch(() => setAuth('login'));
-  }, []);
+  }, [setTheme]);
 
   if (auth === 'loading') return null;
 
   if (auth === 'login') {
     return (
       <LoginPage
-        onLogin={(csrfToken) => {
+        onLogin={({ csrfToken, username: nextUsername, theme }) => {
           setCsrfToken(csrfToken);
+          if (nextUsername) setUsername(nextUsername);
+          if (theme) setTheme(theme);
           setAuth('authenticated');
         }}
       />

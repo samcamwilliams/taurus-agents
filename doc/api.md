@@ -6,7 +6,7 @@ All endpoints accept and return JSON. Set `Content-Type: application/json` on re
 
 ## Authentication
 
-When `AUTH_PASSWORD` is set in `.env`, all API endpoints (except those listed below) require authentication.
+Authentication is always enabled for API routes, except the public endpoints listed below.
 
 ### Auth methods
 
@@ -24,14 +24,17 @@ GET /api/auth/check
 Always public. Returns:
 
 ```json
-{ "authenticated": true, "authEnabled": true, "csrfToken": "..." }
+{ "authenticated": true, "authEnabled": true, "csrfToken": "...", "username": "taurus", "role": "admin", "theme": "light" }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `authEnabled` | Whether auth is configured on the server |
+| `authEnabled` | Whether auth is enabled on the server. Currently always `true`. |
 | `authenticated` | Whether the current request has a valid session |
 | `csrfToken` | Present when authenticated — use as `X-CSRF-Token` header |
+| `username` | Present when authenticated — current username |
+| `role` | Present when authenticated — current role (`admin` or `user`) |
+| `theme` | Present when authenticated — the user's preferred UI theme |
 
 ### Login
 
@@ -41,9 +44,10 @@ POST /api/auth/login
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `password` | string | yes | The `AUTH_PASSWORD` value |
+| `username` | string | yes | Username to sign in as |
+| `password` | string | yes | Password for that user |
 
-Returns `200` with `{ ok: true, csrfToken: "..." }` and sets a session cookie.
+Returns `200` with `{ ok: true, csrfToken: "...", username: "taurus", role: "admin", theme: "light" }` and sets a session cookie plus a theme cookie used to style the login page before the app loads.
 
 Rate limited: max 5 failed attempts per IP per 60 seconds. Returns `429` when exceeded.
 
@@ -54,6 +58,18 @@ POST /api/auth/logout
 ```
 
 Clears the session cookie and invalidates the server-side session. Requires authentication and CSRF token.
+
+### Update appearance preferences
+
+```
+PUT /api/auth/preferences
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `theme` | string | yes | One of `light`, `night`, `dark`, `vivid`, `catppuccin`, `vivid-catppuccin` |
+
+Returns `200` with `{ ok: true, theme: "night" }` and refreshes the theme cookie for future login screens.
 
 ---
 
@@ -284,6 +300,31 @@ Then streams live events:
 | `agent_status` | Agent status changed (`idle`, `running`, `paused`, `error`) |
 | `agent_paused` | Agent paused itself (via Pause tool) |
 | `agent_error` | Agent error |
+
+---
+
+## Notification Stream
+
+```
+GET /api/notifications/stream
+```
+
+Global Server-Sent Events stream for Taurus notifications emitted by agents via the `Notify` tool.
+
+Example event payload:
+
+```json
+{
+  "type": "agent_notification",
+  "agentId": "uuid",
+  "agentName": "reviewer",
+  "runId": "uuid",
+  "title": "reviewer",
+  "message": "Draft review is complete.",
+  "level": "info",
+  "timestamp": "2026-03-18T14:22:00.000Z"
+}
+```
 
 ---
 

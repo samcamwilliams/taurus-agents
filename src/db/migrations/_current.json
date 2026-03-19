@@ -8,17 +8,26 @@
                     "field": "id",
                     "seqType": "Sequelize.UUID"
                 },
+                "parent_agent_id": {
+                    "allowNull": true,
+                    "defaultValue": {
+                        "value": null
+                    },
+                    "field": "parent_agent_id",
+                    "seqType": "Sequelize.UUID"
+                },
+                "user_id": {
+                    "allowNull": false,
+                    "field": "user_id",
+                    "seqType": "Sequelize.UUID"
+                },
                 "folder_id": {
                     "allowNull": false,
-                    "defaultValue": {
-                        "value": "00000000-0000-0000-0000-000000000000"
-                    },
                     "field": "folder_id",
                     "seqType": "Sequelize.UUID"
                 },
                 "name": {
                     "allowNull": false,
-                    "unique": true,
                     "field": "name",
                     "seqType": "Sequelize.STRING"
                 },
@@ -38,7 +47,7 @@
                 "model": {
                     "allowNull": false,
                     "defaultValue": {
-                        "value": "claude-sonnet-4-20250514"
+                        "value": "anthropic/claude-sonnet-4-20250514"
                     },
                     "field": "model",
                     "seqType": "Sequelize.STRING"
@@ -108,6 +117,30 @@
                     "field": "mounts",
                     "seqType": "Sequelize.JSON"
                 },
+                "container_cpus": {
+                    "allowNull": false,
+                    "defaultValue": {
+                        "value": 2
+                    },
+                    "field": "container_cpus",
+                    "seqType": "Sequelize.FLOAT"
+                },
+                "container_memory_mb": {
+                    "allowNull": false,
+                    "defaultValue": {
+                        "value": 4096
+                    },
+                    "field": "container_memory_mb",
+                    "seqType": "Sequelize.INTEGER"
+                },
+                "container_pids_limit": {
+                    "allowNull": false,
+                    "defaultValue": {
+                        "value": 256
+                    },
+                    "field": "container_pids_limit",
+                    "seqType": "Sequelize.INTEGER"
+                },
                 "created_at": {
                     "allowNull": false,
                     "field": "created_at",
@@ -117,9 +150,29 @@
                     "allowNull": false,
                     "field": "updated_at",
                     "seqType": "Sequelize.DATE"
+                },
+                "deleted_at": {
+                    "field": "deleted_at",
+                    "seqType": "Sequelize.DATE"
                 }
             },
-            "indexes": []
+            "indexes": {
+                "d46e26fa74c0a775cb0c625201da491f81066756": {
+                    "unique": true,
+                    "fields": [
+                        "user_id",
+                        "parent_agent_id",
+                        "name"
+                    ],
+                    "name": "agents_user_parent_name_unique",
+                    "options": {
+                        "indexName": "agents_user_parent_name_unique",
+                        "name": "agents_user_parent_name_unique",
+                        "indicesType": "UNIQUE",
+                        "type": "UNIQUE"
+                    }
+                }
+            }
         },
         "AgentLogs": {
             "tableName": "AgentLogs",
@@ -199,7 +252,7 @@
                 "model": {
                     "allowNull": false,
                     "defaultValue": {
-                        "value": "claude-sonnet-4-20250514"
+                        "value": "anthropic/claude-sonnet-4-20250514"
                     },
                     "field": "model",
                     "seqType": "Sequelize.STRING"
@@ -262,6 +315,10 @@
                     "allowNull": false,
                     "field": "updated_at",
                     "seqType": "Sequelize.DATE"
+                },
+                "deleted_at": {
+                    "field": "deleted_at",
+                    "seqType": "Sequelize.DATE"
                 }
             },
             "indexes": []
@@ -297,6 +354,11 @@
                     "field": "content",
                     "seqType": "Sequelize.JSON"
                 },
+                "meta": {
+                    "allowNull": true,
+                    "field": "meta",
+                    "seqType": "Sequelize.JSON"
+                },
                 "stop_reason": {
                     "allowNull": true,
                     "field": "stop_reason",
@@ -322,6 +384,15 @@
                     "allowNull": false,
                     "field": "created_at",
                     "seqType": "Sequelize.DATE"
+                },
+                "updated_at": {
+                    "allowNull": false,
+                    "field": "updated_at",
+                    "seqType": "Sequelize.DATE"
+                },
+                "deleted_at": {
+                    "field": "deleted_at",
+                    "seqType": "Sequelize.DATE"
                 }
             },
             "indexes": {
@@ -344,6 +415,11 @@
                 "id": {
                     "primaryKey": true,
                     "field": "id",
+                    "seqType": "Sequelize.UUID"
+                },
+                "user_id": {
+                    "allowNull": false,
+                    "field": "user_id",
                     "seqType": "Sequelize.UUID"
                 },
                 "name": {
@@ -370,5 +446,5 @@
             "indexes": []
         }
     },
-    "revision": 7
+    "revision": 8
 }

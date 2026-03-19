@@ -125,6 +125,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           metadata: body.metadata,
           docker_image: body.docker_image,
           mounts: body.mounts,
+          resource_limits: body.resource_limits,
         });
         json(ctx.res, agent, 201);
       } catch (err: any) {

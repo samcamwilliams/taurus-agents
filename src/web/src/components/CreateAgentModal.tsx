@@ -30,6 +30,7 @@ export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModa
       max_turns: data.max_turns,
       timeout_ms: data.timeout_ms,
       mounts: data.mounts,
+      resource_limits: data.resource_limits,
       parent_agent_id: data.parent_agent_id || undefined,
     });
 

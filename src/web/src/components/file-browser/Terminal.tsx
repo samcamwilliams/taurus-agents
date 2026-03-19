@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { getTerminalTheme, type Theme } from '../../hooks/useTheme';
 import '@xterm/xterm/css/xterm.css';
 
 interface Props {
   agentId: string;
   focused?: boolean;
+  theme: Theme;
 }
 
-export function Terminal({ agentId, focused }: Props) {
+export function Terminal({ agentId, focused, theme }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -20,12 +22,7 @@ export function Terminal({ agentId, focused }: Props) {
     const term = new XTerm({
       fontSize: 13,
       fontFamily: "'SF Mono', 'Fira Code', Consolas, 'Liberation Mono', Menlo, monospace",
-      theme: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#58a6ff',
-        selectionBackground: '#264f78',
-      },
+      theme: getTerminalTheme(theme),
       cursorBlink: true,
       convertEol: true,
     });
@@ -87,7 +84,7 @@ export function Terminal({ agentId, focused }: Props) {
       wsRef.current = null;
       fitRef.current = null;
     };
-  }, [agentId]);
+  }, [agentId, theme]);
 
   useEffect(() => {
     if (focused) termRef.current?.focus();

@@ -10,11 +10,12 @@ interface SidebarProps {
   selectedId: string | null;
   onCreateClick: () => void;
   onTriggerSchedule?: (agentId: string) => void;
+  onSelect?: () => void;
 }
 
 type AgentTreeItem = Agent & TreeItem;
 
-export function Sidebar({ agents, selectedId, onCreateClick, onTriggerSchedule }: SidebarProps) {
+export function Sidebar({ agents, selectedId, onCreateClick, onTriggerSchedule, onSelect }: SidebarProps) {
   const navigate = useNavigate();
 
   const treeAgents: AgentTreeItem[] = agents.map(a => ({
@@ -31,7 +32,10 @@ export function Sidebar({ agents, selectedId, onCreateClick, onTriggerSchedule }
       <TreeView
         items={treeAgents}
         selectedId={selectedId}
-        onSelect={(id) => navigate(`/agents/${id}`)}
+        onSelect={(id) => {
+          navigate(`/agents/${id}`);
+          onSelect?.();
+        }}
         emptyMessage="No agents yet"
         renderIcon={(agent) => <StatusDot status={agent.status} />}
         renderLabel={(agent) => (

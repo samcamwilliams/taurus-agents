@@ -119,7 +119,8 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    const minHeight = window.matchMedia('(max-width: 900px)').matches ? 44 : 32;
+    el.style.height = Math.max(minHeight, Math.min(el.scrollHeight, 200)) + 'px';
   }, [value]);
 
   // Close menu on outside click
@@ -179,6 +180,21 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     }
   }
 
+  function handleFocus() {
+    if (!window.matchMedia('(max-width: 900px)').matches) return;
+
+    const scrollIntoView = () => {
+      textareaRef.current?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+        behavior: 'smooth',
+      });
+    };
+
+    requestAnimationFrame(scrollIntoView);
+    window.setTimeout(scrollIntoView, 180);
+  }
+
   return (
     <div className="input-bar">
       {images.length > 0 && (
@@ -215,6 +231,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
           onPaste={handlePaste}
           placeholder={placeholder ?? 'Message agent... (Shift+Enter for newline)'}
           rows={1}

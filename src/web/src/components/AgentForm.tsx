@@ -19,6 +19,11 @@ export interface AgentFormData {
   max_turns: number;
   timeout_ms: number;
   mounts: MountEntry[];
+  resource_limits: {
+    cpus: number;
+    memory_gb: number;
+    pids_limit: number;
+  };
   parent_agent_id: string;
   propagate_children: boolean;
 }
@@ -72,10 +77,20 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
   const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : '');
   const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
   const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
+  const [cpuLimit, setCpuLimit] = useState<string>(initial ? String(initial.resource_limits.cpus) : '');
+  const [memoryGb, setMemoryGb] = useState<string>(initial ? String(initial.resource_limits.memory_gb) : '');
+  const [pidsLimit, setPidsLimit] = useState<string>(initial ? String(initial.resource_limits.pids_limit) : '');
   const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
   const [propagateChildren, setPropagateChildren] = useState(false);
   const [modelTouched, setModelTouched] = useState(false);
-  const [defaults, setDefaults] = useState<{ model: string; docker_image: string; max_turns: number; timeout_ms: number; allow_bind_mounts: boolean } | null>(null);
+  const [defaults, setDefaults] = useState<{
+    model: string;
+    docker_image: string;
+    max_turns: number;
+    timeout_ms: number;
+    allow_bind_mounts: boolean;
+    resource_limits: { cpus: number; memory_gb: number; pids_limit: number };
+  } | null>(null);
   const [allToolNames, setAllToolNames] = useState<string[]>([]);
   const [readonlyTools, setReadonlyTools] = useState<string[]>([]);
 
@@ -101,6 +116,22 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
     return null;
   }
 
+  function validateResourceLimits(): string | null {
+    if (cpuLimit !== '') {
+      const parsed = parseFloat(cpuLimit);
+      if (!Number.isFinite(parsed) || parsed <= 0) return 'CPU limit must be a positive number';
+    }
+    if (memoryGb !== '') {
+      const parsed = parseFloat(memoryGb);
+      if (!Number.isFinite(parsed) || parsed <= 0) return 'Memory limit must be a positive number of GB';
+    }
+    if (pidsLimit !== '') {
+      const parsed = parseInt(pidsLimit, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0) return 'Process limit must be a positive number';
+    }
+    return null;
+  }
+
   function handleSubmit() {
     if (!name || !systemPrompt) {
       alert('Name and system prompt are required');
@@ -113,8 +144,19 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       return;
     }
 
+    const resourceError = validateResourceLimits();
+    if (resourceError) {
+      alert(resourceError);
+      return;
+    }
+
     const resolvedMaxTurns = maxTurns !== '' ? parseInt(maxTurns, 10) : (defaults?.max_turns ?? 0);
     const resolvedTimeoutS = timeoutMs !== '' ? parseFloat(timeoutMs) : ((defaults?.timeout_ms ?? 300_000) / 1000);
+    const resolvedResourceLimits = {
+      cpus: cpuLimit !== '' ? parseFloat(cpuLimit) : (defaults?.resource_limits.cpus ?? 2),
+      memory_gb: memoryGb !== '' ? parseFloat(memoryGb) : (defaults?.resource_limits.memory_gb ?? 32),
+      pids_limit: pidsLimit !== '' ? parseInt(pidsLimit, 10) : (defaults?.resource_limits.pids_limit ?? 256),
+    };
 
     onSubmit({
       name,
@@ -128,6 +170,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       max_turns: resolvedMaxTurns,
       timeout_ms: resolvedTimeoutS * 1000,
       mounts: mounts.filter(m => m.host && m.container),
+      resource_limits: resolvedResourceLimits,
       parent_agent_id: parentAgentId || '',
       propagate_children: propagateChildren,
     });
@@ -183,6 +226,67 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
 
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
+
+      <div className="form-section">
+        <div className="form-section__header">
+          <div>
+            <h4>Resource Limits</h4>
+          </div>
+        </div>
+        <div className="resource-grid">
+          <div className="resource-card">
+            <div className="resource-card__eyebrow">CPU</div>
+            <div className="resource-card__title">vCPU ceiling</div>
+            <div className="resource-card__field">
+              <input
+                type="number"
+                min="0.25"
+                step="0.25"
+                value={cpuLimit}
+                onChange={e => setCpuLimit(e.target.value)}
+                placeholder={defaults ? String(defaults.resource_limits.cpus) : '2'}
+              />
+              <span>cores</span>
+            </div>
+            <div className="resource-card__hint">Smooth enough for real work, restrained enough to protect the box.</div>
+          </div>
+
+          <div className="resource-card">
+            <div className="resource-card__eyebrow">Memory</div>
+            <div className="resource-card__title">RAM budget</div>
+            <div className="resource-card__field">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={memoryGb}
+                onChange={e => setMemoryGb(e.target.value)}
+                placeholder={defaults ? String(defaults.resource_limits.memory_gb) : '32'}
+              />
+              <span>GB</span>
+            </div>
+            <div className="resource-card__hint">Enough room for editors, browsers, and tooling without letting one run balloon.</div>
+          </div>
+
+          <div className="resource-card">
+            <div className="resource-card__eyebrow">Processes</div>
+            <div className="resource-card__title">Fork ceiling</div>
+            <div className="resource-card__field">
+              <input
+                type="number"
+                min="32"
+                step="32"
+                value={pidsLimit}
+                onChange={e => setPidsLimit(e.target.value)}
+                placeholder={defaults ? String(defaults.resource_limits.pids_limit) : '256'}
+              />
+              <span>PIDs</span>
+            </div>
+            <div className="resource-card__hint">Prevents runaway process storms from dragging the whole host with them.</div>
+          </div>
+        </div>
+        <div className="form-section__footnote">Containers include an init process so exited child processes are reaped cleanly.</div>
+      </div>
 
       {defaults?.allow_bind_mounts !== false && (
         <>

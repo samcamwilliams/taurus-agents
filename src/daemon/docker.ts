@@ -13,7 +13,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type Agent from '../db/models/Agent.js';
 import type { LogLevel } from './types.js';
-import { drivePath, ALLOW_ARBITRARY_BIND_MOUNTS } from '../core/config.js';
+import {
+  drivePath,
+  ALLOW_ARBITRARY_BIND_MOUNTS,
+  DOCKER_USE_INIT,
+  agentResourceLimitsFromValues,
+  resourceLimitsToDockerMemoryMb,
+} from '../core/config.js';
 
 const exec = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -97,12 +103,20 @@ export class DockerService {
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host
+    const resourceLimits = agentResourceLimitsFromValues(agent);
     const createArgs = [
       'create', '--name', container_id,
       '--shm-size=256m',
+      '--cpus', String(resourceLimits.cpus),
+      '--memory', `${resourceLimitsToDockerMemoryMb(resourceLimits)}m`,
+      '--pids-limit', String(resourceLimits.pids_limit),
       '-v', `${workspacePath}:/workspace`,
       '-v', `${sharedPath}:/shared`,
     ];
+
+    if (DOCKER_USE_INIT) {
+      createArgs.push('--init');
+    }
 
     // Add arbitrary bind mounts (disabled in production by default)
     const mounts = typeof agent.mounts === 'string' ? JSON.parse(agent.mounts) : (agent.mounts ?? []);

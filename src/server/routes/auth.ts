@@ -10,6 +10,7 @@ import {
   getSession,
   parseCookies,
   sessionCookieHeader,
+  themeCookieHeader,
   clearSessionCookieHeader,
   checkLoginRateLimit,
   recordLoginFailure,
@@ -19,6 +20,14 @@ import { DisplayableError, NotFoundError } from '../../core/errors.js';
 import User from '../../db/models/User.js';
 import UserSecret, { SECRET_KEYS } from '../../db/models/UserSecret.js';
 import { getMonthlySpend } from '../../core/budget.js';
+
+const THEMES = new Set(['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin']);
+const DEFAULT_THEME = 'light';
+
+function getUserTheme(meta: Record<string, any> | null | undefined): string {
+  const theme = meta?.theme;
+  return typeof theme === 'string' && THEMES.has(theme) ? theme : DEFAULT_THEME;
+}
 
 export function authRoutes(): Route[] {
   return [
@@ -36,14 +45,20 @@ export function authRoutes(): Route[] {
       }
 
       // Look up user for username/role
-      const user = await User.findByPk(session.userId, { attributes: ['username', 'role'] });
-      return json(ctx.res, {
+      const user = await User.findByPk(session.userId, { attributes: ['username', 'role', 'meta'] });
+      const theme = getUserTheme(user?.meta);
+      ctx.res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': themeCookieHeader(theme),
+      });
+      ctx.res.end(JSON.stringify({
         authenticated: true,
         authEnabled: true,
         csrfToken: session.csrfToken,
         username: user?.username ?? null,
         role: user?.role ?? session.role,
-      });
+        theme,
+      }));
     }),
 
     // Login — accepts { username, password }
@@ -76,16 +91,18 @@ export function authRoutes(): Route[] {
 
       clearLoginFailures(ip);
       const session = createSession(user.id, user.role);
+      const theme = getUserTheme(user.meta);
 
       ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Set-Cookie': sessionCookieHeader(session.token),
+        'Set-Cookie': [sessionCookieHeader(session.token), themeCookieHeader(theme)],
       });
       ctx.res.end(JSON.stringify({
         ok: true,
         csrfToken: session.csrfToken,
         username: user.username,
         role: user.role,
+        theme,
       }));
     }),
 
@@ -102,6 +119,32 @@ export function authRoutes(): Route[] {
         'Set-Cookie': clearSessionCookieHeader(),
       });
       ctx.res.end(JSON.stringify({ ok: true }));
+    }),
+
+    // Per-user preferences
+    route('PUT', '/api/auth/preferences', async (ctx) => {
+      const body = await parseBody(ctx.req);
+      const { theme } = body;
+
+      if (typeof theme !== 'string' || !THEMES.has(theme)) {
+        throw new DisplayableError('A valid theme is required', 400);
+      }
+
+      const user = await User.findByPk(ctx.user.id);
+      if (!user) throw new NotFoundError('User not found');
+
+      await user.update({
+        meta: {
+          ...(user.meta ?? {}),
+          theme,
+        },
+      });
+
+      ctx.res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': themeCookieHeader(theme),
+      });
+      ctx.res.end(JSON.stringify({ ok: true, theme }));
     }),
 
     // Self-service password change

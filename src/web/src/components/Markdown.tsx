@@ -4,14 +4,16 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check } from 'lucide-react';
+import { copyToClipboard } from '../utils/clipboard';
 import 'highlight.js/styles/github-dark-dimmed.css';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = useCallback(async () => {
+    const ok = await copyToClipboard(text);
+    if (!ok) return;
     setCopied(true);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setCopied(false), 1500);

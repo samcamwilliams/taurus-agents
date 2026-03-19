@@ -1,9 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7faf7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Taurus">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/taurus-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/taurus-icon.svg">
   <title>Taurus</title>
+  <script>
+    (() => {
+      const themes = new Set(['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin']);
+      const colors = {
+        light: '#f7faf7',
+        night: '#061316',
+        dark: '#0d1117',
+        vivid: '#061224',
+        catppuccin: '#1e1e2e',
+        'vivid-catppuccin': '#1d1d3d',
+      };
+      const defaultTheme = 'light';
+      const key = 'taurus-theme';
+      const cookieKey = 'taurus_theme';
+      const migratedKey = 'taurus-theme-clean-light-migrated';
+
+      const readCookie = (name) => {
+        for (const pair of document.cookie.split(';')) {
+          const [rawName, ...rawValue] = pair.trim().split('=');
+          if (rawName !== name) continue;
+          try {
+            return decodeURIComponent(rawValue.join('='));
+          } catch {
+            return rawValue.join('=');
+          }
+        }
+        return null;
+      };
+
+      try {
+        let theme = readCookie(cookieKey);
+
+        if (!themes.has(theme)) {
+          theme = localStorage.getItem(key);
+          const migrated = localStorage.getItem(migratedKey) === '1';
+
+          if (!migrated) {
+            localStorage.setItem(migratedKey, '1');
+            if (!theme || theme === 'vivid-catppuccin') {
+              theme = defaultTheme;
+              localStorage.setItem(key, theme);
+            }
+          }
+
+          if (!themes.has(theme)) {
+            theme = defaultTheme;
+            localStorage.setItem(key, theme);
+          }
+        } else {
+          localStorage.setItem(key, theme);
+          localStorage.setItem(migratedKey, '1');
+        }
+
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', colors[theme] || colors[defaultTheme]);
+      } catch {
+        document.documentElement.setAttribute('data-theme', defaultTheme);
+        document.documentElement.style.colorScheme = 'light';
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

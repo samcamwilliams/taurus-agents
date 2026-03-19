@@ -8,7 +8,8 @@ Self-hosted multi-agent platform. Each agent runs in an isolated Docker containe
 - **Agent hierarchies** — parent/child agent trees with Delegate and Supervisor tools for orchestrating teams of agents
 - **Shared volumes** — child agents automatically mount the parent's `/shared` volume for inter-agent file sharing
 - **Web UI** — real-time streaming of LLM thinking/text/tool output, file editor (Monaco) with data table and markdown views, interactive terminal (xterm.js), agent configuration
-- **14 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Spawn, Delegate, Supervisor)
+- **Mobile-friendly PWA** — installable Taurus dashboard with responsive drawers, safer mobile viewport handling, and browser/PWA notifications
+- **15 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Notify, Spawn, Delegate, Supervisor)
 - **Multi-provider** — Anthropic (default), OpenAI, OpenRouter (access to DeepSeek, Llama, etc.)
 - **Scheduling** — cron-based with overlap modes (skip, queue, kill)
 - **Composable prompts** — `{{include:path}}` directive to include reusable prompt fragments from `prompts/`
@@ -89,6 +90,7 @@ Set the corresponding API key in `.env` for each provider you use.
 | Grep | search | Search file contents with regex (ripgrep) |
 | Bash | exec | Run shell commands in the persistent container shell |
 | Pause | control | Pause execution, wait for human input |
+| Notify | control | Send a notification to Taurus web/PWA clients |
 | Spawn | control | Spawn sub-agents for parallel work |
 | Delegate | control | Delegate a task to a child agent and wait for the result |
 | Supervisor | control | Manage child agents: create, update, delete, inspect, inject messages, stop runs |
@@ -160,6 +162,8 @@ Agent system prompts support placeholders and includes:
 | `{{include:path}}` | Contents of `prompts/<path>` (recursive, up to 5 levels) |
 
 Place reusable prompt fragments in the `prompts/` directory and reference them with `{{include:filename.md}}`.
+
+To let an agent notify you about important milestones or blockers, enable the `Notify` tool and include `{{include:skills/notify-user.md}}` in its system prompt.
 
 ## HottestLang
 
@@ -237,10 +241,24 @@ TAURUS_PORT=7777       # Server port
 
 ## Authentication
 
-By default, Taurus runs without authentication (suitable for local development). To secure a production deployment, set `AUTH_PASSWORD` in `.env`:
+Taurus now uses per-user authentication with username + password login. Auth is always enabled for API routes, and the web app will show a login screen when you are not signed in.
+
+On first boot, Taurus ensures there is at least one admin user:
+
+- If there are no users yet, it creates `taurus` as the default admin.
+- The default password is `AUTH_PASSWORD` if you set it in `.env`.
+- Otherwise, Taurus derives a deterministic local password from the instance secret and prints it in the startup banner in non-production mode, until that password is changed.
+
+You can create additional users from the CLI:
 
 ```bash
-AUTH_PASSWORD=my-secret       # Enables login gate for the web UI
+./taurus adduser --username <name> --password <password> --email <email> [--role admin|user]
+```
+
+Relevant auth env vars:
+
+```bash
+AUTH_PASSWORD=my-secret       # Optional initial password for the default `taurus` admin
 AUTH_API_KEY=my-api-key       # Optional — static key for programmatic API access
 # AUTH_SECRET=                # Optional — HMAC signing key (auto-generated if not set)
 TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
@@ -248,7 +266,7 @@ TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
 
 ### How it works
 
-- **Web UI**: password login sets an `HttpOnly; SameSite=Strict` session cookie (7-day TTL). Mutation requests (POST/PUT/PATCH/DELETE) require an `X-CSRF-Token` header.
+- **Web UI**: username + password login sets an `HttpOnly; SameSite=Strict` session cookie (7-day TTL). Mutation requests (POST/PUT/PATCH/DELETE) require an `X-CSRF-Token` header.
 - **API access**: use `Authorization: Bearer <AUTH_API_KEY>` for programmatic access. No CSRF needed for Bearer auth.
 - **WebSocket terminal**: authenticated via session cookie, or `?token=<key>` query param for external clients.
 - **Rate limiting**: max 5 failed login attempts per IP per minute, then 429.
@@ -260,7 +278,7 @@ TAURUS_HTTPS=1                # Set when behind a reverse proxy with TLS
 # Login (returns session cookie + CSRF token)
 curl -c cookies.txt localhost:7777/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"password": "my-secret"}'
+  -d '{"username": "taurus", "password": "my-secret"}'
 
 # Authenticated request with cookie + CSRF
 curl -b cookies.txt localhost:7777/api/agents \
@@ -270,8 +288,6 @@ curl -b cookies.txt localhost:7777/api/agents \
 curl localhost:7777/api/agents \
   -H 'Authorization: Bearer my-api-key'
 ```
-
-When `AUTH_PASSWORD` is not set, all endpoints are open (current default behavior).
 
 ## License
 

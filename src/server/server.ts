@@ -13,6 +13,7 @@ import { folderRoutes } from './routes/folders.js';
 import { healthRoutes } from './routes/health.js';
 import { toolRoutes } from './routes/tools.js';
 import { fileRoutes } from './routes/files.js';
+import { notificationRoutes } from './routes/notifications.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,7 @@ const MIME_TYPES: Record<string, string> = {
   '.js':   'application/javascript',
   '.css':  'text/css',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
   '.svg':  'image/svg+xml',
   '.png':  'image/png',
   '.ico':  'image/x-icon',
@@ -42,6 +44,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
     ...healthRoutes(),
     ...toolRoutes(),
     ...fileRoutes(daemon),
+    ...notificationRoutes(daemon),
   ];
 
   const server = http.createServer(async (req, res) => {
@@ -113,7 +116,13 @@ export function createServer(daemon: Daemon, port: number): http.Server {
       try {
         if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
           const content = fs.readFileSync(filePath);
-          res.writeHead(200, { 'Content-Type': getMimeType(filePath) });
+          const headers: Record<string, string> = {
+            'Content-Type': getMimeType(filePath),
+          };
+          if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') {
+            headers['Cache-Control'] = 'no-cache';
+          }
+          res.writeHead(200, headers);
           res.end(content);
           return;
         }

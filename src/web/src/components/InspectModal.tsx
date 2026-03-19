@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Copy, X } from 'lucide-react';
 import type { MessageRecord } from '../types';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface InspectModalProps {
   message: MessageRecord;
@@ -12,8 +13,8 @@ export function InspectModal({ message, onClose }: InspectModalProps) {
 
   const json = JSON.stringify(message, null, 2);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(json);
+  async function handleCopy() {
+    await copyToClipboard(json);
   }
 
   return (

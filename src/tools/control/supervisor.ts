@@ -26,8 +26,8 @@ export class SupervisorTool extends Tool {
   readonly group = 'Supervisor';
   readonly description = `Manage your child agents. Actions:
 - list_team: See all children with status and current run info. No params needed.
-- create_agent: Create a child. Params: { key, system_prompt, tools?, model? }
-- update_agent: Update a child's config. Params: { key, system_prompt?, tools?, model? }
+- create_agent: Create a child. Params: { key, system_prompt, tools?, model?, resource_limits? }
+- update_agent: Update a child's config. Params: { key, system_prompt?, tools?, model?, resource_limits? }
 - delete_agent: Remove a child (cascades to grandchildren). Params: { key }
 - inspect_run: See a child's latest run and messages. Params: { key }
 - inject_message: Send a message into a child's current run. Params: { key, message }
@@ -57,6 +57,10 @@ export class SupervisorTool extends Tool {
       model: {
         type: 'string',
         description: 'Model override for create_agent or update_agent.',
+      },
+      resource_limits: {
+        type: 'object',
+        description: 'Optional container guardrails: { cpus, memory_gb, pids_limit }.',
       },
       message: {
         type: 'string',
@@ -109,4 +113,3 @@ export class SupervisorTool extends Tool {
     };
   }
 }
-
