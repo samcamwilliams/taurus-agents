@@ -68,7 +68,8 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/';
+  const raw = event.notification.data?.url || '/';
+  const targetUrl = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
 
   event.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
