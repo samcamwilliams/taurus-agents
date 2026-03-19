@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface ToastItem {
   id: number;
@@ -111,7 +112,11 @@ function Toast({
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(toast.message);
+      const ok = await copyToClipboard(toast.message);
+      if (!ok) {
+        onDismiss();
+        return;
+      }
       setCopied(true);
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
       copiedTimeoutRef.current = setTimeout(() => onDismiss(), 1500);

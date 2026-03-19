@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Copy, FileText, Search, Trash2 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { fmtCost, fmtTokens, extractMessageText } from '../utils/format';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface MessageMenuProps {
   message: MessageRecord;
@@ -39,8 +40,8 @@ export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) 
         <div className="msg-menu__dropdown">
           <button
             className="msg-menu__item"
-            onClick={() => {
-              navigator.clipboard.writeText(extractMessageText(message.content));
+            onClick={async () => {
+              await copyToClipboard(extractMessageText(message.content));
               setOpen(false);
             }}
           >
@@ -48,9 +49,9 @@ export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) 
           </button>
           <button
             className="msg-menu__item"
-            onClick={() => {
+            onClick={async () => {
               const md = `**${message.role}** (${new Date(message.created_at).toLocaleString()})\n\n${extractMessageText(message.content)}`;
-              navigator.clipboard.writeText(md);
+              await copyToClipboard(md);
               setOpen(false);
             }}
           >

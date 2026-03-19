@@ -26,6 +26,12 @@ import Message from '../db/models/Message.js';
 import UserSecret from '../db/models/UserSecret.js';
 import User from '../db/models/User.js';
 import { parseSharedSecrets } from '../core/budget.js';
+import {
+  resolveAgentResourceLimits,
+  agentResourceLimitsFromValues,
+  resourceLimitsToDockerMemoryMb,
+  type AgentResourceLimits,
+} from '../core/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');
@@ -170,6 +176,7 @@ export class Daemon {
     metadata?: Record<string, unknown>;
     docker_image?: string;
     mounts?: { host: string; container: string; readonly?: boolean }[];
+    resource_limits?: Partial<AgentResourceLimits>;
   }): Promise<ReturnType<Agent['toApi']>> {
     // Validate parent exists if specified
     if (input.parent_agent_id) {
@@ -184,6 +191,8 @@ export class Daemon {
       const root = await Folder.ensureRootForUser(input.user_id);
       folderId = root.id;
     }
+
+    const resourceLimits = resolveAgentResourceLimits(input.resource_limits);
 
     const agent = await Agent.create({
       name: input.name,
@@ -201,6 +210,9 @@ export class Daemon {
       metadata: input.metadata ?? null,
       docker_image: input.docker_image ?? DEFAULT_DOCKER_IMAGE,
       mounts: input.mounts ?? [],
+      container_cpus: resourceLimits.cpus,
+      container_memory_mb: resourceLimitsToDockerMemoryMb(resourceLimits),
+      container_pids_limit: resourceLimits.pids_limit,
     });
 
     this.agents.set(agent.id, { agent, runs: new Map(), terminals: 0 });
@@ -269,7 +281,9 @@ export class Daemon {
     metadata: Record<string, unknown>;
     docker_image: string;
     mounts: { host: string; container: string; readonly?: boolean }[];
+    resource_limits: Partial<AgentResourceLimits>;
     status: AgentStatus;
+    propagate_children: boolean;
   }>): Promise<ReturnType<Agent['toApi']>> {
     const managed = this.agents.get(id);
     if (!managed) throw new Error(`Agent not found: ${id}`);
@@ -283,9 +297,23 @@ export class Daemon {
 
     // If mounts or docker_image changed, destroy the container so it's
     // recreated with the new config on the next run (volume is preserved).
-    const needsRecreate = 'mounts' in updates || 'docker_image' in updates;
+    const needsRecreate = 'mounts' in updates || 'docker_image' in updates || 'resource_limits' in updates;
 
-    await managed.agent.update(updates);
+    const nextUpdates: Record<string, unknown> = { ...updates };
+    delete nextUpdates.propagate_children;
+
+    if ('resource_limits' in updates) {
+      const resourceLimits = resolveAgentResourceLimits(
+        updates.resource_limits,
+        agentResourceLimitsFromValues(managed.agent),
+      );
+      nextUpdates.container_cpus = resourceLimits.cpus;
+      nextUpdates.container_memory_mb = resourceLimitsToDockerMemoryMb(resourceLimits);
+      nextUpdates.container_pids_limit = resourceLimits.pids_limit;
+      delete nextUpdates.resource_limits;
+    }
+
+    await managed.agent.update(nextUpdates);
 
     // Re-register schedule if schedule or overlap changed
     if ('schedule' in updates || 'schedule_overlap' in updates) {
@@ -1117,7 +1145,14 @@ export class Daemon {
         }
 
         case 'create_agent': {
-          const p = msg.params as { key: string; system_prompt: string; tools?: string[]; model?: string; docker_image?: string };
+          const p = msg.params as {
+            key: string;
+            system_prompt: string;
+            tools?: string[];
+            model?: string;
+            docker_image?: string;
+            resource_limits?: Partial<AgentResourceLimits>;
+          };
           const created = await this.createAgent({
             name: p.key,
             system_prompt: p.system_prompt,
@@ -1127,19 +1162,27 @@ export class Daemon {
             parent_agent_id: callerAgentId,
             model: p.model ?? callerManaged.agent.model,
             docker_image: p.docker_image ?? callerManaged.agent.docker_image,
+            resource_limits: p.resource_limits ?? agentResourceLimitsFromValues(callerManaged.agent),
           });
           result = { id: created.id, key: created.name };
           break;
         }
 
         case 'update_agent': {
-          const p = msg.params as { key: string; system_prompt?: string; tools?: string[]; model?: string };
+          const p = msg.params as {
+            key: string;
+            system_prompt?: string;
+            tools?: string[];
+            model?: string;
+            resource_limits?: Partial<AgentResourceLimits>;
+          };
           const child = this.findChildByName(callerAgentId, p.key);
           if (!child) throw new Error(`Child "${p.key}" not found`);
           const updates: Record<string, unknown> = {};
           if (p.system_prompt !== undefined) updates.system_prompt = p.system_prompt;
           if (p.tools !== undefined) updates.tools = p.tools;
           if (p.model !== undefined) updates.model = p.model;
+          if (p.resource_limits !== undefined) updates.resource_limits = p.resource_limits;
           await this.updateAgent(child.id, updates as any);
           result = { ok: true };
           break;

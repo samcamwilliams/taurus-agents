@@ -39,45 +39,58 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   return (
     <div className="login-page">
-      <div className="login-bg" aria-hidden="true" />
-      <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-card__header">
-          <h1>Taurus</h1>
-        </div>
+      <div className="login-bg" aria-hidden="true">
+        <div className="login-bg__grid" />
+      </div>
+      <div className="login-shell">
+        <section className="login-intro" aria-label="Taurus">
+          <div className="login-intro__eyebrow">Taurus</div>
+          <h1>
+            <span>Cybernetic</span>
+            <span>Control</span>
+            <span>System.</span>
+          </h1>
+        </section>
 
-        <div className="login-card__body">
-          <label htmlFor="username">Username</label>
-          <input
-            id="username"
-            type="text"
-            name="username"
-            autoComplete="off"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
-            autoFocus
-            disabled={loading}
-          />
+        <form className="login-card" onSubmit={handleSubmit}>
+          <div className="login-card__header">
+            <h2>Welcome back.</h2>
+          </div>
 
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            disabled={loading}
-          />
+          <div className="login-card__body">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              name="username"
+              autoComplete="off"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"
+              autoFocus
+              disabled={loading}
+            />
 
-          {error && <div className="login-card__error">{error}</div>}
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              disabled={loading}
+            />
 
-          <button type="submit" className="btn primary login-card__submit" disabled={loading || !username || !password}>
-            {loading ? 'Signing in\u2026' : 'Sign in'}
-          </button>
-        </div>
-      </form>
+            {error && <div className="login-card__error">{error}</div>}
+
+            <button type="submit" className="btn primary login-card__submit" disabled={loading || !username || !password}>
+              {loading ? 'Signing in\u2026' : 'Sign in'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

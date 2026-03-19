@@ -94,8 +94,8 @@
   background: var(--c-bg2);
   border: 1px solid var(--c-border);
   border-radius: 10px;
-  width: 480px;
-  max-width: min(480px, calc(100vw - 24px));
+  width: 640px;
+  max-width: min(640px, calc(100vw - 24px));
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -181,6 +181,142 @@
   color: color-mix(in srgb, var(--c-muted) 60%, transparent);
   margin: -8px 0 12px;
   font-style: italic;
+}
+
+// ── Form Sections ──
+
+.form-section {
+  margin: 4px 0 16px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--c-border) 88%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--c-accent-ui) 5%, transparent) 0%,
+      transparent 100%
+    ),
+    color-mix(in srgb, var(--c-bg) 92%, transparent);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    h4 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--c-text);
+      margin-bottom: 4px;
+    }
+
+    p {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--c-muted);
+      max-width: 60ch;
+    }
+  }
+
+  &__footnote {
+    margin-top: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--c-muted) 80%, transparent);
+  }
+}
+
+// ── Resource Cards ──
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+
+  &--summary {
+    margin-top: 2px;
+  }
+}
+
+.resource-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--c-border) 86%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--c-accent-ui) 4%, transparent) 0%,
+      transparent 100%
+    ),
+    var(--c-bg2);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+
+  &__eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-muted);
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    input {
+      margin-bottom: 0 !important;
+      text-align: right;
+      font-size: 18px !important;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      padding: 10px 12px !important;
+    }
+
+    span {
+      flex-shrink: 0;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--c-muted);
+    }
+  }
+
+  &__value {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+  }
+
+  &__hint {
+    font-size: 11px;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--c-muted) 82%, transparent);
+
+    code {
+      font-family: $font-mono;
+      font-size: 10px;
+      color: var(--c-text);
+    }
+  }
+
+  &--summary {
+    gap: 8px;
+    min-height: 132px;
+    justify-content: space-between;
+  }
 }
 
 // ── Inline checkbox label ──
@@ -479,6 +615,10 @@
     &:last-child { border-bottom: none; }
   }
 
+  &__row--stack {
+    align-items: flex-start;
+  }
+
   &__label {
     width: 140px;
     flex-shrink: 0;
@@ -508,6 +648,13 @@
       max-height: 200px;
       overflow-y: auto;
     }
+  }
+
+  &__note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--c-muted);
+    line-height: 1.5;
   }
 }
 
@@ -543,5 +690,9 @@
     &__form {
       max-width: none;
     }
+  }
+
+  .resource-grid {
+    grid-template-columns: 1fr;
   }
 }

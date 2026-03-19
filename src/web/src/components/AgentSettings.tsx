@@ -14,6 +14,10 @@ interface AgentSettingsProps {
 export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) {
   const [editing, setEditing] = useState(false);
 
+  function formatMemoryGb(value: number): string {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+  }
+
   async function handleSubmit(data: AgentFormData) {
     try {
       await api.updateAgent(agent.id, {
@@ -28,6 +32,7 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
         max_turns: data.max_turns,
         timeout_ms: data.timeout_ms,
         mounts: data.mounts,
+        resource_limits: data.resource_limits,
         ...(data.propagate_children ? { propagate_children: true } : {}),
       });
       setEditing(false);
@@ -66,6 +71,29 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
         <Row label="Model" value={agent.model} />
         <Row label="Working Directory" value={agent.cwd} mono />
         <Row label="Docker Image" value={agent.docker_image} mono />
+        <div className="agent-settings__row agent-settings__row--stack">
+          <div className="agent-settings__label">Resource Limits</div>
+          <div className="agent-settings__value">
+            <div className="resource-grid resource-grid--summary">
+              <div className="resource-card resource-card--summary">
+                <div className="resource-card__eyebrow">CPU</div>
+                <div className="resource-card__value">{agent.resource_limits.cpus} cores</div>
+                <div className="resource-card__hint">Docker <code>--cpus</code></div>
+              </div>
+              <div className="resource-card resource-card--summary">
+                <div className="resource-card__eyebrow">Memory</div>
+                <div className="resource-card__value">{formatMemoryGb(agent.resource_limits.memory_gb)} GB</div>
+                <div className="resource-card__hint">Docker <code>--memory</code></div>
+              </div>
+              <div className="resource-card resource-card--summary">
+                <div className="resource-card__eyebrow">Processes</div>
+                <div className="resource-card__value">{agent.resource_limits.pids_limit} PIDs</div>
+                <div className="resource-card__hint">Docker <code>--pids-limit</code></div>
+              </div>
+            </div>
+            <div className="agent-settings__note">Containers include an init process to reap orphaned children cleanly.</div>
+          </div>
+        </div>
         <Row label="Bind Mounts" value={
           agent.mounts?.length > 0
             ? agent.mounts.map(m => `${m.host} -> ${m.container}${m.readonly ? ' (ro)' : ''}`).join('\n')

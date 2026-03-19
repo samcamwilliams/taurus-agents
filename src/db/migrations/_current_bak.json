@@ -324,7 +324,19 @@
                     "seqType": "Sequelize.DATE"
                 }
             },
-            "indexes": []
+            "indexes": {
+                "affd55b90189a988fa988d70189b77cd59644a13": {
+                    "fields": [
+                        "run_id",
+                        "seq"
+                    ],
+                    "name": "messages_run_id_seq",
+                    "options": {
+                        "indexName": "messages_run_id_seq",
+                        "name": "messages_run_id_seq"
+                    }
+                }
+            }
         },
         "Folders": {
             "tableName": "Folders",
@@ -358,5 +370,5 @@
             "indexes": []
         }
     },
-    "revision": 6
+    "revision": 7
 }

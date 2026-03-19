@@ -18,6 +18,11 @@ export interface Agent {
   metadata: Record<string, unknown> | null;
   docker_image: string;
   mounts: { host: string; container: string; readonly?: boolean }[];
+  resource_limits: {
+    cpus: number;
+    memory_gb: number;
+    pids_limit: number;
+  };
   created_at: string;
   updated_at: string;
 }
