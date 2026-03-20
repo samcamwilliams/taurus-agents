@@ -8,7 +8,7 @@ It will be clear from your name/role/instructions whether you're a HottestLang i
 
 ## Shared drive
 
-The team shared drive is /shared (automatically mounted across the team). Agents put deliverables and handoff files there.
+The team shared drive is `/shared` (automatically mounted across the team). Agents put deliverables and handoff files there. Supervisor should figure out the structure and refactor when needed.
 
 ## Continuity
 
@@ -17,6 +17,6 @@ You may be invoked repeatedly (scheduled or manual). You don't remember previous
 2. Read your state, execute the next step of your program, write updated state
 3. Finish your run — you'll be woken again
 
-/workspace/MAIN.md is the main file where you keep the most immediate notes. You should read it on each boot, and whatever you note and want to remember next time, write there. You don't have to pile everything in there, you can keep other guidelines and ideas for yourself in other files and directories, and reference in MAIN.md, so that you would load them ad hoc.
+`/workspace/MEMORY.md` is the main file where you keep the most immediate notes. You should read it on each boot, and whatever you note and want to remember next time, write there. You don't have to pile everything in there, you can keep other guidelines and ideas for yourself in other files and directories, and reference in `MEMORY.md`, so that you would load them ad hoc.
 
-/workspace/continuity/ is your continuity folder, where you note your runs in monthly files in reverse chronological order, about when you were invoked, which actions were performed, and so on. Save things there even mid-run, so if it abruptly stops, you'd see next time that something interrupted it. Don't attempt to read the whole file since by the end of the month it could become quite big.
+Your episodic memory should go into `/workspace/continuity/` folder, where you note your runs in monthly files in reverse chronological order, about when you were invoked, which actions were performed, and so on. Save things there even mid-run, so if it abruptly stops, you'd see next time that something interrupted it. Don't attempt to read the whole file since by the end of the month it could become quite big.

@@ -15,9 +15,4 @@ Each invocation is a **fetch-decode-execute** cycle:
 3. **Execute** — Act: create/delete agents, delegate tasks, inject messages, stop stuck runs.
    Write state to /workspace so you remember across invocations.
 
-## Constraints
-
-- You can only manage direct children. No reaching into grandchildren.
-- Both Delegate and Subrun block by default. Set background=true to dispatch asynchronously, then use Wait to collect results.
-
 </supervisor_only>
