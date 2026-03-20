@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, ChevronDown, LogOut, UserCog } from 'lucide-react';
+import { User, ChevronDown, LogOut, UserCog, Download } from 'lucide-react';
 import { getCsrfToken, setCsrfToken } from '../api';
 import { AccountSettingsModal } from './AccountSettingsModal';
 
 interface UserMenuProps {
   onLogout: () => void;
+  onInstall?: () => void;
+  installLabel?: string;
+  installDisabled?: boolean;
 }
 
-export function UserMenu({ onLogout }: UserMenuProps) {
+export function UserMenu({ onLogout, onInstall, installLabel, installDisabled = false }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -41,6 +44,11 @@ export function UserMenu({ onLogout }: UserMenuProps) {
         </button>
         {open && (
           <div className="user-menu__dropdown">
+            {onInstall && installLabel && (
+              <button className="user-menu__item" disabled={installDisabled} onClick={() => { setOpen(false); onInstall(); }}>
+                <Download size={13} /> <span style={{ whiteSpace: 'nowrap' }}>{installLabel}</span>
+              </button>
+            )}
             <button className="user-menu__item" onClick={() => { setOpen(false); setShowSettings(true); }}>
               <UserCog size={13} /> <span style={{ whiteSpace: 'nowrap' }}>Profile</span>
             </button>

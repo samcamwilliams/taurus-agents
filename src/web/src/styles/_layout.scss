@@ -224,6 +224,11 @@
     text-align: left;
 
     &:hover { background: var(--c-hover); }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
   }
 }
 
@@ -452,6 +457,7 @@
 // ── Input Bar ──
 
 .input-bar {
+  flex-shrink: 0;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--c-border);
   background: var(--c-bg2);
@@ -462,6 +468,7 @@
   &__input-wrap {
     display: flex;
     align-items: flex-end;
+    min-width: 0;
     background: var(--c-bg);
     border: 1px solid var(--c-border);
     border-radius: 6px;
@@ -471,17 +478,19 @@
     textarea {
       display: block;
       flex: 1;
+      min-width: 0;
       background: none;
       border: none;
-      padding: 7px 4px 5px 0;
+      padding: 3px 4px 3px 0;
       color: var(--c-text);
       font-family: inherit;
       font-size: 13px;
       outline: none !important;
       box-shadow: none;
       resize: none;
+      box-sizing: border-box;
       line-height: 1.4;
-      min-height: 32px;
+      min-height: 24px;
       max-height: 200px;
       overflow-y: auto;
       appearance: none;
@@ -890,18 +899,25 @@
     min-height: 0;
   }
 
+  .message-list {
+    padding-bottom: calc(var(--mobile-composer-height, 0px) + 8px);
+  }
+
   .input-bar {
-    position: sticky;
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
     z-index: 8;
     padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
     background: color-mix(in srgb, var(--c-bg2) 94%, transparent);
     backdrop-filter: blur(18px);
     box-shadow: 0 -12px 26px rgba(0, 0, 0, 0.08);
+    border-top-width: 1px;
 
     &__input-wrap {
       align-items: center;
-      min-height: 56px;
+      min-height: 46px;
       border-radius: 16px;
       padding-right: 2px;
     }
@@ -909,8 +925,8 @@
     textarea {
       font-size: 16px;
       line-height: 1.45;
-      min-height: 44px;
-      padding: 12px 4px 10px 0;
+      min-height: 34px;
+      padding: 6px 4px 5px 0;
     }
 
     &__send,
