@@ -40,9 +40,7 @@ function parseOptionalPositiveFloatEnv(raw: string | undefined): number | null {
 
 function computeDefaultMemoryGb(): number {
   const totalMemoryGb = os.totalmem() / (1024 ** 3);
-  const halfMemoryGb = totalMemoryGb / 2;
-  const nearestEvenGb = Math.round(halfMemoryGb / 2) * 2;
-  return Math.max(2, nearestEvenGb || 2);
+  return Math.max(2, Math.floor(totalMemoryGb / 2));
 }
 
 // ── Defaults ──
