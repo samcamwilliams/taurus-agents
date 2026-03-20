@@ -50,6 +50,49 @@ export class Database {
     }
 
     execSync('npx sequelize-cli db:migrate', { stdio: 'inherit', env: { ...process.env, DOTENV_CONFIG_QUIET: 'true' } });
+
+    await Database.ensureAgentResourceLimitColumns(sequelize);
+  }
+
+  private static async ensureAgentResourceLimitColumns(sequelize: Sequelize): Promise<void> {
+    type TableInfoRow = { name: string };
+
+    let rows: TableInfoRow[];
+    try {
+      const result = await sequelize.query(`PRAGMA table_info("Agents")`) as [TableInfoRow[], unknown];
+      rows = result[0];
+    } catch {
+      return;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    const existing = new Set(rows.map((row) => row.name));
+    const missingStatements: string[] = [];
+    const defaultMemoryMb = resourceLimitsToDockerMemoryMb(DEFAULT_AGENT_RESOURCE_LIMITS);
+
+    if (!existing.has('container_cpus')) {
+      missingStatements.push(
+        `ALTER TABLE "Agents" ADD COLUMN "container_cpus" FLOAT NOT NULL DEFAULT ${DEFAULT_AGENT_RESOURCE_LIMITS.cpus};`,
+      );
+    }
+
+    if (!existing.has('container_memory_mb')) {
+      missingStatements.push(
+        `ALTER TABLE "Agents" ADD COLUMN "container_memory_mb" INTEGER NOT NULL DEFAULT ${defaultMemoryMb};`,
+      );
+    }
+
+    if (!existing.has('container_pids_limit')) {
+      missingStatements.push(
+        `ALTER TABLE "Agents" ADD COLUMN "container_pids_limit" INTEGER NOT NULL DEFAULT ${DEFAULT_AGENT_RESOURCE_LIMITS.pids_limit};`,
+      );
+    }
+
+    for (const statement of missingStatements) {
+      console.warn(`[db] Backfilling missing Agents column: ${statement.match(/"([^"]+)"(?= [A-Z])/g)?.at(-1)?.replace(/"/g, '') ?? 'unknown'}`);
+      await sequelize.query(statement);
+    }
   }
 
   static async close() {
