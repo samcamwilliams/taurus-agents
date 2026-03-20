@@ -5,6 +5,7 @@
  * Rate limiting for login attempts lives here too.
  */
 
+import crypto from 'node:crypto';
 import type http from 'node:http';
 import type { AuthUser } from '../context.js';
 import { verifyApiKey, parseCookies } from './crypto.js';
@@ -113,10 +114,11 @@ export async function authenticate(req: http.IncomingMessage): Promise<AuthResul
     return { ok: false, status: 401, error: 'Session expired' };
   }
 
-  // CSRF check on mutation requests (cookie-based auth only)
+  // CSRF check on mutation requests (cookie-based auth only).
+  // Use timing-safe comparison to prevent token extraction via side-channel.
   if (req.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
     const csrfHeader = req.headers['x-csrf-token'] as string | undefined;
-    if (csrfHeader !== session.csrfToken) {
+    if (!csrfHeader || !safeEqual(csrfHeader, session.csrfToken)) {
       return { ok: false, status: 403, error: 'Invalid CSRF token' };
     }
   }
@@ -158,6 +160,13 @@ export async function authenticateWs(req: http.IncomingMessage): Promise<AuthUse
   const session = getSession(sessionToken);
   if (!session) return null;
   return { id: session.userId, role: session.role, isLoggedIn: true };
+}
+
+// ── Timing-safe string comparison ──
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
 // ── API key → admin user resolver ──
