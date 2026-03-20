@@ -16,6 +16,7 @@ export interface AgentFormData {
   docker_image: string;
   schedule: string;
   schedule_overlap: 'skip' | 'queue' | 'kill';
+  schedule_mode: 'new' | 'continue';
   max_turns: number;
   timeout_ms: number;
   mounts: MountEntry[];
@@ -74,6 +75,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
   const [dockerImage, setDockerImage] = useState(initial?.docker_image ?? '');
   const [schedule, setSchedule] = useState(initial?.schedule ?? '');
   const [scheduleOverlap, setScheduleOverlap] = useState<'skip' | 'queue' | 'kill'>(initial?.schedule_overlap ?? 'skip');
+  const [scheduleMode, setScheduleMode] = useState<'new' | 'continue'>(initial?.schedule_mode ?? 'new');
   const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : '');
   const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
   const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
@@ -169,6 +171,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       docker_image: dockerImage || '',
       schedule: schedule || '',
       schedule_overlap: scheduleOverlap,
+      schedule_mode: scheduleMode,
       max_turns: resolvedMaxTurns,
       timeout_ms: resolvedTimeoutS * 1000,
       mounts: mounts.filter(m => m.host && m.container),
@@ -380,6 +383,12 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
             <option value="skip">Skip (don't start new run)</option>
             <option value="queue">Queue (run after current finishes)</option>
             <option value="kill">Kill &amp; Restart (stop current, start new)</option>
+          </select>
+
+          <label>Run Mode</label>
+          <select value={scheduleMode} onChange={e => setScheduleMode(e.target.value as 'new' | 'continue')}>
+            <option value="new">Start a new run each time</option>
+            <option value="continue">Continue the last run</option>
           </select>
         </>
       )}

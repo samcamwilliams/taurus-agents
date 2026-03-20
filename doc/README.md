@@ -80,6 +80,8 @@ Agents can have a `schedule` (cron expression). Overlap behavior when a schedule
 - `queue` — queue it, run after current finishes
 - `kill` — stop current run, start new
 
+Run mode (`schedule_mode`): `new` (default) starts a fresh run each trigger, `continue` resumes the last run.
+
 ## Project structure
 
 ```

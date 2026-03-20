@@ -121,6 +121,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           model: body.model,
           schedule: body.schedule,
           schedule_overlap: body.schedule_overlap,
+          schedule_mode: body.schedule_mode,
           max_turns: body.max_turns,
           timeout_ms: body.timeout_ms,
           metadata: body.metadata,

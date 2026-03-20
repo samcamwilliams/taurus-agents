@@ -150,6 +150,11 @@ Agents can have a cron schedule. Set `schedule` to a cron expression and `schedu
 - `queue` — queue it, run after current finishes
 - `kill` — stop current run, start new
 
+Set `schedule_mode` to control whether each trigger starts fresh or continues the previous conversation:
+
+- `new` — start a new run each time (default)
+- `continue` — continue the last run, preserving conversation history
+
 ## System prompt templates
 
 Agent system prompts support placeholders and includes:

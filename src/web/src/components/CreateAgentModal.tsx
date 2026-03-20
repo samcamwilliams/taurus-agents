@@ -27,6 +27,7 @@ export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModa
       docker_image: data.docker_image || undefined,
       schedule: data.schedule || undefined,
       schedule_overlap: data.schedule_overlap,
+      schedule_mode: data.schedule_mode,
       max_turns: data.max_turns,
       timeout_ms: data.timeout_ms,
       mounts: data.mounts,

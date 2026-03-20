@@ -103,15 +103,19 @@ export function getNextRuns(cronExpr: string, count: number = 1): Date[] {
 }
 
 export type OverlapPolicy = 'skip' | 'queue' | 'kill';
+export type ScheduleMode = 'new' | 'continue';
 
 interface ScheduledAgent {
   agentId: string;
   job: Cron;
+  mode: ScheduleMode;
   queue: (() => void)[];  // for 'queue' overlap policy
 }
 
 interface DaemonInterface {
   startRun(agentId: string, trigger: 'schedule'): Promise<string>;
+  continueRun(agentId: string, runId: string, input?: string): Promise<void>;
+  getAgentRuns(agentId: string, limit?: number): Promise<{ id: string }[]>;
   stopRun(agentId: string, reason: string): Promise<void>;
   isRunning(agentId: string): boolean;
 }
@@ -129,7 +133,7 @@ export class Scheduler {
   /**
    * Register or update a scheduled agent. Pass schedule=null to unregister.
    */
-  register(agentId: string, schedule: string | null, overlap: OverlapPolicy = 'skip'): void {
+  register(agentId: string, schedule: string | null, overlap: OverlapPolicy = 'skip', mode: ScheduleMode = 'new'): void {
     // Always remove existing job first
     this.unregister(agentId);
 
@@ -144,10 +148,10 @@ export class Scheduler {
     }
 
     const job = new Cron(cronExpr, { timezone: undefined } as CronOptions, async () => {
-      await this.fire(agentId, overlap);
+      await this.fire(agentId, overlap, mode);
     });
 
-    this.jobs.set(agentId, { agentId, job, queue: [] });
+    this.jobs.set(agentId, { agentId, job, mode, queue: [] });
 
     const next = job.nextRun();
     this.logger('info',
@@ -178,7 +182,7 @@ export class Scheduler {
   /**
    * Fire a scheduled run for an agent, respecting overlap policy.
    */
-  private async fire(agentId: string, overlap: OverlapPolicy): Promise<void> {
+  private async fire(agentId: string, overlap: OverlapPolicy, mode: ScheduleMode): Promise<void> {
     const isRunning = this.daemon.isRunning(agentId);
 
     if (isRunning) {
@@ -193,7 +197,7 @@ export class Scheduler {
           const entry = this.jobs.get(agentId);
           if (entry) {
             entry.queue.push(() => {
-              this.startScheduledRun(agentId);
+              this.startScheduledRun(agentId, mode);
             });
           }
           return;
@@ -211,11 +215,20 @@ export class Scheduler {
       }
     }
 
-    await this.startScheduledRun(agentId);
+    await this.startScheduledRun(agentId, mode);
   }
 
-  private async startScheduledRun(agentId: string): Promise<void> {
+  private async startScheduledRun(agentId: string, mode: ScheduleMode = 'new'): Promise<void> {
     try {
+      if (mode === 'continue') {
+        const runs = await this.daemon.getAgentRuns(agentId, 1);
+        if (runs.length > 0) {
+          await this.daemon.continueRun(agentId, runs[0].id);
+          this.logger('info', `[Scheduler] Continued scheduled run ${runs[0].id} for agent ${agentId}`);
+          return;
+        }
+        // No previous run — fall through to start a new one
+      }
       const runId = await this.daemon.startRun(agentId, 'schedule');
       this.logger('info', `[Scheduler] Started scheduled run ${runId} for agent ${agentId}`);
     } catch (err: any) {

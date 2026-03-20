@@ -30,6 +30,7 @@ export function AgentSettings({ agent, agents, onUpdated, showResourceLimits = t
         docker_image: data.docker_image,
         schedule: data.schedule || null,
         schedule_overlap: data.schedule_overlap,
+        schedule_mode: data.schedule_mode,
         max_turns: data.max_turns,
         timeout_ms: data.timeout_ms,
         mounts: data.mounts,
@@ -107,6 +108,7 @@ export function AgentSettings({ agent, agents, onUpdated, showResourceLimits = t
         {agent.schedule && (
           <>
             <Row label="Overlap Policy" value={agent.schedule_overlap} />
+            <Row label="Run Mode" value={agent.schedule_mode === 'continue' ? 'Continue last run' : 'Start new run'} />
             <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'}>
               {agent.next_run && agent.status !== 'running' && (
                 <> <Countdown targetDate={agent.next_run} schedule={agent.schedule ?? undefined} /></>

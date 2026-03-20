@@ -12,6 +12,7 @@ export interface Agent {
   tools: string[];
   schedule: string | null;
   schedule_overlap: 'skip' | 'queue' | 'kill';
+  schedule_mode: 'new' | 'continue';
   next_run: string | null;
   max_turns: number;
   timeout_ms: number;

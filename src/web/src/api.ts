@@ -61,6 +61,7 @@ export const api = {
     docker_image?: string;
     schedule?: string;
     schedule_overlap?: string;
+    schedule_mode?: string;
     max_turns?: number;
     timeout_ms?: number;
     mounts?: { host: string; container: string; readonly?: boolean }[];
@@ -79,6 +80,7 @@ export const api = {
     docker_image: string;
     schedule: string | null;
     schedule_overlap: string;
+    schedule_mode: string;
     max_turns: number;
     timeout_ms: number;
     mounts: { host: string; container: string; readonly?: boolean }[];

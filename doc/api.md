@@ -101,6 +101,7 @@ POST /api/agents
 | `docker_image` | string | no | `taurus-base` | Docker image for the agent's container |
 | `schedule` | string | no | — | Cron expression for scheduled runs |
 | `schedule_overlap` | string | no | `"skip"` | `"skip"`, `"queue"`, or `"kill"` |
+| `schedule_mode` | string | no | `"new"` | `"new"` (fresh run each trigger) or `"continue"` (resume last run) |
 | `max_turns` | number | no | `0` | Max inference turns per run (0 = unlimited) |
 | `timeout_ms` | number | no | `300000` | Run timeout in ms |
 | `folder_id` | string | no | root | UUID of parent folder |

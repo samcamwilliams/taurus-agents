@@ -107,7 +107,7 @@ export class Daemon {
     // Register scheduled agents
     for (const agent of agents) {
       if (agent.schedule) {
-        this.scheduler.register(agent.id, agent.schedule, agent.schedule_overlap);
+        this.scheduler.register(agent.id, agent.schedule, agent.schedule_overlap, agent.schedule_mode);
       }
     }
 
@@ -172,6 +172,7 @@ export class Daemon {
     model?: string;
     schedule?: string;
     schedule_overlap?: 'skip' | 'queue' | 'kill';
+    schedule_mode?: 'new' | 'continue';
     max_turns?: number;
     timeout_ms?: number;
     metadata?: Record<string, unknown>;
@@ -206,6 +207,7 @@ export class Daemon {
       model: input.model ?? DEFAULT_MODEL,
       schedule: input.schedule ?? null,
       schedule_overlap: input.schedule_overlap ?? 'skip',
+      schedule_mode: input.schedule_mode ?? 'new',
       max_turns: input.max_turns ?? DEFAULT_MAX_TURNS,
       timeout_ms: input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
       metadata: input.metadata ?? null,
@@ -218,7 +220,7 @@ export class Daemon {
 
     this.agents.set(agent.id, { agent, runs: new Map(), terminals: 0 });
     if (agent.schedule) {
-      this.scheduler.register(agent.id, agent.schedule, agent.schedule_overlap);
+      this.scheduler.register(agent.id, agent.schedule, agent.schedule_overlap, agent.schedule_mode);
     }
     this.logger('info', `Agent created: "${agent.name}" (${agent.id})`);
 
@@ -277,6 +279,7 @@ export class Daemon {
     model: string;
     schedule: string | null;
     schedule_overlap: 'skip' | 'queue' | 'kill';
+    schedule_mode: 'new' | 'continue';
     max_turns: number;
     timeout_ms: number;
     metadata: Record<string, unknown>;
@@ -317,7 +320,7 @@ export class Daemon {
     await managed.agent.update(nextUpdates);
 
     // Re-register schedule if schedule or overlap changed
-    if ('schedule' in updates || 'schedule_overlap' in updates) {
+    if ('schedule' in updates || 'schedule_overlap' in updates || 'schedule_mode' in updates) {
       this.scheduler.register(id, managed.agent.schedule, managed.agent.schedule_overlap);
     }
 

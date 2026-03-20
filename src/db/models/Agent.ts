@@ -25,6 +25,7 @@ class Agent extends Model {
   declare tools: string[];
   declare schedule: string | null;
   declare schedule_overlap: 'skip' | 'queue' | 'kill';
+  declare schedule_mode: 'new' | 'continue';
   declare max_turns: number;
   declare timeout_ms: number;
   declare metadata: Record<string, unknown> | null;
@@ -41,11 +42,11 @@ class Agent extends Model {
   }
 
   toApi() {
-    const { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
+    const { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, schedule_mode, max_turns, timeout_ms, metadata, docker_image, created_at, updated_at } = this;
     // SQLite may store JSON default as a raw string — ensure mounts is always an array
     const mounts = typeof this.mounts === 'string' ? JSON.parse(this.mounts) : (this.mounts ?? []);
     const resource_limits: AgentResourceLimits = agentResourceLimitsFromValues(this);
-    return { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, max_turns, timeout_ms, metadata, docker_image, mounts, resource_limits, created_at, updated_at };
+    return { id, user_id, parent_agent_id, folder_id, name, status, cwd, model, system_prompt, tools, schedule, schedule_overlap, schedule_mode, max_turns, timeout_ms, metadata, docker_image, mounts, resource_limits, created_at, updated_at };
   }
 }
 
@@ -105,6 +106,11 @@ Agent.init(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'skip',
+    },
+    schedule_mode: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'new',
     },
     max_turns: {
       type: DataTypes.INTEGER,
