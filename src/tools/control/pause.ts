@@ -44,8 +44,8 @@ export class PauseTool extends Tool {
     const resumeMessage = await this.waitForResume();
 
     const output = resumeMessage
-      ? `Resumed. Human message: ${resumeMessage}`
-      : 'Resumed. No additional message provided.';
+      ? `Run resumed with the message: ${resumeMessage}`
+      : 'Run resumed. No additional message provided.';
 
     return {
       output,
