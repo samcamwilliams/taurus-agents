@@ -100,33 +100,57 @@ export function useAgentNotifications(showToast: (message: string, type?: ToastT
   }, [showToast]);
 
   useEffect(() => {
-    const source = new EventSource('/api/notifications/stream');
+    let source: EventSource | null = null;
+    let retryDelay = 1000;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
 
-    source.onmessage = (raw) => {
-      try {
-        const event = JSON.parse(raw.data) as NotificationEventPayload;
-        if (event.type !== 'agent_notification') return;
+    function connect() {
+      if (disposed) return;
+      source = new EventSource('/api/notifications/stream');
 
-        const toastMessage = `${event.agentName}: ${event.message}`;
-        const wantsSystemNotification =
-          enabled &&
-          permission === 'granted' &&
-          (document.visibilityState !== 'visible' || !document.hasFocus());
+      source.onopen = () => { retryDelay = 1000; };
 
-        if (wantsSystemNotification) {
-          showSystemNotification(event).catch(() => {
-            showToast(toastMessage, event.level === 'error' ? 'error' : 'info');
-          });
-          return;
+      source.onmessage = (raw) => {
+        try {
+          const event = JSON.parse(raw.data) as NotificationEventPayload;
+          if (event.type !== 'agent_notification') return;
+
+          const toastMessage = `${event.agentName}: ${event.message}`;
+          const wantsSystemNotification =
+            enabled &&
+            permission === 'granted' &&
+            (document.visibilityState !== 'visible' || !document.hasFocus());
+
+          if (wantsSystemNotification) {
+            showSystemNotification(event).catch(() => {
+              showToast(toastMessage, event.level === 'error' ? 'error' : 'info');
+            });
+            return;
+          }
+
+          showToast(toastMessage, event.level === 'error' ? 'error' : 'info');
+        } catch {
+          // Ignore malformed events.
         }
+      };
 
-        showToast(toastMessage, event.level === 'error' ? 'error' : 'info');
-      } catch {
-        // Ignore malformed events.
-      }
+      source.onerror = () => {
+        source?.close();
+        source = null;
+        if (disposed) return;
+        retryTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30000);
+      };
+    }
+
+    connect();
+
+    return () => {
+      disposed = true;
+      source?.close();
+      if (retryTimer) clearTimeout(retryTimer);
     };
-
-    return () => source.close();
   }, [enabled, permission, showToast]);
 
   const state = useMemo(() => ({
