@@ -475,7 +475,7 @@ export class Daemon {
       // Production non-admin: restricted to TAURUS_SHARED_SECRETS list.
       const user = await User.findByPk(managed.agent.user_id, { attributes: ['role'] });
       const isAdmin = user?.role === 'admin';
-      const isLocal = process.env.NODE_ENV === 'local';
+      const isLocal = process.env.NODE_ENV === 'development';
       startMsg.sharedSecrets = (isLocal || isAdmin) ? null : parseSharedSecrets();
     }
 

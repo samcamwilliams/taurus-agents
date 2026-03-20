@@ -204,7 +204,7 @@ export function authRoutes(): Route[] {
     // Usage / budget info for the current user
     route('GET', '/api/auth/usage', async (ctx) => {
       const user = await User.findByPk(ctx.user.id);
-      const isLocal = process.env.NODE_ENV === 'local';
+      const isLocal = process.env.NODE_ENV === 'development';
       const defaultBudget = parseFloat(process.env.TAURUS_DEFAULT_MONTHLY_BUDGET || '50');
       const monthlyLimit = user?.meta?.monthly_budget_usd ?? defaultBudget;
       const isExempt = ctx.user.role === 'admin' || !!user?.meta?.budget_exempt || isLocal;

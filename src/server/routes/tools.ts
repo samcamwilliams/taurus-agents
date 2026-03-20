@@ -7,7 +7,7 @@ import { ALLOW_ARBITRARY_BIND_MOUNTS, DEFAULT_AGENT_RESOURCE_LIMITS } from '../.
 export function toolRoutes(): Route[] {
   return [
     route('GET', '/api/tools', async (ctx) => {
-      const isLocal = process.env.NODE_ENV === 'local';
+      const isLocal = process.env.NODE_ENV === 'development';
       json(ctx.res, {
         tools: TOOL_CATALOG,
         defaults: {

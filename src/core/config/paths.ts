@@ -9,7 +9,7 @@
  *
  * ALLOW_ARBITRARY_BIND_MOUNTS:  Whether the agent `mounts` field (arbitrary host
  *                               bind mounts) is allowed. Default: true when
- *                               NODE_ENV=local, false otherwise. Override via
+ *                               NODE_ENV=development, false otherwise. Override via
  *                               TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS env var.
  *
  * DOCKER_USE_INIT:  Whether to pass --init to docker create. Default: true.
@@ -48,7 +48,7 @@ const envBindMounts = process.env.TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS;
 export const ALLOW_ARBITRARY_BIND_MOUNTS: boolean =
   envBindMounts !== undefined
     ? envBindMounts === 'true'
-    : process.env.NODE_ENV === 'local';
+    : process.env.NODE_ENV === 'development';
 
 /**
  * Pass `--init` to `docker create` so the container gets a tiny init process

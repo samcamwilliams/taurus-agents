@@ -108,7 +108,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
       if (!ALLOW_ARBITRARY_BIND_MOUNTS && body.mounts?.length > 0) {
         return error(ctx.res, 'Arbitrary bind mounts are disabled in this deployment', 403);
       }
-      const isLocal = process.env.NODE_ENV === 'local';
+      const isLocal = process.env.NODE_ENV === 'development';
       try {
         const agent = await daemon.createAgent({
           name: body.name,
@@ -151,7 +151,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
       if (!ALLOW_ARBITRARY_BIND_MOUNTS && body.mounts?.length > 0) {
         return error(ctx.res, 'Arbitrary bind mounts are disabled in this deployment', 403);
       }
-      if (process.env.NODE_ENV !== 'local') delete body.resource_limits;
+      if (process.env.NODE_ENV !== 'development') delete body.resource_limits;
       try {
         const agent = await daemon.updateAgent(ctx.params.id, body);
         json(ctx.res, agent);

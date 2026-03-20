@@ -69,6 +69,13 @@ async function handleAddUser(): Promise<void> {
 // ── Main daemon ──
 
 async function main() {
+  // Validate NODE_ENV early
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv && nodeEnv !== 'development' && nodeEnv !== 'production') {
+    console.error(`Fatal: NODE_ENV must be "development" or "production", got "${nodeEnv}"`);
+    process.exit(1);
+  }
+
   // Check for subcommands before daemon boot
   const subcommand = process.argv[2];
   if (subcommand === 'adduser') {

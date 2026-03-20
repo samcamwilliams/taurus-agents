@@ -5,7 +5,7 @@
  * beforeInference hook. It reads monthly spend fresh from DB every time
  * (not cached), so it catches resumes, concurrent runs, and mid-run exhaustion.
  *
- * Only enforced in production (NODE_ENV !== 'local'), for non-admin users
+ * Only enforced outside development (NODE_ENV !== 'development'), for non-admin users
  * who are using shared server API keys (not BYOK).
  */
 
@@ -41,7 +41,7 @@ export class BudgetExceededError extends Error {
  * if the user has their own override set.
  */
 export async function checkBudget(ctx: BudgetContext): Promise<void> {
-  if (process.env.NODE_ENV === 'local') return;
+  if (process.env.NODE_ENV === 'development') return;
   if (ctx.userRole === 'admin') return;
   if (ctx.userMeta?.budget_exempt) return;
 
