@@ -606,6 +606,117 @@
   }
 }
 
+// ── Theme Picker (floating bar) ──
+
+.theme-picker {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--c-bg2);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 12px 40px rgba(0, 0, 0, 0.3),
+    0 0 80px rgba(0, 0, 0, 0.15);
+  user-select: none;
+  white-space: nowrap;
+
+  // Accent glow for dark themes (dark shadows are invisible on dark backgrounds)
+  [data-theme="night"] &,
+  [data-theme="dark"] &,
+  [data-theme="vivid"] &,
+  [data-theme="catppuccin"] &,
+  [data-theme="vivid-catppuccin"] & {
+    border-color: color-mix(in srgb, var(--c-border) 50%, var(--c-accent-ui) 50%);
+    box-shadow:
+      0 0 12px color-mix(in srgb, var(--c-accent-ui) 20%, transparent),
+      0 0 40px color-mix(in srgb, var(--c-accent-ui) 10%, transparent);
+  }
+
+  &__grip {
+    display: flex;
+    align-items: center;
+    padding: 4px 2px;
+    color: var(--c-muted);
+    cursor: grab;
+    opacity: 0.4;
+    touch-action: none;
+
+    &:active { cursor: grabbing; opacity: 0.7; }
+  }
+
+  &__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--c-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+
+    &:hover {
+      color: var(--c-text);
+      background: var(--c-hover);
+    }
+  }
+
+  // Grid overlap: all theme names (and descriptions) occupy the same cell.
+  // Hidden ones reserve width so the bar never resizes when cycling.
+  &__label {
+    display: grid;
+    grid-template-rows: auto auto;
+    justify-items: center;
+    padding: 0 8px;
+
+    > * { grid-column: 1; }
+  }
+
+  &__name {
+    grid-row: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-text);
+    line-height: 1.2;
+  }
+
+  &__desc {
+    grid-row: 2;
+    font-size: 10px;
+    color: var(--c-muted);
+    line-height: 1.2;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--c-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+
+    &:hover {
+      color: var(--c-text);
+      background: var(--c-hover);
+    }
+  }
+}
+
 // ── Toast Notifications ──
 
 .toast-container {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, ChevronDown, LogOut, UserCog, Download } from 'lucide-react';
+import { User, ChevronDown, LogOut, UserCog, Download, Palette } from 'lucide-react';
 import { getCsrfToken, setCsrfToken, clearTaurusCaches } from '../api';
 import { AccountSettingsModal } from './AccountSettingsModal';
 
@@ -9,9 +9,10 @@ interface UserMenuProps {
   canInstall?: boolean;
   onInstall?: () => void;
   installLabel?: string;
+  onChangeTheme?: () => void;
 }
 
-export function UserMenu({ username, onLogout, canInstall, onInstall, installLabel }: UserMenuProps) {
+export function UserMenu({ username, onLogout, canInstall, onInstall, installLabel, onChangeTheme }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -51,6 +52,11 @@ export function UserMenu({ username, onLogout, canInstall, onInstall, installLab
             <button className="user-menu__item" onClick={() => { setOpen(false); setShowSettings(true); }}>
               <UserCog size={13} /> <span style={{ whiteSpace: 'nowrap' }}>Profile</span>
             </button>
+            {onChangeTheme && (
+              <button className="user-menu__item" onClick={() => { setOpen(false); onChangeTheme(); }}>
+                <Palette size={13} /> Theme
+              </button>
+            )}
             {canInstall && onInstall && (
               <button className="user-menu__item" onClick={() => { setOpen(false); onInstall(); }}>
                 <Download size={13} /> {installLabel || 'Install'}

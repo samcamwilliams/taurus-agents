@@ -17,6 +17,7 @@ import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme } from '../hooks/useTheme';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
+import { ThemePicker } from '../components/ThemePicker';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
@@ -91,6 +92,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set(['runs']));
   const [mobileAgentsOpen, setMobileAgentsOpen] = useState(false);
   const [mobileRunsOpen, setMobileRunsOpen] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const mountedForAgent = useRef<string | null>(null);
   const { toasts, showToast, dismiss, pause, resume } = useToast();
   const { theme } = useTheme();
@@ -718,7 +720,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
               <div className="panel-header">
                 <div className="panel-header__info" />
                 <div className="panel-header__actions">
-                  <UserMenu username={username} onLogout={onLogout} canInstall={canInstall && !isInstalled} onInstall={handleInstall} installLabel={installLabel} />
+                  <UserMenu username={username} onLogout={onLogout} canInstall={canInstall && !isInstalled} onInstall={handleInstall} installLabel={installLabel} onChangeTheme={() => setShowThemePicker(true)} />
                 </div>
               </div>
             )}
@@ -798,7 +800,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
                       {notifications.enabled ? <Bell size={13} /> : <BellOff size={13} />}
                     </button>
                   )}
-                  {authEnabled && <UserMenu username={username} onLogout={onLogout} canInstall={canInstall && !isInstalled} onInstall={handleInstall} installLabel={installLabel} />}
+                  {authEnabled && <UserMenu username={username} onLogout={onLogout} canInstall={canInstall && !isInstalled} onInstall={handleInstall} installLabel={installLabel} onChangeTheme={() => setShowThemePicker(true)} />}
                 </div>
               </div>
             </div>
@@ -876,6 +878,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       </div>
 
       <ToastContainer toasts={toasts} onDismiss={dismiss} onPause={pause} onResume={resume} />
+      {showThemePicker && <ThemePicker onClose={() => setShowThemePicker(false)} />}
 
       {showCreateModal && (
         <CreateAgentModal
