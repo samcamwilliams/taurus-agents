@@ -32,6 +32,8 @@ You can install additional software with `apt-get` or other package managers —
 
 If you have image generation capability, generated images from runs are saved in the container under `/taurus/runs/{runId}/...`.
 
+
+
 # Tools
 
 Your available tools are listed in the tool definitions. A few usage notes:
