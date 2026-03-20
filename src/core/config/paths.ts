@@ -50,6 +50,15 @@ export const ALLOW_ARBITRARY_BIND_MOUNTS: boolean =
     ? envBindMounts === 'true'
     : process.env.NODE_ENV === 'local';
 
+/**
+ * Pass `--init` to `docker create` so the container gets a tiny init process
+ * (tini) as PID 1. Without it, `sleep infinity` is PID 1 and doesn't reap
+ * orphaned child processes — zombie processes accumulate until the container
+ * hits its pids_limit and tools start failing with EAGAIN.
+ *
+ * Default: true. Disable via TAURUS_DOCKER_INIT=0 if the agent image already
+ * ships its own init (e.g. systemd, s6).
+ */
 export const DOCKER_USE_INIT =
   process.env.TAURUS_DOCKER_INIT === undefined
     ? true
