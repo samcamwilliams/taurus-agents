@@ -29,7 +29,7 @@ export class SupervisorTool extends Tool {
 - create_agent: Create a child. Params: { key, system_prompt, tools?, model?, resource_limits? }
 - update_agent: Update a child's config. Params: { key, system_prompt?, tools?, model?, resource_limits? }
 - delete_agent: Remove a child (cascades to grandchildren). Params: { key }
-- inspect_run: See a child's latest run and messages. Params: { key }
+- inspect_run: See a child's latest run and last 5 messages (truncated by default). Params: { key, run_id?, brief? (default true — set false for full content) }
 - inject_message: Send a message into a child's current run. Params: { key, message }
 - stop_run: Stop a child's current run. Params: { key }`;
   readonly requiresApproval = false;
@@ -65,6 +65,14 @@ export class SupervisorTool extends Tool {
       message: {
         type: 'string',
         description: 'Message text for inject_message.',
+      },
+      run_id: {
+        type: 'string',
+        description: 'Specific run ID for inspect_run (default: latest run).',
+      },
+      brief: {
+        type: 'boolean',
+        description: 'For inspect_run: truncate message content (default: true). Set false for full content.',
       },
     },
     required: ['action'],
