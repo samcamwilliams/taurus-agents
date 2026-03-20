@@ -144,19 +144,21 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       return;
     }
 
-    const resourceError = validateResourceLimits();
-    if (resourceError) {
-      alert(resourceError);
-      return;
+    if (defaults?.resource_limits) {
+      const resourceError = validateResourceLimits();
+      if (resourceError) {
+        alert(resourceError);
+        return;
+      }
     }
 
     const resolvedMaxTurns = maxTurns !== '' ? parseInt(maxTurns, 10) : (defaults?.max_turns ?? 0);
     const resolvedTimeoutS = timeoutMs !== '' ? parseFloat(timeoutMs) : ((defaults?.timeout_ms ?? 300_000) / 1000);
-    const resolvedResourceLimits = {
-      cpus: cpuLimit !== '' ? parseFloat(cpuLimit) : (defaults?.resource_limits.cpus ?? 2),
-      memory_gb: memoryGb !== '' ? parseFloat(memoryGb) : (defaults?.resource_limits.memory_gb ?? 32),
-      pids_limit: pidsLimit !== '' ? parseInt(pidsLimit, 10) : (defaults?.resource_limits.pids_limit ?? 256),
-    };
+    const resolvedResourceLimits = defaults?.resource_limits ? {
+      cpus: cpuLimit !== '' ? parseFloat(cpuLimit) : defaults.resource_limits.cpus,
+      memory_gb: memoryGb !== '' ? parseFloat(memoryGb) : defaults.resource_limits.memory_gb,
+      pids_limit: pidsLimit !== '' ? parseInt(pidsLimit, 10) : defaults.resource_limits.pids_limit,
+    } : undefined;
 
     onSubmit({
       name,
@@ -170,7 +172,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       max_turns: resolvedMaxTurns,
       timeout_ms: resolvedTimeoutS * 1000,
       mounts: mounts.filter(m => m.host && m.container),
-      resource_limits: resolvedResourceLimits,
+      resource_limits: resolvedResourceLimits!,
       parent_agent_id: parentAgentId || '',
       propagate_children: propagateChildren,
     });
@@ -227,6 +229,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <label>Docker Image (optional)</label>
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
 
+      {defaults?.resource_limits && (
       <div className="form-section">
         <div className="form-section__header">
           <div>
@@ -244,7 +247,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
                 step="0.25"
                 value={cpuLimit}
                 onChange={e => setCpuLimit(e.target.value)}
-                placeholder={defaults ? String(defaults.resource_limits.cpus) : '2'}
+                placeholder={String(defaults.resource_limits.cpus)}
               />
               <span>cores</span>
             </div>
@@ -261,7 +264,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
                 step="1"
                 value={memoryGb}
                 onChange={e => setMemoryGb(e.target.value)}
-                placeholder={defaults ? String(defaults.resource_limits.memory_gb) : '32'}
+                placeholder={String(defaults.resource_limits.memory_gb)}
               />
               <span>GB</span>
             </div>
@@ -278,7 +281,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
                 step="32"
                 value={pidsLimit}
                 onChange={e => setPidsLimit(e.target.value)}
-                placeholder={defaults ? String(defaults.resource_limits.pids_limit) : '256'}
+                placeholder={String(defaults.resource_limits.pids_limit)}
               />
               <span>PIDs</span>
             </div>
@@ -287,6 +290,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
         </div>
         <div className="form-section__footnote">Containers include an init process so exited child processes are reaped cleanly.</div>
       </div>
+      )}
 
       {defaults?.allow_bind_mounts !== false && (
         <>

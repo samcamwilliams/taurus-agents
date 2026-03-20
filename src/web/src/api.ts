@@ -138,7 +138,7 @@ export const api = {
       max_turns: number;
       timeout_ms: number;
       allow_bind_mounts: boolean;
-      resource_limits: { cpus: number; memory_gb: number; pids_limit: number };
+      resource_limits?: { cpus: number; memory_gb: number; pids_limit: number };
     };
   }> {
     return request('/api/tools');

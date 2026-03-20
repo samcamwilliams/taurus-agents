@@ -93,6 +93,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [mobileAgentsOpen, setMobileAgentsOpen] = useState(false);
   const [mobileRunsOpen, setMobileRunsOpen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showResourceLimits, setShowResourceLimits] = useState(false);
   const mountedForAgent = useRef<string | null>(null);
   const { toasts, showToast, dismiss, pause, resume } = useToast();
   const { theme } = useTheme();
@@ -163,6 +164,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   useEffect(() => {
     loadAgents();
     const interval = setInterval(loadAgents, 30_000);
+    api.listTools().then(res => setShowResourceLimits(!!res.defaults?.resource_limits)).catch(() => {});
     return () => clearInterval(interval);
   }, [loadAgents]);
 
@@ -823,7 +825,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
 
             {/* Content — terminal and editor stay mounted (CSS hidden) to preserve state */}
             {activeTab === 'settings' && (
-              <AgentSettings agent={selectedAgent} agents={agents} onUpdated={loadAgents} />
+              <AgentSettings agent={selectedAgent} agents={agents} onUpdated={loadAgents} showResourceLimits={showResourceLimits} />
             )}
 
             <div className="content-split" style={{ display: activeTab === 'runs' ? undefined : 'none' }}>

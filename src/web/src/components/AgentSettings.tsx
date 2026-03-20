@@ -9,9 +9,10 @@ interface AgentSettingsProps {
   agent: Agent;
   agents?: Agent[];
   onUpdated: () => void;
+  showResourceLimits?: boolean;
 }
 
-export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) {
+export function AgentSettings({ agent, agents, onUpdated, showResourceLimits = true }: AgentSettingsProps) {
   const [editing, setEditing] = useState(false);
 
   function formatMemoryGb(value: number): string {
@@ -71,6 +72,7 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
         <Row label="Model" value={agent.model} />
         <Row label="Working Directory" value={agent.cwd} mono />
         <Row label="Docker Image" value={agent.docker_image} mono />
+        {showResourceLimits && (
         <div className="agent-settings__row agent-settings__row--stack">
           <div className="agent-settings__label">Resource Limits</div>
           <div className="agent-settings__value">
@@ -94,6 +96,7 @@ export function AgentSettings({ agent, agents, onUpdated }: AgentSettingsProps) 
             <div className="agent-settings__note">Containers include an init process to reap orphaned children cleanly.</div>
           </div>
         </div>
+        )}
         <Row label="Bind Mounts" value={
           agent.mounts?.length > 0
             ? agent.mounts.map(m => `${m.host} -> ${m.container}${m.readonly ? ' (ro)' : ''}`).join('\n')
