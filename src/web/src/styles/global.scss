@@ -250,6 +250,11 @@ body {
     background: color-mix(in srgb, var(--c-accent-ui) 16%, transparent);
     color: var(--c-accent-ui-strong);
   }
+
+  &.btn--danger-subtle {
+    color: var(--c-red);
+    &:hover { background: color-mix(in srgb, var(--c-red) 12%, transparent); }
+  }
 }
 
 // ── Light theme overrides ──

@@ -825,7 +825,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
 
             {/* Content — terminal and editor stay mounted (CSS hidden) to preserve state */}
             {activeTab === 'settings' && (
-              <AgentSettings agent={selectedAgent} agents={agents} onUpdated={loadAgents} showResourceLimits={showResourceLimits} />
+              <AgentSettings agent={selectedAgent} agents={agents} onUpdated={loadAgents} onDelete={handleDelete} showResourceLimits={showResourceLimits} />
             )}
 
             <div className="content-split" style={{ display: activeTab === 'runs' ? undefined : 'none' }}>

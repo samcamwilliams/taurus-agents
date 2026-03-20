@@ -2,17 +2,18 @@ import { useState } from 'react';
 import { api } from '../api';
 import { AgentForm, type AgentFormData } from './AgentForm';
 import { Countdown } from './Countdown';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { Agent } from '../types';
 
 interface AgentSettingsProps {
   agent: Agent;
   agents?: Agent[];
   onUpdated: () => void;
+  onDelete?: () => void;
   showResourceLimits?: boolean;
 }
 
-export function AgentSettings({ agent, agents, onUpdated, showResourceLimits = true }: AgentSettingsProps) {
+export function AgentSettings({ agent, agents, onUpdated, onDelete, showResourceLimits = true }: AgentSettingsProps) {
   const [editing, setEditing] = useState(false);
 
   function formatMemoryGb(value: number): string {
@@ -64,6 +65,7 @@ export function AgentSettings({ agent, agents, onUpdated, showResourceLimits = t
     <div className="agent-settings">
       <div className="agent-settings__header">
         <button className="btn" onClick={() => setEditing(true)}><Pencil size={13} /> Edit</button>
+        {onDelete && <button className="btn btn--danger-subtle" onClick={onDelete}><Trash2 size={13} /> Delete</button>}
       </div>
       <div className="agent-settings__grid">
         <Row label="Name" value={agent.name} />
