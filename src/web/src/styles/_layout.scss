@@ -294,8 +294,8 @@
 
   &__title {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 10px;
     min-width: 0;
   }
 
