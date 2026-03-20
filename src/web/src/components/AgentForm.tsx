@@ -232,66 +232,32 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       <input type="text" value={dockerImage} onChange={e => setDockerImage(e.target.value)} placeholder={defaults?.docker_image ?? ''} />
 
       {defaults?.resource_limits && (
-      <div className="form-section">
-        <div className="form-section__header">
-          <div>
-            <h4>Resource Limits</h4>
-          </div>
-        </div>
-        <div className="resource-grid">
-          <div className="resource-card">
-            <div className="resource-card__eyebrow">CPU</div>
-            <div className="resource-card__title">vCPU ceiling</div>
-            <div className="resource-card__field">
-              <input
-                type="number"
-                min="0.25"
-                step="0.25"
-                value={cpuLimit}
-                onChange={e => setCpuLimit(e.target.value)}
-                placeholder={String(defaults.resource_limits.cpus)}
-              />
-              <span>cores</span>
+        <fieldset className="field-group">
+          <legend>Resource Limits</legend>
+          <div className="field-group__row">
+            <div className="field-group__field">
+              <label>CPU</label>
+              <div className="input-with-unit">
+                <input type="number" min="0.25" step="0.25" value={cpuLimit} onChange={e => setCpuLimit(e.target.value)} placeholder={String(defaults.resource_limits.cpus)} />
+                <span>cores</span>
+              </div>
             </div>
-            <div className="resource-card__hint">Smooth enough for real work, restrained enough to protect the box.</div>
-          </div>
-
-          <div className="resource-card">
-            <div className="resource-card__eyebrow">Memory</div>
-            <div className="resource-card__title">RAM budget</div>
-            <div className="resource-card__field">
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={memoryGb}
-                onChange={e => setMemoryGb(e.target.value)}
-                placeholder={String(defaults.resource_limits.memory_gb)}
-              />
-              <span>GB</span>
+            <div className="field-group__field">
+              <label>Memory</label>
+              <div className="input-with-unit">
+                <input type="number" min="1" step="1" value={memoryGb} onChange={e => setMemoryGb(e.target.value)} placeholder={String(defaults.resource_limits.memory_gb)} />
+                <span>GB</span>
+              </div>
             </div>
-            <div className="resource-card__hint">Enough room for editors, browsers, and tooling without letting one run balloon.</div>
-          </div>
-
-          <div className="resource-card">
-            <div className="resource-card__eyebrow">Processes</div>
-            <div className="resource-card__title">Fork ceiling</div>
-            <div className="resource-card__field">
-              <input
-                type="number"
-                min="32"
-                step="32"
-                value={pidsLimit}
-                onChange={e => setPidsLimit(e.target.value)}
-                placeholder={String(defaults.resource_limits.pids_limit)}
-              />
-              <span>PIDs</span>
+            <div className="field-group__field">
+              <label>PIDs</label>
+              <div className="input-with-unit">
+                <input type="number" min="32" step="32" value={pidsLimit} onChange={e => setPidsLimit(e.target.value)} placeholder={String(defaults.resource_limits.pids_limit)} />
+                <span>max</span>
+              </div>
             </div>
-            <div className="resource-card__hint">Prevents runaway process storms from dragging the whole host with them.</div>
           </div>
-        </div>
-        <div className="form-section__footnote">Containers include an init process so exited child processes are reaped cleanly.</div>
-      </div>
+        </fieldset>
       )}
 
       {defaults?.allow_bind_mounts !== false && (
@@ -364,18 +330,18 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
         </>
       )}
 
-      <label>Schedule</label>
-      <input
-        type="text"
-        value={schedule}
-        onChange={e => setSchedule(e.target.value)}
-        placeholder="e.g. every 5 minutes, daily at 9:00, */10 * * * *"
-      />
-      {schedule && (
-        <>
-          <div className="field-hint">Cron or shorthand. Examples: "every 5m", "daily at 14:30", "*/10 * * * *"</div>
-          <div className="schedule-group">
-            <div className="schedule-group__field">
+      <fieldset className="field-group">
+        <legend>Schedule</legend>
+        <label>Cron Expression</label>
+        <input
+          type="text"
+          value={schedule}
+          onChange={e => setSchedule(e.target.value)}
+          placeholder="e.g. every 5 minutes, daily at 9:00, */10 * * * *"
+        />
+        {schedule && (
+          <div className="field-group__row">
+            <div className="field-group__field">
               <label>If Already Running</label>
               <select value={scheduleOverlap} onChange={e => setScheduleOverlap(e.target.value as 'skip' | 'queue' | 'kill')}>
                 <option value="skip">Skip (don't start new run)</option>
@@ -383,7 +349,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
                 <option value="kill">Kill &amp; Restart (stop current, start new)</option>
               </select>
             </div>
-            <div className="schedule-group__field">
+            <div className="field-group__field">
               <label>Run Mode</label>
               <select value={scheduleMode} onChange={e => setScheduleMode(e.target.value as 'new' | 'continue')}>
                 <option value="new">Start a new run each time</option>
@@ -391,8 +357,8 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
               </select>
             </div>
           </div>
-        </>
-      )}
+        )}
+      </fieldset>
 
       <label>Max Turns</label>
       <input

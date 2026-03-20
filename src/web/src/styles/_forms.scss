@@ -490,10 +490,23 @@
 
 // ── Bind Mounts Editor ──
 
-.schedule-group {
-  display: flex;
-  gap: 12px;
-  margin-left: 24px;
+.field-group {
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+
+  legend {
+    font-size: 12px;
+    color: var(--c-muted);
+    padding: 0 4px;
+    margin-left: -4px;
+  }
+
+  &__row {
+    display: flex;
+    gap: 12px;
+  }
 
   &__field {
     flex: 1;
@@ -502,6 +515,36 @@
     gap: 4px;
 
     label { margin: 0; }
+  }
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  overflow: hidden;
+
+  &:focus-within { border-color: var(--c-accent-ui); }
+
+  input {
+    flex: 1;
+    border: none !important;
+    border-radius: 0 !important;
+    margin-bottom: 0 !important;
+
+    &:focus { box-shadow: none; }
+  }
+
+  span {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--c-muted);
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--c-border) 30%, transparent);
+    border-left: 1px solid var(--c-border);
   }
 }
 

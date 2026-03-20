@@ -75,29 +75,7 @@ export function AgentSettings({ agent, agents, onUpdated, onDelete, showResource
         <Row label="Model" value={agent.model} />
         <Row label="Docker Image" value={agent.docker_image} mono />
         {showResourceLimits && (
-        <div className="agent-settings__row agent-settings__row--stack">
-          <div className="agent-settings__label">Resource Limits</div>
-          <div className="agent-settings__value">
-            <div className="resource-grid resource-grid--summary">
-              <div className="resource-card resource-card--summary">
-                <div className="resource-card__eyebrow">CPU</div>
-                <div className="resource-card__value">{agent.resource_limits.cpus} cores</div>
-                <div className="resource-card__hint">Docker <code>--cpus</code></div>
-              </div>
-              <div className="resource-card resource-card--summary">
-                <div className="resource-card__eyebrow">Memory</div>
-                <div className="resource-card__value">{formatMemoryGb(agent.resource_limits.memory_gb)} GB</div>
-                <div className="resource-card__hint">Docker <code>--memory</code></div>
-              </div>
-              <div className="resource-card resource-card--summary">
-                <div className="resource-card__eyebrow">Processes</div>
-                <div className="resource-card__value">{agent.resource_limits.pids_limit} PIDs</div>
-                <div className="resource-card__hint">Docker <code>--pids-limit</code></div>
-              </div>
-            </div>
-            <div className="agent-settings__note">Containers include an init process to reap orphaned children cleanly.</div>
-          </div>
-        </div>
+          <Row label="Resources" value={`${agent.resource_limits.cpus} CPU · ${formatMemoryGb(agent.resource_limits.memory_gb)} GB · ${agent.resource_limits.pids_limit} PIDs`} />
         )}
         <Row label="Bind Mounts" value={
           agent.mounts?.length > 0
