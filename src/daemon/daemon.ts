@@ -26,6 +26,7 @@ import Message from '../db/models/Message.js';
 import UserSecret from '../db/models/UserSecret.js';
 import User from '../db/models/User.js';
 import { parseSharedSecrets } from '../core/budget.js';
+import { getExtensions } from '../core/extensions.js';
 import {
   resolveAgentResourceLimits,
   agentResourceLimitsFromValues,
@@ -46,6 +47,9 @@ interface ManagedRun {
   callerAgentId: string | null;   // delegate only — the agent that dispatched this
   callerRunId: string | null;     // delegate only — the run that dispatched this
   status: 'running' | 'paused';
+  /** Accumulated streaming text for the current assistant turn (cleared on message.saved / run end) */
+  streamingText: string;
+  streamingThinking: string;
 }
 
 interface ManagedAgent {
@@ -493,6 +497,8 @@ export class Daemon {
       callerAgentId: null,
       callerRunId: null,
       status: 'running',
+      streamingText: '',
+      streamingThinking: '',
     });
 
     child.on('message', (msg: ChildMessage) => {
@@ -764,7 +770,10 @@ export class Daemon {
         break;
 
       case 'log': {
+        const run = managed.runs.get(runId);
+
         if (msg.event === 'llm.thinking') {
+          if (run) run.streamingThinking += msg.message;
           this.sse.broadcast(agentId, {
             type: 'llm_thinking',
             agentId,
@@ -775,6 +784,7 @@ export class Daemon {
         }
 
         if (msg.event === 'llm.text') {
+          if (run) run.streamingText += msg.message;
           this.sse.broadcast(agentId, {
             type: 'llm_text',
             agentId,
@@ -792,6 +802,12 @@ export class Daemon {
             text: msg.message,
           });
           break;
+        }
+
+        // Clear streaming buffers when a message is saved (turn complete)
+        if (msg.event === 'message.saved' && run) {
+          run.streamingText = '';
+          run.streamingThinking = '';
         }
 
         if (msg.level !== 'debug') {
@@ -866,6 +882,18 @@ export class Daemon {
           tokens: msg.tokens,
           timestamp: new Date().toISOString(),
         });
+
+        // Cloud/enterprise hook — usage metering, billing, etc.
+        // Fire-and-forget: don't block run completion on cloud operations.
+        const ext = getExtensions();
+        ext.onRunComplete(
+          agentId, runId,
+          managed.agent.user_id,
+          managed.agent.model,
+          { inputTokens: msg.tokens.input, outputTokens: msg.tokens.output },
+          msg.tokens.cost,
+        ).catch(err => this.logger('error', `Extension onRunComplete error: ${err.message}`));
+
         break;
       }
 
@@ -1597,6 +1625,21 @@ export class Daemon {
           runId: latestRun.id,
           messages: messages.map(m => m.toApi()),
         })}\n\n`);
+      }
+    }
+
+    // Send in-progress streaming buffers for active runs so late-joining clients
+    // don't miss text that was already streamed before they connected.
+    if (managed) {
+      for (const [rId, run] of managed.runs) {
+        if (run.streamingText || run.streamingThinking) {
+          res.write(`data: ${JSON.stringify({
+            type: 'streaming',
+            runId: rId,
+            text: run.streamingText || undefined,
+            thinking: run.streamingThinking || undefined,
+          })}\n\n`);
+        }
       }
     }
   }

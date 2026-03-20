@@ -20,6 +20,7 @@ import { DisplayableError, NotFoundError } from '../../core/errors.js';
 import User from '../../db/models/User.js';
 import UserSecret, { SECRET_KEYS } from '../../db/models/UserSecret.js';
 import { getMonthlySpend } from '../../core/budget.js';
+import { getExtensions } from '../../core/extensions.js';
 
 const THEMES = new Set(['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin']);
 const DEFAULT_THEME = 'light';
@@ -58,6 +59,8 @@ export function authRoutes(): Route[] {
         username: user?.username ?? null,
         role: user?.role ?? session.role,
         theme,
+        // Cloud/enterprise feature flags — empty object in community edition.
+        features: getExtensions().featureFlags(),
       }));
     }),
 

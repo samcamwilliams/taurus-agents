@@ -23,6 +23,7 @@ import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
 import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config/index.js';
+import { getExtensions } from './core/extensions.js';
 import { banner } from './utils/cli.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);
@@ -97,8 +98,16 @@ async function main() {
   // Reset API key user cache after user setup
   resetApiKeyUserCache();
 
+  // Load cloud/enterprise extensions if installed.
+  // When taurus-cloud is not present (community edition), this silently no-ops.
+  // @ts-ignore — taurus-cloud is an optional overlay package; not present in community builds.
+  try { await import('taurus-cloud'); } catch { /* community edition */ }
+
   const daemon = new Daemon();
   await daemon.init();
+
+  // Run cloud lifecycle hook (migrations, etc.)
+  await getExtensions().onDaemonInit(daemon);
 
   const server = createServer(daemon, PORT);
   attachTerminalWs(server, daemon);

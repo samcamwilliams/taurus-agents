@@ -336,6 +336,21 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       try {
         const data = JSON.parse(evt.data);
         switch (data.type) {
+          case 'streaming':
+            // Restore in-progress streaming text from server buffer (late-joining client)
+            if (data.text) runStreamingRef.current[data.runId] = data.text;
+            if (data.runId === runIdRef.current) {
+              if (data.text) {
+                streamingTextRef.current = data.text;
+                setStreamingText(data.text);
+              }
+              if (data.thinking) {
+                streamingThinkingRef.current = data.thinking;
+                setStreamingThinking(data.thinking);
+              }
+            }
+            break;
+
           case 'agent_status':
             setAgents(prev => prev.map(a =>
               a.id === data.agentId ? { ...a, status: data.status } : a,

@@ -4,6 +4,14 @@
   "type": "module",
   "description": "A generalized multi-agent orchestration framework",
   "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core/*.js": "./src/core/*.ts",
+    "./server/*.js": "./src/server/*.ts",
+    "./daemon/*.js": "./src/daemon/*.ts",
+    "./db/*.js": "./src/db/*.ts",
+    "./db/models/*.js": "./src/db/models/*.ts"
+  },
   "scripts": {
     "dev": "tsx --env-file=.env src/index.ts",
     "dev:web": "vite --config src/web/vite.config.ts",
