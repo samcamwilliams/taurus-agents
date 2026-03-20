@@ -12,7 +12,7 @@ Self-hosted multi-agent platform. Each agent runs in an isolated Docker containe
 - **15 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Notify, Spawn, Delegate, Supervisor)
 - **Multi-provider** — Anthropic (default), OpenAI, OpenRouter (access to DeepSeek, Llama, etc.)
 - **Scheduling** — cron-based with overlap modes (skip, queue, kill)
-- **Composable prompts** — `{{include:path}}` directive to include reusable prompt fragments from `prompts/`
+- **Composable prompts** — `{{include:path}}` directive to include reusable prompt fragments from `resources/prompts/`
 - **Blocking API** — `POST /api/ask` sends a message and waits for the response, making it easy to script
 - **SSE streaming** — real-time events for building custom frontends
 - **SQLite storage** — agents, runs, messages, logs all persisted locally
@@ -159,9 +159,9 @@ Agent system prompts support placeholders and includes:
 | `{{time}}` | HH:MM:SS |
 | `{{year}}` | Current year |
 | `{{timezone}}` | System timezone |
-| `{{include:path}}` | Contents of `prompts/<path>` (recursive, up to 5 levels) |
+| `{{include:path}}` | Contents of `resources/prompts/<path>` (recursive, up to 5 levels) |
 
-Place reusable prompt fragments in the `prompts/` directory and reference them with `{{include:filename.md}}`.
+Place reusable prompt fragments in the `resources/prompts/` directory and reference them with `{{include:filename.md}}`.
 
 To let an agent notify you about important milestones or blockers, enable the `Notify` tool and include `{{include:skills/notify-user.md}}` in its system prompt.
 
@@ -192,7 +192,7 @@ Natural-language programs for agents. Write a `.hottest.md` file describing your
 - Process next pending order
 ```
 
-Pair with a runtime prompt (via `{{include:...}}`) that teaches the agent how to interpret the program, manage state, and coordinate its team. See `prompts/hottest/` for examples.
+Pair with a runtime prompt (via `{{include:...}}`) that teaches the agent how to interpret the program, manage state, and coordinate its team. See `resources/prompts/hottest/` for examples.
 
 ## Project structure
 
@@ -207,7 +207,8 @@ src/
   server/               # HTTP server, routes, WebSocket terminal
   db/                   # Sequelize + SQLite models and migrations
   web/                  # React frontend (Vite, Monaco, xterm.js)
-prompts/                # Reusable prompt fragments for {{include:...}}
+resources/
+  prompts/              # Reusable prompt fragments for {{include:...}}
 docker/
   Dockerfile            # Custom agent container image
 data/
