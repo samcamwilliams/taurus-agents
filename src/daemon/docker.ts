@@ -94,12 +94,15 @@ export class DockerService {
 
     // Compute bind-mount paths under TAURUS_DRIVE_PATH.
     // Workspace is per-agent; shared is per-tree (all agents in a hierarchy share the root's).
+    // Taurus is per-agent, read-only — holds host-managed data (generated images, etc.).
     const workspacePath = drivePath(agent.user_id, agent.id, 'workspace');
     const sharedPath = drivePath(agent.user_id, rootAgentId, 'shared');
+    const taurusPath = drivePath(agent.user_id, agent.id, 'taurus');
 
     // Ensure directories exist on host before docker create
     fs.mkdirSync(workspacePath, { recursive: true });
     fs.mkdirSync(sharedPath, { recursive: true });
+    fs.mkdirSync(taurusPath, { recursive: true });
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host
@@ -112,6 +115,7 @@ export class DockerService {
       '--pids-limit', String(resourceLimits.pids_limit),
       '-v', `${workspacePath}:/workspace`,
       '-v', `${sharedPath}:/shared`,
+      '-v', `${taurusPath}:/taurus:ro`,
     ];
 
     if (DOCKER_USE_INIT) {

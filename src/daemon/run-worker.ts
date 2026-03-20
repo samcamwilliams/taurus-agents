@@ -544,10 +544,10 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
             });
             log('info', 'message.saved', 'assistant');
 
-            // Auto-save generated images to the agent drive (outside bind mount, container can't manipulate).
-            // Full-res saved to host filesystem (bind-mounted as /workspace). A resized thumbnail
-            // replaces the raw base64 in chatml (prevents 700K+ token bloat) and is accumulated
-            // for delegate result IPC so the parent agent can see the image.
+            // Auto-save generated images to /taurus/runs/<runId>/ (read-only bind mount).
+            // Full-res saved to host filesystem; visible to the agent at /taurus/runs/...
+            // A resized thumbnail replaces the raw base64 in chatml (prevents 700K+ token bloat)
+            // and is accumulated for delegate result IPC so the parent agent can see the image.
             const content = event.event.message.content;
             if (Array.isArray(content)) {
               const imageGenIndices: number[] = [];
@@ -556,8 +556,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
               }
               if (imageGenIndices.length > 0) {
                 try {
-                  // Save images to agent drive root (outside bind mount — container can't manipulate)
-                  const imgDir = path.join(drivePath(agent.user_id, agent.id), 'runs', runId);
+                  // Save images to taurus/ dir (read-only bind mount — container can read but not manipulate)
+                  const imgDir = drivePath(agent.user_id, agent.id, 'taurus', 'runs', runId);
                   fs.mkdirSync(imgDir, { recursive: true });
                   const savedPaths: string[] = [];
                   for (let i = 0; i < imageGenIndices.length; i++) {
@@ -575,8 +575,9 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
                     // Replace raw base64 in chatml with resized version
                     (content[imageGenIndices[i]] as any).result = thumbB64;
                   }
-                  // Inject a note so the agent knows where its images were saved
-                  chatml.appendUser([{ type: 'text', text: `[System: generated image${savedPaths.length > 1 ? 's' : ''} saved to host (${savedPaths.join(', ')}). A resized version is included in the conversation above.]` }]);
+                  // Inject a note so the agent knows where its images were saved (accessible inside the container)
+                  const containerPaths = savedPaths.map(p => `/taurus/runs/${runId}/${p}`);
+                  chatml.appendUser([{ type: 'text', text: `[System: generated image${savedPaths.length > 1 ? 's' : ''} saved to ${containerPaths.join(', ')}. Copy to /workspace or /shared to edit or share. A resized version is included in the conversation above.]` }]);
                 } catch (err: any) {
                   log('warn', 'image_gen.save_failed', `Failed to save generated images: ${err.message}`);
                 }
