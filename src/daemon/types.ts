@@ -1,7 +1,7 @@
 // ─── Agent Enums ───
 
 export type AgentStatus = 'idle' | 'running' | 'paused' | 'error' | 'disabled';
-export type TriggerType = 'schedule' | 'manual' | 'spawn' | 'delegate' | `signal:${string}`;
+export type TriggerType = 'schedule' | 'manual' | 'subrun' | 'delegate' | `signal:${string}`;
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // ─── IPC: Parent → Child ───
@@ -14,9 +14,10 @@ export type ParentMessage =
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string; images?: IpcImage[] }
   | { type: 'signal'; name: string; payload: unknown }
-  | { type: 'spawn_result'; requestId: string; summary: string; error?: string }
-  | { type: 'delegate_result'; requestId: string; summary: string; runId?: string; error?: string; tokens?: { input: number; output: number; cost: number }; images?: IpcImage[] }
-  | { type: 'supervisor_result'; requestId: string; result: unknown; error?: string };
+  | { type: 'subrun_result'; requestId: string; runId: string; summary: string; error?: string }
+  | { type: 'delegate_result'; requestId: string; summary: string; runId: string; error?: string; tokens?: { input: number; output: number; cost: number }; images?: IpcImage[] }
+  | { type: 'supervisor_result'; requestId: string; result: unknown; error?: string }
+  | { type: 'wait_result'; requestId: string; completed: Record<string, { summary: string; error?: string }>; pending: string[] };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───
 
@@ -29,7 +30,8 @@ export type ChildMessage =
       tokens: { input: number; output: number; cost: number };
       images?: IpcImage[] }
   | { type: 'signal_emit'; name: string; payload: unknown }
-  | { type: 'spawn_request'; requestId: string; input: string; system_prompt?: string; tools?: string[]; max_turns?: number; timeout_ms?: number }
-  | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string; continueRun?: boolean }
+  | { type: 'subrun_request'; requestId: string; input: string; tools?: string[]; max_turns?: number; timeout_ms?: number; run_id?: string; background?: boolean }
+  | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string; run_id?: string; background?: boolean }
   | { type: 'supervisor_request'; requestId: string; action: string; params: Record<string, unknown> }
+  | { type: 'wait_request'; requestId: string; run_ids?: string[]; timeout_ms?: number }
   | { type: 'error'; error: string; stack?: string };

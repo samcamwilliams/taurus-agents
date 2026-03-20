@@ -6,7 +6,8 @@ export interface DelegateRequest {
   targetAgent: string;
   input: string;
   context?: string;
-  continueRun?: boolean;
+  run_id?: string;
+  background?: boolean;
 }
 
 export interface DelegateResult {
@@ -20,16 +21,16 @@ export interface DelegateResult {
 /**
  * DelegateTool — delegates a task to a named child agent.
  *
- * Unlike Spawn (same agent, same container), Delegate targets a different agent
- * with its own container, prompt, tools, and persistent state. The parent blocks
- * until the child run completes.
+ * Unlike Subrun (same agent, same container), Delegate targets a different agent
+ * with its own container, prompt, tools, and persistent state. Blocks until the
+ * child run completes by default. Set background=true to dispatch asynchronously.
  *
  * The sendRequest/waitForResult callbacks are injected by the worker.
  */
 export class DelegateTool extends Tool {
   readonly name = 'Delegate';
   readonly group = 'Supervisor';
-  readonly description = 'Delegate a task to a named child agent. The child agent runs in its own container with its own prompt, tools, and persistent workspace. Use this to assign work to specialists in your team. Blocks until the child completes and returns the result. Set continue=true to resume the child\'s latest run instead of starting fresh — the child keeps its full conversation history and picks up where it left off.';
+  readonly description = 'Delegate a task to a named child agent. The child runs in its own container with its own prompt, tools, and workspace. Set background=true to dispatch asynchronously and get the run_id back immediately. Provide run_id to resume a specific previous run.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,
@@ -46,9 +47,13 @@ export class DelegateTool extends Tool {
         type: 'string',
         description: 'Optional additional context to include (e.g., results from a prior delegation).',
       },
-      continue: {
+      run_id: {
+        type: 'string',
+        description: 'Resume a specific previous run instead of starting a new one.',
+      },
+      background: {
         type: 'boolean',
-        description: 'If true, continue the child\'s most recent run instead of starting a new one. The child retains its full conversation history.',
+        description: 'Run in the background (default: false). Returns immediately with run_id. Use the Wait tool to collect results later.',
       },
     },
     required: ['agent', 'task'],
@@ -66,7 +71,7 @@ export class DelegateTool extends Tool {
     this.waitForResult = waitForResult;
   }
 
-  async execute(input: { agent: string; task: string; context?: string; continue?: boolean }, _context: ToolContext): Promise<ToolResult> {
+  async execute(input: { agent: string; task: string; context?: string; run_id?: string; background?: boolean }, _context: ToolContext): Promise<ToolResult> {
     const requestId = crypto.randomUUID();
 
     const message = input.context
@@ -77,7 +82,8 @@ export class DelegateTool extends Tool {
       requestId,
       targetAgent: input.agent,
       input: message,
-      continueRun: input.continue,
+      run_id: input.run_id,
+      background: input.background,
     });
 
     const result = await this.waitForResult(requestId);

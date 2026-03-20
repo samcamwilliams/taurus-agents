@@ -6,7 +6,7 @@ export const DEFAULT_LIMIT_OUTPUT_TOKENS = 16_000;
 export const DEFAULT_MAX_TURNS = 0;       // 0 = unlimited
 export const DEFAULT_TIMEOUT_MS = 300_000; // 5 minutes
 
-export const DEFAULT_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebSearch', 'WebFetch', 'Browser', 'Pause', 'Notify', 'Spawn'];
+export const DEFAULT_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebSearch', 'WebFetch', 'Browser', 'Pause', 'Notify', 'Subrun', 'Wait'];
 export const READ_ONLY_TOOLS = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Notify'];
 export const SUPERVISOR_TOOLS = ['Delegate', 'Supervisor'];
 

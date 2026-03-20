@@ -17,9 +17,10 @@ import { WebSearchTool } from './web/web-search.js';
 import { BrowserTool } from './web/browser.js';
 import { PauseTool } from './control/pause.js';
 import { NotifyTool } from './control/notify.js';
-import { SpawnTool } from './control/spawn.js';
+import { SubrunTool } from './control/subrun.js';
 import { DelegateTool } from './control/delegate.js';
 import { SupervisorTool } from './control/supervisor.js';
+import { WaitTool } from './control/wait.js';
 import { FileTracker } from './shell/file-tracker.js';
 
 const noop: any = () => {};
@@ -37,7 +38,8 @@ const ALL_TOOLS: Tool[] = [
   new BrowserTool(stub),
   new PauseTool(noop, noop),
   new NotifyTool(noop),
-  new SpawnTool(noop, noop),
+  new SubrunTool(noop, noop),
+  new WaitTool(noop, noop),
   new DelegateTool(noop, noop),
   new SupervisorTool(noop, noop),
 ];

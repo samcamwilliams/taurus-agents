@@ -9,7 +9,7 @@ Self-hosted multi-agent platform. Each agent runs in an isolated Docker containe
 - **Shared volumes** — child agents automatically mount the parent's `/shared` volume for inter-agent file sharing
 - **Web UI** — real-time streaming of LLM thinking/text/tool output, file editor (Monaco) with data table and markdown views, interactive terminal (xterm.js), agent configuration
 - **Mobile-friendly PWA** — installable Taurus dashboard with responsive drawers, safer mobile viewport handling, and browser/PWA notifications
-- **15 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Notify, Spawn, Delegate, Supervisor)
+- **16 built-in tools** — file ops (Read, Write, Edit, Glob, Grep), shell (Bash), web (WebFetch, WebSearch, Browser), control (Pause, Notify, Subrun, Wait, Delegate, Supervisor)
 - **Multi-provider** — Anthropic (default), OpenAI, OpenRouter (access to DeepSeek, Llama, etc.)
 - **Scheduling** — cron-based with overlap modes (skip, queue, kill)
 - **Composable prompts** — `{{include:path}}` directive to include reusable prompt fragments from `resources/prompts/`
@@ -91,8 +91,9 @@ Set the corresponding API key in `.env` for each provider you use.
 | Bash | exec | Run shell commands in the persistent container shell |
 | Pause | control | Pause execution, wait for human input |
 | Notify | control | Send a notification to Taurus web/PWA clients |
-| Spawn | control | Spawn sub-agents for parallel work |
-| Delegate | control | Delegate a task to a child agent and wait for the result |
+| Subrun | control | Run subtasks in the same container with a separate conversation |
+| Wait | control | Wait for background runs to complete, or sleep for a duration |
+| Delegate | control | Delegate a task to a child agent (sync or background) |
 | Supervisor | control | Manage child agents: create, update, delete, inspect, inject messages, stop runs |
 | WebSearch | web | Search via Brave Search API |
 | WebFetch | web | Fetch and extract web page content |
@@ -133,8 +134,9 @@ agency                          (supervisor)
 └── editor                      (child agent)
 ```
 
-- **Delegate** — send a task to a child agent and block until it completes
+- **Delegate** — send a task to a child agent (blocks by default, or set `background: true` for async dispatch)
 - **Supervisor** — create, update, delete, inspect, and control child agents
+- **Wait** — wait for background runs to complete, with optional timeout
 - **Shared volumes** — all agents in a tree share a `/shared` volume for passing files between agents
 - **Scoped access** — agents can only manage their direct children, not siblings or ancestors
 

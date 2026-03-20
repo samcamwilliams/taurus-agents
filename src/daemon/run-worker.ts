@@ -40,9 +40,10 @@ import sharp from 'sharp';
 import { checkBudget, type BudgetContext } from '../core/budget.js';
 import { expandSystemPrompt } from '../core/prompt.js';
 import User from '../db/models/User.js';
-import { SpawnTool, type SpawnRequest, type SpawnResult } from '../tools/control/spawn.js';
+import { SubrunTool, type SubrunRequest, type SubrunResult } from '../tools/control/subrun.js';
 import { DelegateTool, type DelegateRequest, type DelegateResult } from '../tools/control/delegate.js';
 import { SupervisorTool } from '../tools/control/supervisor.js';
+import { WaitTool, type WaitRequest, type WaitResult } from '../tools/control/wait.js';
 
 // ── IPC helpers ──
 
@@ -82,17 +83,17 @@ function emitNotification(payload: NotifyPayload): void {
   send({ type: 'signal_emit', name: 'notify', payload });
 }
 
-// ── Spawn machinery ──
+// ── Subrun machinery ──
 
-const spawnResolvers = new Map<string, (result: SpawnResult) => void>();
+const subrunResolvers = new Map<string, (result: SubrunResult) => void>();
 
-function sendSpawnRequest(request: SpawnRequest): void {
-  send({ type: 'spawn_request', ...request });
+function sendSubrunRequest(request: SubrunRequest): void {
+  send({ type: 'subrun_request', ...request });
 }
 
-function waitForSpawnResult(requestId: string): Promise<SpawnResult> {
+function waitForSubrunResult(requestId: string): Promise<SubrunResult> {
   return new Promise((resolve) => {
-    spawnResolvers.set(requestId, resolve);
+    subrunResolvers.set(requestId, resolve);
   });
 }
 
@@ -107,6 +108,20 @@ function sendDelegateRequest(request: DelegateRequest): void {
 function waitForDelegateResult(requestId: string): Promise<DelegateResult> {
   return new Promise((resolve) => {
     delegateResolvers.set(requestId, resolve);
+  });
+}
+
+// ── Wait machinery ──
+
+const waitResolvers = new Map<string, (result: WaitResult) => void>();
+
+function sendWaitRequest(request: WaitRequest): void {
+  send({ type: 'wait_request', ...request });
+}
+
+function waitForWaitResult(requestId: string): Promise<WaitResult> {
+  return new Promise((resolve) => {
+    waitResolvers.set(requestId, resolve);
   });
 }
 
@@ -151,7 +166,8 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   Browser:   (s) => new BrowserTool(s),
   Pause:     ()  => new PauseTool(sendPause, waitForResume),
   Notify:    ()  => new NotifyTool(emitNotification),
-  Spawn:     ()  => new SpawnTool(sendSpawnRequest, waitForSpawnResult),
+  Subrun:    ()  => new SubrunTool(sendSubrunRequest, waitForSubrunResult),
+  Wait:      ()  => new WaitTool(sendWaitRequest, waitForWaitResult),
   Delegate:  ()  => new DelegateTool(sendDelegateRequest, waitForDelegateResult),
   Supervisor: () => new SupervisorTool(sendSupervisorRequest, waitForSupervisorResult),
   WebFetch:  ()  => new WebFetchTool(),
@@ -437,8 +453,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
 
   // 5. Register tools
   // Pause is the agent's safety valve to ask for human input.
-  // Spawn/delegate children never get Pause (nobody can resume them — deadlock).
-  const ALWAYS_ON_TOOLS = (trigger === 'spawn' || trigger === 'delegate') ? [] : ['Pause'];
+  // Subrun/delegate children never get Pause (nobody can resume them — deadlock).
+  const ALWAYS_ON_TOOLS = (trigger === 'subrun' || trigger === 'delegate') ? [] : ['Pause'];
   const TOOL_GROUPS: Record<string, string[]> = {
     supervisor: ['Delegate', 'Supervisor'],
   };
@@ -741,11 +757,11 @@ process.on('message', async (msg: ParentMessage) => {
       log('info', 'agent.inject', `Message queued for next turn: ${msg.message}`);
       break;
 
-    case 'spawn_result': {
-      const resolver = spawnResolvers.get(msg.requestId);
+    case 'subrun_result': {
+      const resolver = subrunResolvers.get(msg.requestId);
       if (resolver) {
-        spawnResolvers.delete(msg.requestId);
-        resolver({ summary: msg.summary, error: msg.error });
+        subrunResolvers.delete(msg.requestId);
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error });
       }
       break;
     }
@@ -764,6 +780,15 @@ process.on('message', async (msg: ParentMessage) => {
       if (resolver) {
         supervisorResolvers.delete(msg.requestId);
         resolver({ result: msg.result, error: msg.error });
+      }
+      break;
+    }
+
+    case 'wait_result': {
+      const resolver = waitResolvers.get(msg.requestId);
+      if (resolver) {
+        waitResolvers.delete(msg.requestId);
+        resolver({ completed: msg.completed, pending: msg.pending });
       }
       break;
     }

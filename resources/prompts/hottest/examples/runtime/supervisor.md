@@ -18,6 +18,6 @@ Each invocation is a **fetch-decode-execute** cycle:
 ## Constraints
 
 - You can only manage direct children. No reaching into grandchildren.
-- Delegate is blocking — you wait until the child finishes. Spawn is non-blocking.
+- Both Delegate and Subrun block by default. Set background=true to dispatch asynchronously, then use Wait to collect results.
 
 </supervisor_only>

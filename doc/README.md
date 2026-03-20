@@ -52,7 +52,10 @@ A run is a single execution of an agent. It contains a sequence of messages (use
 | Bash | exec | Run shell commands |
 | Pause | control | Pause execution, wait for human input |
 | Notify | control | Send a notification to Taurus web/PWA clients |
-| Spawn | control | Spawn sub-agents |
+| Subrun | control | Run subtasks in the same container |
+| Wait | control | Wait for background runs or sleep |
+| Delegate | control | Delegate a task to a child agent |
+| Supervisor | control | Manage child agents |
 | WebSearch | web | Brave Search API |
 | WebFetch | web | Fetch and extract web pages |
 | Browser | web | Control a headless Chromium browser (Playwright) |
@@ -106,7 +109,7 @@ src/
     registry.ts         # Tool registration + execution
     shell/              # File and exec tools (Read, Write, Edit, Glob, Grep, Bash)
     web/                # Web tools (WebFetch, WebSearch, Browser)
-    control/            # Control tools (Pause, Notify, Spawn)
+    control/            # Control tools (Pause, Notify, Subrun, Wait, Delegate, Supervisor)
   server/
     server.ts           # HTTP server + routing
     ws.ts               # WebSocket terminal (persistent sessions with replay)

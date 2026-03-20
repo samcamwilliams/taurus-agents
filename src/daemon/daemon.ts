@@ -40,12 +40,11 @@ interface ManagedRun {
   runId: string;
   process: ChildProcess;
   parentRunId: string | null;
-  /** Set on spawn children — used to route spawn_result back to the parent worker */
-  spawnRequestId: string | null;
-  /** Set on delegate children — used to route delegate_result back to the delegator's worker */
-  delegateRequestId: string | null;
-  delegatorAgentId: string | null;
-  delegatorRunId: string | null;
+  /** IPC routing — who to send the result back to when this run completes */
+  callerRequestId: string | null;
+  callerType: 'subrun' | 'delegate' | null;
+  callerAgentId: string | null;   // delegate only — the agent that dispatched this
+  callerRunId: string | null;     // delegate only — the run that dispatched this
   status: 'running' | 'paused';
 }
 
@@ -485,10 +484,10 @@ export class Daemon {
       runId,
       process: child,
       parentRunId,
-      spawnRequestId: null,
-      delegateRequestId: null,
-      delegatorAgentId: null,
-      delegatorRunId: null,
+      callerRequestId: null,
+      callerType: null,
+      callerAgentId: null,
+      callerRunId: null,
       status: 'running',
     });
 
@@ -838,38 +837,11 @@ export class Daemon {
         // Notify waiters synchronously before any awaits — prevents race with handleChildExit
         this.notifyRunCompletion(runId, { summary: msg.summary, error: msg.error, tokens: msg.tokens });
 
-        // If this is a spawn child, route result back to the parent worker
+        // Route result back to the caller (subrun parent or delegator)
         const completedRun = managed.runs.get(runId);
-        if (completedRun?.spawnRequestId && completedRun.parentRunId) {
-          const parentRun = managed.runs.get(completedRun.parentRunId);
-          if (parentRun) {
-            parentRun.process.send({
-              type: 'spawn_result',
-              requestId: completedRun.spawnRequestId,
-              summary: msg.summary,
-              error: msg.error,
-            } as ParentMessage);
-          }
-          // Clear so handleChildExit doesn't double-send
-          completedRun.spawnRequestId = null;
-        }
-
-        // If this is a delegate child, route result back to the delegator's worker (cross-agent)
-        if (completedRun?.delegateRequestId && completedRun.delegatorAgentId) {
-          const delegatorManaged = this.agents.get(completedRun.delegatorAgentId);
-          const delegatorRun = delegatorManaged?.runs.get(completedRun.delegatorRunId!);
-          if (delegatorRun) {
-            delegatorRun.process.send({
-              type: 'delegate_result',
-              requestId: completedRun.delegateRequestId,
-              summary: msg.summary,
-              runId,
-              error: msg.error,
-              tokens: msg.tokens,
-              images: msg.images,
-            } as ParentMessage);
-          }
-          completedRun.delegateRequestId = null;
+        if (completedRun?.callerRequestId) {
+          this.routeResultToCaller(completedRun, agentId, runId, msg.summary, msg.error, msg.tokens, msg.images);
+          completedRun.callerRequestId = null;
         }
 
         await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed', msg.error || undefined);
@@ -887,13 +859,12 @@ export class Daemon {
         break;
       }
 
-      case 'spawn_request':
-        this.handleSpawnRequest(agentId, runId, msg).catch((err: any) => {
-          this.logger('error', `[${managed.agent.name}] Spawn failed: ${err.message}`);
-          // Notify the parent worker that the spawn failed
+      case 'subrun_request':
+        this.handleSubrunRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Subrun failed: ${err.message}`);
           const parentRun = managed.runs.get(runId);
           if (parentRun) {
-            parentRun.process.send({ type: 'spawn_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
+            parentRun.process.send({ type: 'subrun_result', requestId: msg.requestId, runId: '', summary: '', error: err.message } as ParentMessage);
           }
         });
         break;
@@ -903,7 +874,7 @@ export class Daemon {
           this.logger('error', `[${managed.agent.name}] Delegate failed: ${err.message}`);
           const callerRun = managed.runs.get(runId);
           if (callerRun) {
-            callerRun.process.send({ type: 'delegate_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
+            callerRun.process.send({ type: 'delegate_result', requestId: msg.requestId, runId: '', summary: '', error: err.message } as ParentMessage);
           }
         });
         break;
@@ -911,6 +882,16 @@ export class Daemon {
       case 'supervisor_request':
         this.handleSupervisorRequest(agentId, runId, msg).catch((err: any) => {
           this.logger('error', `[${managed.agent.name}] Supervisor request failed: ${err.message}`);
+        });
+        break;
+
+      case 'wait_request':
+        this.handleWaitRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Wait failed: ${err.message}`);
+          const callerRun = managed.runs.get(runId);
+          if (callerRun) {
+            callerRun.process.send({ type: 'wait_result', requestId: msg.requestId, completed: {}, pending: [], } as unknown as ParentMessage);
+          }
         });
         break;
 
@@ -949,35 +930,11 @@ export class Daemon {
         this.logger('error', `[${managed.agent.name}] Error: ${msg.error}`);
         this.notifyRunCompletion(runId, { summary: '', error: msg.error });
 
-        // Route error to parent if this is a spawn child
+        // Route error to caller (subrun parent or delegator)
         const erroredRun = managed.runs.get(runId);
-        if (erroredRun?.spawnRequestId && erroredRun.parentRunId) {
-          const parentRun = managed.runs.get(erroredRun.parentRunId);
-          if (parentRun) {
-            parentRun.process.send({
-              type: 'spawn_result',
-              requestId: erroredRun.spawnRequestId,
-              summary: '',
-              error: msg.error,
-            } as ParentMessage);
-          }
-          erroredRun.spawnRequestId = null;
-        }
-
-        // Route error to delegator if this is a delegate child (cross-agent)
-        if (erroredRun?.delegateRequestId && erroredRun.delegatorAgentId) {
-          const delegatorManaged = this.agents.get(erroredRun.delegatorAgentId);
-          const delegatorRun = delegatorManaged?.runs.get(erroredRun.delegatorRunId!);
-          if (delegatorRun) {
-            delegatorRun.process.send({
-              type: 'delegate_result',
-              requestId: erroredRun.delegateRequestId,
-              summary: '',
-              runId,
-              error: msg.error,
-            } as ParentMessage);
-          }
-          erroredRun.delegateRequestId = null;
+        if (erroredRun?.callerRequestId) {
+          this.routeResultToCaller(erroredRun, agentId, runId, '', msg.error);
+          erroredRun.callerRequestId = null;
         }
 
         await this.updateRunStatus(agentId, runId, 'error', msg.error);
@@ -993,10 +950,10 @@ export class Daemon {
     }
   }
 
-  private async handleSpawnRequest(
+  private async handleSubrunRequest(
     agentId: string,
     parentRunId: string,
-    msg: { requestId: string; input: string; system_prompt?: string; tools?: string[]; max_turns?: number; timeout_ms?: number },
+    msg: { requestId: string; input: string; tools?: string[]; max_turns?: number; timeout_ms?: number; run_id?: string; background?: boolean },
   ): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
@@ -1004,42 +961,80 @@ export class Daemon {
     // Container is already running (parent is active) — no ensureContainer needed
 
     // Enforce tool subsetting: child tools must be a subset of the parent agent's tools.
-    // Any tools not in the parent's set are silently dropped.
     const parentTools = new Set(managed.agent.tools as string[]);
     const childTools = msg.tools
       ? msg.tools.filter(t => parentTools.has(t))
       : undefined; // undefined = inherit parent's full set
 
-    const childRun = await Run.create({
-      cwd: managed.agent.cwd,
-      model: managed.agent.model,
-      agent_id: agentId,
-      trigger: 'manual',
-      parent_run_id: parentRunId,
-    });
+    let runId: string;
 
-    await this.forkWorker(agentId, childRun.id, parentRunId, {
-      type: 'start',
-      agentId,
-      runId: childRun.id,
-      trigger: 'spawn',
-      input: msg.input,
-      tools: childTools,
-    });
+    if (msg.run_id) {
+      // Resume an existing subrun
+      const existingRun = await Run.findByPk(msg.run_id);
+      if (!existingRun) throw new Error(`Run not found: ${msg.run_id}`);
+      if (existingRun.agent_id !== agentId) throw new Error(`Run ${msg.run_id} does not belong to this agent`);
 
-    // Tag the child run so we can route the result back
-    const childManagedRun = managed.runs.get(childRun.id);
-    if (childManagedRun) {
-      childManagedRun.spawnRequestId = msg.requestId;
+      const activeRun = managed.runs.get(msg.run_id);
+      if (activeRun) throw new Error(`Subrun ${msg.run_id} is already running`);
+
+      runId = msg.run_id;
+      await this.forkWorker(agentId, runId, parentRunId, {
+        type: 'start',
+        agentId,
+        runId,
+        trigger: 'subrun',
+        input: msg.input,
+        tools: childTools,
+        resume: true,
+      });
+    } else {
+      // Start a fresh subrun
+      const childRun = await Run.create({
+        cwd: managed.agent.cwd,
+        model: managed.agent.model,
+        agent_id: agentId,
+        trigger: 'manual',
+        parent_run_id: parentRunId,
+      });
+      runId = childRun.id;
+
+      await this.forkWorker(agentId, runId, parentRunId, {
+        type: 'start',
+        agentId,
+        runId,
+        trigger: 'subrun',
+        input: msg.input,
+        tools: childTools,
+      });
     }
 
-    this.logger('info', `[${managed.agent.name}] Spawned child run ${childRun.id} (parent: ${parentRunId})`);
+    const childManagedRun = managed.runs.get(runId);
+    if (childManagedRun) {
+      if (msg.background) {
+        // Background mode: respond immediately, don't tag for routing
+        const callerRun = managed.runs.get(parentRunId);
+        if (callerRun) {
+          callerRun.process.send({
+            type: 'subrun_result',
+            requestId: msg.requestId,
+            runId,
+            summary: '',
+          } as ParentMessage);
+        }
+      } else {
+        // Blocking mode: tag so run_complete routes the result back
+        childManagedRun.callerRequestId = msg.requestId;
+        childManagedRun.callerType = 'subrun';
+      }
+    }
+
+    this.logger('info', `[${managed.agent.name}] Subrun ${runId} (parent: ${parentRunId}${msg.background ? ', background' : ''})`);
   }
 
   private async handleDelegateRequest(
     callerAgentId: string,
     callerRunId: string,
-    msg: { requestId: string; targetAgent: string; input: string; context?: string; continueRun?: boolean },
+    msg: { requestId: string; targetAgent: string; input: string; context?: string; run_id?: string; background?: boolean },
   ): Promise<void> {
     // Resolve target: must be a direct child of the caller
     const targetAgent = this.findChildByName(callerAgentId, msg.targetAgent);
@@ -1056,24 +1051,16 @@ export class Daemon {
 
     let runId: string;
 
-    if (msg.continueRun) {
-      // Continue the child's most recent run
-      const latestRuns = await Run.findAll({
-        where: { agent_id: targetAgent.id },
-        order: [['created_at', 'DESC']],
-        limit: 1,
-      });
-      if (latestRuns.length === 0) {
-        throw new Error(`Agent "${msg.targetAgent}" has no runs to continue`);
-      }
-      runId = latestRuns[0].id;
+    if (msg.run_id) {
+      // Resume a specific run
+      const existingRun = await Run.findByPk(msg.run_id);
+      if (!existingRun) throw new Error(`Run not found: ${msg.run_id}`);
+      if (existingRun.agent_id !== targetAgent.id) throw new Error(`Run ${msg.run_id} does not belong to agent "${msg.targetAgent}"`);
 
-      // Check if there's already an active worker for this run
-      const activeRun = targetManaged.runs.get(runId);
-      if (activeRun) {
-        throw new Error(`Agent "${msg.targetAgent}" is already running (run ${runId})`);
-      }
+      const activeRun = targetManaged.runs.get(msg.run_id);
+      if (activeRun) throw new Error(`Agent "${msg.targetAgent}" is already running (run ${msg.run_id})`);
 
+      runId = msg.run_id;
       await this.forkWorker(targetAgent.id, runId, callerRunId, {
         type: 'start',
         agentId: targetAgent.id,
@@ -1105,14 +1092,30 @@ export class Daemon {
     // Tag the child run for cross-agent routing
     const childManagedRun = targetManaged.runs.get(runId);
     if (childManagedRun) {
-      childManagedRun.delegateRequestId = msg.requestId;
-      childManagedRun.delegatorAgentId = callerAgentId;
-      childManagedRun.delegatorRunId = callerRunId;
+      if (msg.background) {
+        // Background mode: respond immediately, don't tag for routing
+        const callerManaged = this.agents.get(callerAgentId);
+        const callerRun = callerManaged?.runs.get(callerRunId);
+        if (callerRun) {
+          callerRun.process.send({
+            type: 'delegate_result',
+            requestId: msg.requestId,
+            summary: '',
+            runId,
+          } as ParentMessage);
+        }
+      } else {
+        // Blocking mode: tag so run_complete routes the result back
+        childManagedRun.callerRequestId = msg.requestId;
+        childManagedRun.callerType = 'delegate';
+        childManagedRun.callerAgentId = callerAgentId;
+        childManagedRun.callerRunId = callerRunId;
+      }
     }
 
     const callerManaged = this.agents.get(callerAgentId);
-    const action = msg.continueRun ? 'Continued delegation' : 'Delegated';
-    this.logger('info', `[${callerManaged?.agent.name}] ${action} to "${msg.targetAgent}" → run ${runId}`);
+    const action = msg.run_id ? 'Resumed delegation' : 'Delegated';
+    this.logger('info', `[${callerManaged?.agent.name}] ${action} to "${msg.targetAgent}" → run ${runId}${msg.background ? ' (background)' : ''}`);
   }
 
   /**
@@ -1271,6 +1274,144 @@ export class Daemon {
     }
   }
 
+  private async handleWaitRequest(
+    agentId: string,
+    callerRunId: string,
+    msg: { requestId: string; run_ids?: string[]; timeout_ms?: number },
+  ): Promise<void> {
+    const managed = this.agents.get(agentId);
+    if (!managed) throw new Error(`Agent not found: ${agentId}`);
+
+    const callerRun = managed.runs.get(callerRunId);
+    if (!callerRun) throw new Error(`Caller run not found: ${callerRunId}`);
+
+    const timeoutMs = msg.timeout_ms ?? 300_000;
+
+    if (!msg.run_ids?.length) {
+      // Pure sleep mode
+      await new Promise(resolve => setTimeout(resolve, timeoutMs));
+      callerRun.process.send({
+        type: 'wait_result',
+        requestId: msg.requestId,
+        completed: {},
+        pending: [],
+      } as ParentMessage);
+      return;
+    }
+
+    // Validate ownership: each run must belong to caller (subrun) or a direct child (delegate)
+    for (const rid of msg.run_ids) {
+      const run = await Run.findByPk(rid);
+      if (!run) throw new Error(`Run not found: ${rid}`);
+      if (run.agent_id === agentId) {
+        // Subrun — must have a parent_run_id (i.e., not a top-level run)
+        if (!run.parent_run_id) throw new Error(`Run ${rid} is not a subrun of this agent`);
+      } else {
+        // Delegate — must belong to a direct child
+        const runAgent = run.agent_id ? await Agent.findByPk(run.agent_id) : null;
+        if (!runAgent || runAgent.parent_agent_id !== agentId) {
+          throw new Error(`Run ${rid} does not belong to a child of this agent`);
+        }
+      }
+    }
+
+    const completed: Record<string, { summary: string; error?: string }> = {};
+    const pending: string[] = [];
+
+    // Set up a timeout race
+    const deadline = Date.now() + timeoutMs;
+    const completionPromises: Promise<void>[] = [];
+
+    for (const rid of msg.run_ids) {
+      // Check if run is still active in any agent's managed runs
+      let isActive = false;
+      for (const m of this.agents.values()) {
+        if (m.runs.has(rid)) { isActive = true; break; }
+      }
+
+      if (!isActive) {
+        // Already completed — pull from DB
+        const run = await Run.findByPk(rid);
+        completed[rid] = {
+          summary: run?.run_summary ?? 'Run completed.',
+          error: run?.run_error ?? undefined,
+        };
+      } else {
+        // Still running — set up a completion waiter
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          pending.push(rid);
+          continue;
+        }
+
+        completionPromises.push(
+          this.awaitRunCompletion(rid, remaining).then(r => {
+            completed[rid] = { summary: r.summary, error: r.error };
+          }).catch(() => {
+            pending.push(rid);
+          })
+        );
+
+        // Race condition fix: if run completed between isActive check and waiter setup,
+        // the waiter would never fire. Re-check and manually notify if needed.
+        let stillActive = false;
+        for (const m of this.agents.values()) {
+          if (m.runs.has(rid)) { stillActive = true; break; }
+        }
+        if (!stillActive) {
+          const run = await Run.findByPk(rid);
+          this.notifyRunCompletion(rid, {
+            summary: run?.run_summary ?? 'Run completed.',
+            error: run?.run_error ?? undefined,
+          });
+        }
+      }
+    }
+
+    if (completionPromises.length > 0) {
+      await Promise.all(completionPromises);
+    }
+
+    callerRun.process.send({
+      type: 'wait_result',
+      requestId: msg.requestId,
+      completed,
+      pending,
+    } as ParentMessage);
+  }
+
+  /** Send a result (success or error) back to the caller that dispatched this run. */
+  private routeResultToCaller(
+    run: ManagedRun, agentId: string, runId: string,
+    summary: string, error?: string, tokens?: any, images?: any,
+  ): void {
+    const resultType = run.callerType === 'subrun' ? 'subrun_result' : 'delegate_result';
+
+    // Find the caller's worker process
+    let callerProcess: ChildProcess | undefined;
+    if (run.callerType === 'subrun') {
+      // Subrun: caller is in the same agent, identified by parentRunId
+      const parentRun = this.agents.get(agentId)?.runs.get(run.parentRunId!);
+      callerProcess = parentRun?.process;
+    } else {
+      // Delegate: caller is in a different agent
+      const callerManaged = this.agents.get(run.callerAgentId!);
+      const callerRun = callerManaged?.runs.get(run.callerRunId!);
+      callerProcess = callerRun?.process;
+    }
+
+    if (callerProcess) {
+      callerProcess.send({
+        type: resultType,
+        requestId: run.callerRequestId,
+        runId,
+        summary,
+        error,
+        ...(run.callerType === 'delegate' ? { tokens, images } : {}),
+      } as ParentMessage);
+    }
+  }
+
   private handleChildExit(agentId: string, runId: string, code: number | null): void {
     const managed = this.agents.get(agentId);
     if (!managed) return;
@@ -1278,34 +1419,10 @@ export class Daemon {
     const exitedRun = managed.runs.get(runId);
     managed.runs.delete(runId);
 
-    // If this was a spawn child, route result back to the parent worker
-    if (exitedRun?.spawnRequestId && exitedRun.parentRunId) {
-      const parentRun = managed.runs.get(exitedRun.parentRunId);
-      if (parentRun) {
-        // The actual summary comes from run_complete IPC (handled in handleChildMessage).
-        // This is the fallback for abnormal exits.
-        parentRun.process.send({
-          type: 'spawn_result',
-          requestId: exitedRun.spawnRequestId,
-          summary: '',
-          error: code === 0 ? undefined : `Spawn child exited with code ${code}`,
-        } as ParentMessage);
-      }
-    }
-
-    // If this was a delegate child, route fallback result to the delegator (cross-agent)
-    if (exitedRun?.delegateRequestId && exitedRun.delegatorAgentId) {
-      const delegatorManaged = this.agents.get(exitedRun.delegatorAgentId);
-      const delegatorRun = delegatorManaged?.runs.get(exitedRun.delegatorRunId!);
-      if (delegatorRun) {
-        delegatorRun.process.send({
-          type: 'delegate_result',
-          requestId: exitedRun.delegateRequestId,
-          summary: '',
-          runId,
-          error: code === 0 ? undefined : `Delegate child exited with code ${code}`,
-        } as ParentMessage);
-      }
+    // Fallback: route result to caller if run_complete didn't already handle it
+    if (exitedRun?.callerRequestId) {
+      const errorMsg = code === 0 ? undefined : `${exitedRun.callerType === 'subrun' ? 'Subrun' : 'Delegate'} child exited with code ${code}`;
+      this.routeResultToCaller(exitedRun, agentId, runId, '', errorMsg);
     }
 
     // Cascade kill: stop any child runs whose parent just died
@@ -1346,12 +1463,12 @@ export class Daemon {
     });
   }
 
-  /** Derive agent status from top-level runs (spawn children are internal to their parent) */
+  /** Derive agent status from top-level runs (subrun children are internal to their parent) */
   private async deriveAgentStatus(agentId: string): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) return;
 
-    // Only consider top-level runs — spawn children don't affect agent status
+    // Only consider top-level runs — subrun children don't affect agent status
     const topLevelRuns = [...managed.runs.values()].filter(r => !r.parentRunId);
 
     let newStatus: AgentStatus;
