@@ -20,7 +20,7 @@ import { UserMenu } from '../components/UserMenu';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, Download } from 'lucide-react';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -95,7 +95,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const { theme } = useTheme();
   const conn = useConnectionStatus();
   const isMobile = useIsMobile();
-  const { canInstall, isInstalled, install, installLabel, installHelpText } = usePwaInstall();
+  const { isInstalled, install, installLabel, installHelpText } = usePwaInstall();
   const notifications = useAgentNotifications(showToast);
 
   // Remember last selected run per agent so switching back restores it
@@ -726,7 +726,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
               <div className="panel-header">
                 <div className="panel-header__info" />
                 <div className="panel-header__actions">
-                  <UserMenu onLogout={onLogout} />
+                  <UserMenu onLogout={onLogout} onInstall={handleInstall} installLabel={isInstalled ? 'Installed' : installLabel} installDisabled={isInstalled} />
                 </div>
               </div>
             )}
@@ -797,16 +797,6 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                       <List size={13} />
                     </button>
                   )}
-                  {canInstall && !isInstalled && (
-                    <button
-                      className={`btn${isMobile ? ' btn--sm' : ' icon-btn'}`}
-                      onClick={handleInstall}
-                      title={installLabel}
-                    >
-                      <Download size={13} />
-                      {isMobile && <span>Install</span>}
-                    </button>
-                  )}
                   {notifications.supported && (
                     <button
                       className={`btn icon-btn${notifications.enabled ? ' btn--active' : ''}`}
@@ -817,7 +807,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                     </button>
                   )}
                   <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
-                  {authEnabled && <UserMenu onLogout={onLogout} />}
+                  {authEnabled && <UserMenu onLogout={onLogout} onInstall={handleInstall} installLabel={isInstalled ? 'Installed' : installLabel} installDisabled={isInstalled} />}
                 </div>
               </div>
             </div>

@@ -62,6 +62,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const [value, setValue] = useState(() => drafts.get(draftKey) ?? defaultValue ?? '');
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -118,10 +119,48 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = 'auto';
-    const minHeight = window.matchMedia('(max-width: 900px)').matches ? 44 : 32;
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const minHeight = isMobile ? 34 : 24;
+    el.style.minHeight = `${minHeight}px`;
+
+    if (value.length === 0) {
+      el.style.height = '';
+      return;
+    }
+
+    el.style.height = '0px';
     el.style.height = Math.max(minHeight, Math.min(el.scrollHeight, 200)) + 'px';
   }, [value]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const root = rootRef.current;
+    if (!root) return;
+
+    const updateHeight = () => {
+      const isMobile = window.matchMedia('(max-width: 900px)').matches;
+      if (!isMobile) {
+        document.documentElement.style.setProperty('--mobile-composer-height', '0px');
+        return;
+      }
+
+      document.documentElement.style.setProperty('--mobile-composer-height', `${Math.ceil(root.getBoundingClientRect().height)}px`);
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(root);
+    window.addEventListener('resize', updateHeight);
+    window.visualViewport?.addEventListener('resize', updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+      window.visualViewport?.removeEventListener('resize', updateHeight);
+      document.documentElement.style.setProperty('--mobile-composer-height', '0px');
+    };
+  }, [images.length, value]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -196,7 +235,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   }
 
   return (
-    <div className="input-bar">
+    <div className="input-bar" ref={rootRef}>
       {images.length > 0 && (
         <div className="input-bar__attachments">
           {images.map((img, i) => (
