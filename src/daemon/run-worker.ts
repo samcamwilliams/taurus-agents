@@ -544,7 +544,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
             });
             log('info', 'message.saved', 'assistant');
 
-            // Auto-save generated images to /workspace/runs/{runId}/ so the agent can reference them.
+            // Auto-save generated images to the agent drive (outside bind mount, container can't manipulate).
             // Full-res saved to host filesystem (bind-mounted as /workspace). A resized thumbnail
             // replaces the raw base64 in chatml (prevents 700K+ token bloat) and is accumulated
             // for delegate result IPC so the parent agent can see the image.
@@ -556,19 +556,18 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
               }
               if (imageGenIndices.length > 0) {
                 try {
-                  const hostDir = path.join(drivePath(agent.user_id, agent.id, 'workspace'), 'runs', runId);
-                  fs.mkdirSync(hostDir, { recursive: true });
+                  // Save images to agent drive root (outside bind mount — container can't manipulate)
+                  const imgDir = path.join(drivePath(agent.user_id, agent.id), 'runs', runId);
+                  fs.mkdirSync(imgDir, { recursive: true });
                   const savedPaths: string[] = [];
                   for (let i = 0; i < imageGenIndices.length; i++) {
                     const block = content[imageGenIndices[i]];
                     if (block.type !== 'image_gen') continue;
                     const filename = imageGenIndices.length === 1 ? 'image.png' : `image-${i + 1}.png`;
                     const rawBuf = Buffer.from(block.result, 'base64');
-                    // Save full-res to disk
-                    fs.writeFileSync(path.join(hostDir, filename), rawBuf);
-                    const containerPath = `/workspace/runs/${runId}/${filename}`;
-                    savedPaths.push(containerPath);
-                    log('info', 'image_gen.saved', `Saved generated image to ${containerPath}`);
+                    fs.writeFileSync(path.join(imgDir, filename), rawBuf, { mode: 0o644 });
+                    savedPaths.push(filename);
+                    log('info', 'image_gen.saved', `Saved generated image: ${filename}`);
                     // Resize for in-memory use (chatml + delegate IPC)
                     const thumbBuf = await sharp(rawBuf).resize(512, 512, { fit: 'inside' }).png().toBuffer();
                     const thumbB64 = thumbBuf.toString('base64');
@@ -577,7 +576,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
                     (content[imageGenIndices[i]] as any).result = thumbB64;
                   }
                   // Inject a note so the agent knows where its images were saved
-                  chatml.appendUser([{ type: 'text', text: `[System: generated image${savedPaths.length > 1 ? 's' : ''} saved to ${savedPaths.join(', ')}]` }]);
+                  chatml.appendUser([{ type: 'text', text: `[System: generated image${savedPaths.length > 1 ? 's' : ''} saved to host (${savedPaths.join(', ')}). A resized version is included in the conversation above.]` }]);
                 } catch (err: any) {
                   log('warn', 'image_gen.save_failed', `Failed to save generated images: ${err.message}`);
                 }
