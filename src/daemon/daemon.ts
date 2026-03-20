@@ -560,8 +560,9 @@ export class Daemon {
   async stopAllRuns(agentId: string, reason: string = 'user requested'): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) return;
-    const topLevel = [...managed.runs.values()].filter(r => !r.parentRunId);
-    await Promise.allSettled(topLevel.map(r => this.stopRun(agentId, r.runId, reason)));
+    await Promise.allSettled(
+      [...managed.runs.values()].map(r => this.stopRun(agentId, r.runId, reason)),
+    );
   }
 
   async injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<void> {
