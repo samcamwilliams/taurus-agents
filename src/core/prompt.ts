@@ -71,24 +71,95 @@ function isTruthy(ctx: TemplateContext, key: string): boolean {
   return resolved !== undefined && resolved.length > 0;
 }
 
-/**
- * Process {% if key %}...{% else %}...{% endif %} conditionals.
- * No nesting — inner blocks are processed on the next pass if needed.
- */
+// ── Template tag parser ──
+// Tokenizes {% if %}, {% else %}, {% endif %} tags and plain text segments,
+// then builds a tree that supports arbitrary nesting.
+
+type Tag =
+  | { type: 'text'; value: string }
+  | { type: 'if'; key: string }
+  | { type: 'else' }
+  | { type: 'endif' };
+
+type Node =
+  | { type: 'text'; value: string }
+  | { type: 'if'; key: string; trueBranch: Node[]; falseBranch: Node[] };
+
+// Eat the trailing newline only when the tag is on its own line (no other content).
+const TAG_RE = /^[ \t]*\{%\s*(if\s+[\w.]+|else|endif)\s*%\}[ \t]*\n?|\{%\s*(if\s+[\w.]+|else|endif)\s*%\}/gim;
+
+function tokenize(prompt: string): Tag[] {
+  const tags: Tag[] = [];
+  let last = 0;
+  for (const m of prompt.matchAll(TAG_RE)) {
+    if (m.index > last) tags.push({ type: 'text', value: prompt.slice(last, m.index) });
+    const directive = (m[1] ?? m[2]).toLowerCase();
+    if (directive.startsWith('if ')) {
+      tags.push({ type: 'if', key: directive.slice(3).trim() });
+    } else if (directive === 'else') {
+      tags.push({ type: 'else' });
+    } else {
+      tags.push({ type: 'endif' });
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < prompt.length) tags.push({ type: 'text', value: prompt.slice(last) });
+  return tags;
+}
+
+function parse(tags: Tag[]): Node[] {
+  const nodes: Node[] = [];
+  let i = 0;
+
+  function parseBlock(): Node[] {
+    const block: Node[] = [];
+    while (i < tags.length) {
+      const tag = tags[i];
+      if (tag.type === 'text') {
+        block.push({ type: 'text', value: tag.value });
+        i++;
+      } else if (tag.type === 'if') {
+        i++;
+        const trueBranch = parseBlock();
+        let falseBranch: Node[] = [];
+        if (i < tags.length && tags[i].type === 'else') {
+          i++;
+          falseBranch = parseBlock();
+        }
+        if (i < tags.length && tags[i].type === 'endif') {
+          i++;
+        }
+        block.push({ type: 'if', key: tag.key, trueBranch, falseBranch });
+      } else {
+        // else or endif — boundary for the parent parseBlock call
+        break;
+      }
+    }
+    return block;
+  }
+
+  while (i < tags.length) {
+    nodes.push(...parseBlock());
+  }
+  return nodes;
+}
+
+function evaluate(nodes: Node[], ctx: TemplateContext): string {
+  let out = '';
+  for (const node of nodes) {
+    if (node.type === 'text') {
+      out += node.value;
+    } else {
+      const branch = isTruthy(ctx, node.key) ? node.trueBranch : node.falseBranch;
+      out += evaluate(branch, ctx);
+    }
+  }
+  return out;
+}
+
 function resolveConditionals(prompt: string, ctx: TemplateContext): string {
-  // Match {% if %}...{% endif %} blocks, consuming the newline after each tag line
-  // so that tag-only lines don't leave blank lines in the output.
-  return prompt.replace(
-    /\{%\s*if\s+([\w.]+)\s*%\}\n?([\s\S]*?)\{%\s*endif\s*%\}\n?/gi,
-    (_match, key, body) => {
-      const elseParts = body.split(/\{%\s*else\s*%\}\n?/i);
-      const trueBranch = elseParts[0];
-      const falseBranch = elseParts[1] ?? '';
-      const result = isTruthy(ctx, key) ? trueBranch : falseBranch;
-      // Strip one trailing newline from the chosen branch to avoid double-spacing
-      return result.replace(/\n$/, '');
-    },
-  );
+  if (!prompt.includes('{%')) return prompt;
+  return evaluate(parse(tokenize(prompt)), ctx);
 }
 
 /**
