@@ -494,6 +494,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   // 7. Agent loop
   // Accumulate resized images across turns for delegate result IPC (full-res saved to disk).
   const savedRunImages: IpcImage[] = [];
+  let hitMaxTurns = false;
   try {
     for await (const event of agentLoop({
       chatml,
@@ -653,6 +654,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
           break;
 
         case 'max_turns_reached':
+          hitMaxTurns = true;
           log('warn', 'run.max_turns', `Max turns (${agent.max_turns}) reached`);
           break;
 
@@ -720,7 +722,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   });
 
   // 9. Notify parent (for SSE broadcast) — flush before worker exits
-  await sendAndFlush({ type: 'run_complete', summary, tokens, images: summaryImages });
+  await sendAndFlush({ type: 'run_complete', summary, tokens, images: summaryImages, ...(hitMaxTurns ? { hitMaxTurns: true } : {}) });
 }
 
 // ── IPC message handling ──
@@ -765,7 +767,7 @@ process.on('message', async (msg: ParentMessage) => {
       const resolver = subrunResolvers.get(msg.requestId);
       if (resolver) {
         subrunResolvers.delete(msg.requestId);
-        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error });
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, hitMaxTurns: msg.hitMaxTurns });
       }
       break;
     }
@@ -774,7 +776,7 @@ process.on('message', async (msg: ParentMessage) => {
       const resolver = delegateResolvers.get(msg.requestId);
       if (resolver) {
         delegateResolvers.delete(msg.requestId);
-        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, tokens: msg.tokens, images: msg.images });
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, hitMaxTurns: msg.hitMaxTurns, tokens: msg.tokens, images: msg.images });
       }
       break;
     }

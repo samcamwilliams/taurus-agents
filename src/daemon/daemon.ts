@@ -721,7 +721,7 @@ export class Daemon {
     return descendants;
   }
 
-  awaitRunCompletion(runId: string, timeoutMs: number = 300_000): Promise<{ summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }> {
+  awaitRunCompletion(runId: string, timeoutMs: number = 300_000): Promise<{ summary: string; error?: string; tokens?: { input: number; output: number; cost: number }; hitMaxTurns?: boolean }> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         const list = this.completionWaiters.get(runId);
@@ -739,7 +739,7 @@ export class Daemon {
     });
   }
 
-  private notifyRunCompletion(runId: string, result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }): void {
+  private notifyRunCompletion(runId: string, result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number }; hitMaxTurns?: boolean }): void {
     const waiters = this.completionWaiters.get(runId);
     if (waiters) {
       for (const { resolve, timer } of waiters) {
@@ -836,12 +836,12 @@ export class Daemon {
       case 'run_complete': {
         this.logger('info', `[${managed.agent.name}] Run complete. Tokens: ${msg.tokens.input}in/${msg.tokens.output}out`);
         // Notify waiters synchronously before any awaits — prevents race with handleChildExit
-        this.notifyRunCompletion(runId, { summary: msg.summary, error: msg.error, tokens: msg.tokens });
+        this.notifyRunCompletion(runId, { summary: msg.summary, error: msg.error, tokens: msg.tokens, hitMaxTurns: msg.hitMaxTurns });
 
         // Route result back to the caller (subrun parent or delegator)
         const completedRun = managed.runs.get(runId);
         if (completedRun?.callerRequestId) {
-          this.routeResultToCaller(completedRun, agentId, runId, msg.summary, msg.error, msg.tokens, msg.images);
+          this.routeResultToCaller(completedRun, agentId, runId, msg.summary, msg.error, msg.tokens, msg.images, msg.hitMaxTurns);
           completedRun.callerRequestId = null;
         }
 
@@ -1316,7 +1316,7 @@ export class Daemon {
       }
     }
 
-    const completed: Record<string, { summary: string; error?: string }> = {};
+    const completed: Record<string, { summary: string; error?: string; hitMaxTurns?: boolean }> = {};
     const pending: string[] = [];
 
     // Set up a timeout race
@@ -1347,7 +1347,7 @@ export class Daemon {
 
         completionPromises.push(
           this.awaitRunCompletion(rid, remaining).then(r => {
-            completed[rid] = { summary: r.summary, error: r.error };
+            completed[rid] = { summary: r.summary, error: r.error, ...(r.hitMaxTurns ? { hitMaxTurns: true } : {}) };
           }).catch(() => {
             pending.push(rid);
           })
@@ -1384,7 +1384,7 @@ export class Daemon {
   /** Send a result (success or error) back to the caller that dispatched this run. */
   private routeResultToCaller(
     run: ManagedRun, agentId: string, runId: string,
-    summary: string, error?: string, tokens?: any, images?: any,
+    summary: string, error?: string, tokens?: any, images?: any, hitMaxTurns?: boolean,
   ): void {
     const resultType = run.callerType === 'subrun' ? 'subrun_result' : 'delegate_result';
 
@@ -1409,6 +1409,7 @@ export class Daemon {
         summary,
         error,
         ...(run.callerType === 'delegate' ? { tokens, images } : {}),
+        ...(hitMaxTurns ? { hitMaxTurns: true } : {}),
       } as ParentMessage);
     }
   }

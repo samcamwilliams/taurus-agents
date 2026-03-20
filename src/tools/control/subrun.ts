@@ -15,6 +15,7 @@ export interface SubrunResult {
   summary: string;
   runId: string;
   error?: string;
+  hitMaxTurns?: boolean;
 }
 
 /**
@@ -95,9 +96,12 @@ export class SubrunTool extends Tool {
     }
 
     const runInfo = result.runId ? `\n[Run: ${result.runId}]` : '';
+    const maxTurnsWarning = result.hitMaxTurns && result.runId
+      ? `\n[WARNING: Subrun hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`
+      : '';
 
     return {
-      output: `${result.summary}${runInfo}`,
+      output: `${result.summary}${maxTurnsWarning}${runInfo}`,
       isError: false,
       durationMs: 0,
     };

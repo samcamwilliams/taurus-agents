@@ -14,6 +14,7 @@ export interface DelegateResult {
   summary: string;
   runId?: string;
   error?: string;
+  hitMaxTurns?: boolean;
   tokens?: { input: number; output: number; cost: number };
   images?: { base64: string; mediaType: string }[];
 }
@@ -100,9 +101,12 @@ export class DelegateTool extends Tool {
       ? `\n\n[Tokens: ${result.tokens.input}in/${result.tokens.output}out]`
       : '';
     const runInfo = result.runId ? `\n[Run: ${result.runId}]` : '';
+    const maxTurnsWarning = result.hitMaxTurns && result.runId
+      ? `\n[WARNING: Child agent hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`
+      : '';
 
     return {
-      output: `${result.summary}${tokenInfo}${runInfo}`,
+      output: `${result.summary}${maxTurnsWarning}${tokenInfo}${runInfo}`,
       isError: false,
       durationMs: 0,
       images: result.images?.map(img => ({

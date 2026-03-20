@@ -8,7 +8,7 @@ export interface WaitRequest {
 }
 
 export interface WaitResult {
-  completed: Record<string, { summary: string; error?: string }>;
+  completed: Record<string, { summary: string; error?: string; hitMaxTurns?: boolean }>;
   pending: string[];
   error?: string;
 }
@@ -86,10 +86,11 @@ export class WaitTool extends Tool {
 
     if (Object.keys(result.completed).length > 0) {
       for (const [runId, info] of Object.entries(result.completed)) {
+        const maxTurnsTag = info.hitMaxTurns ? ' [HIT MAX TURNS — may be incomplete]' : '';
         if (info.error) {
-          parts.push(`[${runId}] Error: ${info.error}${info.summary ? `\n${info.summary}` : ''}`);
+          parts.push(`[${runId}] Error: ${info.error}${info.summary ? `\n${info.summary}` : ''}${maxTurnsTag}`);
         } else {
-          parts.push(`[${runId}] ${info.summary}`);
+          parts.push(`[${runId}]${maxTurnsTag} ${info.summary}`);
         }
       }
     }

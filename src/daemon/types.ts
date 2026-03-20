@@ -14,10 +14,10 @@ export type ParentMessage =
   | { type: 'resume'; message?: string }
   | { type: 'inject'; message: string; images?: IpcImage[] }
   | { type: 'signal'; name: string; payload: unknown }
-  | { type: 'subrun_result'; requestId: string; runId: string; summary: string; error?: string }
-  | { type: 'delegate_result'; requestId: string; summary: string; runId: string; error?: string; tokens?: { input: number; output: number; cost: number }; images?: IpcImage[] }
+  | { type: 'subrun_result'; requestId: string; runId: string; summary: string; error?: string; hitMaxTurns?: boolean }
+  | { type: 'delegate_result'; requestId: string; summary: string; runId: string; error?: string; tokens?: { input: number; output: number; cost: number }; images?: IpcImage[]; hitMaxTurns?: boolean }
   | { type: 'supervisor_result'; requestId: string; result: unknown; error?: string }
-  | { type: 'wait_result'; requestId: string; completed: Record<string, { summary: string; error?: string }>; pending: string[] };
+  | { type: 'wait_result'; requestId: string; completed: Record<string, { summary: string; error?: string; hitMaxTurns?: boolean }>; pending: string[] };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───
 
@@ -28,7 +28,7 @@ export type ChildMessage =
   | { type: 'paused'; reason: string }
   | { type: 'run_complete'; summary: string; error?: string;
       tokens: { input: number; output: number; cost: number };
-      images?: IpcImage[] }
+      images?: IpcImage[]; hitMaxTurns?: boolean }
   | { type: 'signal_emit'; name: string; payload: unknown }
   | { type: 'subrun_request'; requestId: string; input: string; tools?: string[]; max_turns?: number; timeout_ms?: number; run_id?: string; background?: boolean }
   | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string; run_id?: string; background?: boolean }
