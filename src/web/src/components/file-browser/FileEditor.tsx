@@ -184,7 +184,6 @@ img{max-width:100%}
     <div className="fb-editor">
       <div className="fb-editor__toolbar">
         <span className="fb-editor__path">{filePath}</span>
-        {isDirty && <span className="fb-editor__dirty">Modified</span>}
         {hasTableView && (
           <div className="fb-editor__view-toggle">
             <button
@@ -217,31 +216,30 @@ img{max-width:100%}
             </button>
           </div>
         )}
-        <button
-          className="btn btn--sm icon-btn"
-          onClick={handlePrint}
-          title="Print"
-          aria-label="Print"
-        >
-          <Printer size={14} />
+        <button className="fb-editor__action" onClick={handlePrint} title="Print" aria-label="Print">
+          <Printer size={12} />
         </button>
-        <button
-          className="btn btn--sm icon-btn"
-          onClick={handleDownload}
-          title="Download to your device"
-          aria-label="Download to your device"
-        >
-          <Download size={14} />
+        <button className="fb-editor__action" onClick={handleDownload} title="Download" aria-label="Download">
+          <Download size={12} />
         </button>
-        <button
-          className="btn btn--sm icon-btn"
-          onClick={handleSave}
-          disabled={!isDirty || saving}
-          title={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
-          aria-label={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
-        >
-          <Save size={14} />
-        </button>
+        <div className={`fb-editor__save-group${isDirty ? ' fb-editor__save-group--dirty' : ''}`}>
+          {/* Save label uses a CSS grid overlap trick to prevent layout shift:
+              an invisible "Modified" (the widest label) reserves width while
+              the visible label renders on top in the same grid cell. */}
+          <span className={`fb-editor__save-label${isDirty ? ' fb-editor__save-label--dirty' : ''}`}>
+            <span className="fb-editor__save-sizer" aria-hidden="true">Modified</span>
+            <span>{saving ? 'Saving...' : isDirty ? 'Modified' : 'Saved'}</span>
+          </span>
+          <button
+            className="fb-editor__action"
+            onClick={handleSave}
+            disabled={!isDirty || saving}
+            title={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
+            aria-label={saving ? 'Saving changes' : (isDirty ? 'Save changes' : 'No unsaved changes')}
+          >
+            <Save size={12} />
+          </button>
+        </div>
       </div>
       <div ref={contentRef} style={{ display: 'contents' }}>
       {viewMode === 'table' && tableData ? (

@@ -229,6 +229,7 @@ body {
   &.icon-btn {
     min-width: 30px;
     padding: 5px 6px;
+    justify-content: center;
   }
 
   &.btn--sm {
@@ -237,8 +238,8 @@ body {
   }
 
   &.btn--active {
-    background: var(--c-accent);
-    color: #000;
+    background: color-mix(in srgb, var(--c-accent-ui) 16%, transparent);
+    color: var(--c-accent-ui-strong);
   }
 }
 
@@ -508,8 +509,8 @@ body {
   }
 
   .modal-overlay {
-    background: rgba(250, 252, 250, 0.74);
-    backdrop-filter: blur(8px);
+    background: rgba(250, 252, 250, 0.5);
+    backdrop-filter: blur(4px);
   }
 }
 
@@ -596,11 +597,6 @@ body {
 
   .btn {
     border-color: color-mix(in srgb, var(--c-border) 88%, transparent);
-
-    &.btn--active {
-      background: color-mix(in srgb, var(--c-accent-ui) 16%, transparent);
-      color: var(--c-accent-ui-strong);
-    }
   }
 
   .panel-header {
@@ -608,7 +604,7 @@ body {
   }
 
   .modal-overlay {
-    background: rgba(3, 9, 12, 0.66);
+    background: rgba(3, 9, 12, 0.4);
   }
 }
 

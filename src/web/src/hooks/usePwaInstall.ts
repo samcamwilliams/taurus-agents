@@ -75,7 +75,7 @@ export function usePwaInstall() {
     canInstall: (!isInstalled && !!promptEvent) || manualInstall,
     isInstalled,
     install,
-    installLabel: manualInstall ? 'Add to Home Screen' : 'Install Taurus',
+    installLabel: manualInstall ? 'Add to Home Screen' : 'Install PWA',
     installHelpText: manualInstall
       ? 'In Safari, tap Share and then Add to Home Screen.'
       : 'Taurus can be installed from a supported browser over HTTPS.',
