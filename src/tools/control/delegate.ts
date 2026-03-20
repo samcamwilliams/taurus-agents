@@ -97,16 +97,15 @@ export class DelegateTool extends Tool {
       };
     }
 
-    const tokenInfo = result.tokens
-      ? `\n\n[Tokens: ${result.tokens.input}in/${result.tokens.output}out]`
-      : '';
-    const runInfo = result.runId ? `\n[Run: ${result.runId}]` : '';
-    const maxTurnsWarning = result.hitMaxTurns && result.runId
-      ? `\n[WARNING: Child agent hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`
-      : '';
+    const meta: string[] = [];
+    if (result.hitMaxTurns && result.runId) {
+      meta.push(`[WARNING: Child agent hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`);
+    }
+    meta.push(`[Completed: ${new Date().toISOString()}]`);
+    if (result.runId) meta.push(`[Run: ${result.runId}]`);
 
     return {
-      output: `${result.summary}${maxTurnsWarning}${tokenInfo}${runInfo}`,
+      output: `${result.summary}\n${meta.join('\n')}`,
       isError: false,
       durationMs: 0,
       images: result.images?.map(img => ({

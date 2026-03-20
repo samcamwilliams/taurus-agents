@@ -95,13 +95,15 @@ export class SubrunTool extends Tool {
       };
     }
 
-    const runInfo = result.runId ? `\n[Run: ${result.runId}]` : '';
-    const maxTurnsWarning = result.hitMaxTurns && result.runId
-      ? `\n[WARNING: Subrun hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`
-      : '';
+    const meta: string[] = [];
+    if (result.hitMaxTurns && result.runId) {
+      meta.push(`[WARNING: Subrun hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`);
+    }
+    meta.push(`[Completed: ${new Date().toISOString()}]`);
+    if (result.runId) meta.push(`[Run: ${result.runId}]`);
 
     return {
-      output: `${result.summary}${maxTurnsWarning}${runInfo}`,
+      output: `${result.summary}\n${meta.join('\n')}`,
       isError: false,
       durationMs: 0,
     };

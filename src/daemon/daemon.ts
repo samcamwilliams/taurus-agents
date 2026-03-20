@@ -1150,15 +1150,30 @@ export class Daemon {
       switch (msg.action) {
         case 'list_team': {
           const children = this.getChildren(callerAgentId);
-          result = children.map(c => {
+          const teamResults = [];
+          for (const c of children) {
             const cm = this.agents.get(c.id);
             const latestRun = cm ? [...cm.runs.values()].pop() : undefined;
-            return {
+            let runInfo: Record<string, unknown> | null = null;
+            if (latestRun) {
+              const run = await Run.findByPk(latestRun.runId);
+              const msgCount = run ? await Message.count({ where: { run_id: run.id } }) : 0;
+              const lastMsg = run ? await Message.findOne({ where: { run_id: run.id }, order: [['seq', 'DESC']] }) : null;
+              runInfo = {
+                id: latestRun.runId,
+                status: latestRun.status,
+                started_at: run?.created_at ?? null,
+                message_count: msgCount,
+                last_message_at: lastMsg?.created_at ?? null,
+              };
+            }
+            teamResults.push({
               key: c.name,
               status: c.status,
-              currentRun: latestRun ? { id: latestRun.runId, status: latestRun.status } : null,
-            };
-          });
+              currentRun: runInfo,
+            });
+          }
+          result = teamResults;
           break;
         }
 
@@ -1219,30 +1234,33 @@ export class Daemon {
           const p = msg.params as { key: string; run_id?: string };
           const child = this.findChildByName(callerAgentId, p.key);
           if (!child) throw new Error(`Child "${p.key}" not found`);
-          const runs = await Run.findAll({
-            where: { agent_id: child.id },
-            order: [['created_at', 'DESC']],
-            limit: 1,
-          });
-          if (runs.length === 0) {
+          const targetRunId = p.run_id;
+          const run = targetRunId
+            ? await Run.findByPk(targetRunId)
+            : (await Run.findAll({ where: { agent_id: child.id }, order: [['created_at', 'DESC']], limit: 1 }))[0];
+          if (!run) {
             result = { status: 'no_runs' };
           } else {
-            const run = runs[0];
+            const totalMessages = await Message.count({ where: { run_id: run.id } });
             const messages = await Message.findAll({
               where: { run_id: run.id },
               order: [['seq', 'DESC']],
               limit: 5,
             });
+            const isTerminal = ['completed', 'error', 'stopped'].includes(run.status);
             result = {
               id: run.id,
               status: run.status,
               trigger: run.trigger,
               started_at: run.created_at,
+              ...(isTerminal ? { completed_at: run.updated_at } : {}),
+              message_count: totalMessages,
               messages: messages.reverse().map(m => ({
                 role: m.role,
                 content: typeof m.content === 'string'
-                  ? m.content.slice(0, 500)
-                  : JSON.stringify(m.content).slice(0, 500),
+                  ? m.content
+                  : JSON.stringify(m.content),
+                created_at: m.created_at,
               })),
             };
           }

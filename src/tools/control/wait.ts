@@ -85,12 +85,15 @@ export class WaitTool extends Tool {
     const parts: string[] = [];
 
     if (Object.keys(result.completed).length > 0) {
+      const now = new Date().toISOString();
       for (const [runId, info] of Object.entries(result.completed)) {
-        const maxTurnsTag = info.hitMaxTurns ? ' [HIT MAX TURNS — may be incomplete]' : '';
+        const tags: string[] = [];
+        if (info.hitMaxTurns) tags.push('[HIT MAX TURNS — may be incomplete]');
+        tags.push(`[Completed: ${now}]`);
         if (info.error) {
-          parts.push(`[${runId}] Error: ${info.error}${info.summary ? `\n${info.summary}` : ''}${maxTurnsTag}`);
+          parts.push(`[${runId}] Error: ${info.error}${info.summary ? `\n${info.summary}` : ''}\n${tags.join(' ')}`);
         } else {
-          parts.push(`[${runId}]${maxTurnsTag} ${info.summary}`);
+          parts.push(`[${runId}] ${info.summary}\n${tags.join(' ')}`);
         }
       }
     }
