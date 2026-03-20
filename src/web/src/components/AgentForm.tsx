@@ -214,8 +214,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
       </div>
       <ToolPicker selected={selectedTools} onChange={setSelectedTools} />
 
-      <label>Working Directory</label>
-      <input type="text" value={cwd} onChange={e => setCwd(e.target.value)} placeholder="/path/to/project" />
+      {/* cwd is always /workspace inside the container — no need to expose */}
 
       <label>Model (optional)</label>
       <ModelPicker value={model} onChange={v => { setModel(v); if (v !== (initial?.model ?? '')) setModelTouched(true); }} placeholder={defaults?.model} clearable={!initial} />
@@ -365,7 +364,7 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
         </>
       )}
 
-      <label>Schedule (optional)</label>
+      <label>Schedule</label>
       <input
         type="text"
         value={schedule}
@@ -373,23 +372,25 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
         placeholder="e.g. every 5 minutes, daily at 9:00, */10 * * * *"
       />
       {schedule && (
-        <div className="field-hint">Cron or shorthand. Examples: "every 5m", "daily at 14:30", "*/10 * * * *"</div>
-      )}
-
-      {schedule && (
         <>
-          <label>If Already Running</label>
-          <select value={scheduleOverlap} onChange={e => setScheduleOverlap(e.target.value as 'skip' | 'queue' | 'kill')}>
-            <option value="skip">Skip (don't start new run)</option>
-            <option value="queue">Queue (run after current finishes)</option>
-            <option value="kill">Kill &amp; Restart (stop current, start new)</option>
-          </select>
-
-          <label>Run Mode</label>
-          <select value={scheduleMode} onChange={e => setScheduleMode(e.target.value as 'new' | 'continue')}>
-            <option value="new">Start a new run each time</option>
-            <option value="continue">Continue the last run</option>
-          </select>
+          <div className="field-hint">Cron or shorthand. Examples: "every 5m", "daily at 14:30", "*/10 * * * *"</div>
+          <div className="schedule-group">
+            <div className="schedule-group__field">
+              <label>If Already Running</label>
+              <select value={scheduleOverlap} onChange={e => setScheduleOverlap(e.target.value as 'skip' | 'queue' | 'kill')}>
+                <option value="skip">Skip (don't start new run)</option>
+                <option value="queue">Queue (run after current finishes)</option>
+                <option value="kill">Kill &amp; Restart (stop current, start new)</option>
+              </select>
+            </div>
+            <div className="schedule-group__field">
+              <label>Run Mode</label>
+              <select value={scheduleMode} onChange={e => setScheduleMode(e.target.value as 'new' | 'continue')}>
+                <option value="new">Start a new run each time</option>
+                <option value="continue">Continue the last run</option>
+              </select>
+            </div>
+          </div>
         </>
       )}
 

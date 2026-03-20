@@ -73,7 +73,6 @@ export function AgentSettings({ agent, agents, onUpdated, onDelete, showResource
           <Row label="Parent" value={agents?.find(a => a.id === agent.parent_agent_id)?.name ?? agent.parent_agent_id} />
         )}
         <Row label="Model" value={agent.model} />
-        <Row label="Working Directory" value={agent.cwd} mono />
         <Row label="Docker Image" value={agent.docker_image} mono />
         {showResourceLimits && (
         <div className="agent-settings__row agent-settings__row--stack">
@@ -106,17 +105,24 @@ export function AgentSettings({ agent, agents, onUpdated, onDelete, showResource
             : 'None'
         } pre={agent.mounts?.length > 0} />
         <Row label="Tools" value={agent.tools.join(', ')} />
-        <Row label="Schedule" value={agent.schedule ?? 'None'} />
-        {agent.schedule && (
-          <>
-            <Row label="Overlap Policy" value={agent.schedule_overlap} />
-            <Row label="Run Mode" value={agent.schedule_mode === 'continue' ? 'Continue last run' : 'Start new run'} />
-            <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'}>
-              {agent.next_run && agent.status !== 'running' && (
-                <> <Countdown targetDate={agent.next_run} schedule={agent.schedule ?? undefined} /></>
-              )}
-            </Row>
-          </>
+        {agent.schedule ? (
+          <div className="agent-settings__row agent-settings__row--stack">
+            <div className="agent-settings__label">Schedule</div>
+            <div className="agent-settings__value">
+              <div className="agent-settings__grid agent-settings__grid--nested">
+                <Row label="Cron" value={agent.schedule} mono />
+                <Row label="Overlap" value={agent.schedule_overlap} />
+                <Row label="Run Mode" value={agent.schedule_mode === 'continue' ? 'Continue last run' : 'Start new run'} />
+                <Row label="Next Run" value={agent.next_run ? new Date(agent.next_run).toLocaleString() : 'N/A'}>
+                  {agent.next_run && agent.status !== 'running' && (
+                    <> <Countdown targetDate={agent.next_run} schedule={agent.schedule ?? undefined} /></>
+                  )}
+                </Row>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Row label="Schedule" value="None" />
         )}
         <Row label="Max Turns" value={String(agent.max_turns)} />
         <Row label="Timeout" value={`${agent.timeout_ms / 1000}s`} />
