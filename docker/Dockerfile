@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     ripgrep \
     fd-find \
+    uuid-runtime \
     && ln -s $(which fdfind) /usr/local/bin/fd \
     && rm -rf /var/lib/apt/lists/*
 
