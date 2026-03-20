@@ -31,7 +31,7 @@ export interface DelegateResult {
 export class DelegateTool extends Tool {
   readonly name = 'Delegate';
   readonly group = 'Supervisor';
-  readonly description = 'Delegate a task to a named child agent. The child runs in its own container with its own prompt, tools, and workspace. Set background=true to dispatch asynchronously and get the run_id back immediately. Provide run_id to resume a specific previous run.';
+  readonly description = 'Delegate a task to one of your child agents. The child is a separate agent with its own container, tools, and system prompt. Use /shared to pass files between you. Set background=true to dispatch asynchronously. Provide run_id to resume a specific previous run, or empty for starting a new run.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,

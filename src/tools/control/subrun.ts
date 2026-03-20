@@ -31,7 +31,7 @@ export interface SubrunResult {
 export class SubrunTool extends Tool {
   readonly name = 'Subrun';
   readonly group = 'Control';
-  readonly description = 'Run a subtask in the same container with its own conversation. Set background=true to run asynchronously and get the run_id back immediately. Provide run_id to resume a previous subrun.';
+  readonly description = 'Run a subtask within yourself. The subtask will have a separate context window, but inherits your settings, your system prompt, your name, your container. Good for isolating work that would clutter your conversation. Set background=true to dispatch asynchronously. Provide run_id to resume a previous subrun.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,
