@@ -97,6 +97,14 @@ export class DelegateTool extends Tool {
       };
     }
 
+    if (input.background && result.runId) {
+      return {
+        output: `Delegated to "${input.agent}" in background.\n[Run: ${result.runId}]`,
+        isError: false,
+        durationMs: 0,
+      };
+    }
+
     const meta: string[] = [];
     if (result.hitMaxTurns && result.runId) {
       meta.push(`[WARNING: Child agent hit its max turns limit — task may be incomplete. You can resume it with run_id "${result.runId}".]`);

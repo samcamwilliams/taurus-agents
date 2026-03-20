@@ -1231,9 +1231,10 @@ export class Daemon {
         }
 
         case 'inspect_run': {
-          const p = msg.params as { key: string; run_id?: string };
+          const p = msg.params as { key: string; run_id?: string; brief?: boolean };
           const child = this.findChildByName(callerAgentId, p.key);
           if (!child) throw new Error(`Child "${p.key}" not found`);
+          const brief = p.brief !== false;
           const targetRunId = p.run_id;
           const run = targetRunId
             ? await Run.findByPk(targetRunId)
@@ -1255,13 +1256,15 @@ export class Daemon {
               started_at: run.created_at,
               ...(isTerminal ? { completed_at: run.updated_at } : {}),
               message_count: totalMessages,
-              messages: messages.reverse().map(m => ({
-                role: m.role,
-                content: typeof m.content === 'string'
+              messages: messages.reverse().map(m => {
+                let content = typeof m.content === 'string'
                   ? m.content
-                  : JSON.stringify(m.content),
-                created_at: m.created_at,
-              })),
+                  : JSON.stringify(m.content);
+                if (brief && content.length > 200) {
+                  content = content.slice(0, 200) + '…';
+                }
+                return { role: m.role, content, created_at: m.created_at };
+              }),
             };
           }
           break;
@@ -1451,9 +1454,10 @@ export class Daemon {
     run: ManagedRun, childAgentId: string, childRunId: string,
     summary: string, error?: string, hitMaxTurns?: boolean,
   ): void {
-    const label = run.callerType === 'subrun' ? 'Background subrun' : 'Background delegation';
+    const type = run.callerType === 'subrun' ? 'subrun' : 'delegation';
     const status = error ? `failed: ${error}` : hitMaxTurns ? 'hit max turns (may be incomplete)' : 'completed';
-    const message = `[${label} ${childRunId} ${status}]\n${summary}`;
+    const agentAttr = type === 'delegation' ? ` agent="${this.agents.get(childAgentId)?.agent.name ?? childAgentId}"` : '';
+    const message = `<background-run-completed type="${type}"${agentAttr} run="${childRunId}" status="${status}">\n${summary}\n</background-run-completed>`;
 
     // Identify the source run that dispatched this background work
     let sourceAgentId: string;
