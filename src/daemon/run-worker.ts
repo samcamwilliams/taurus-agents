@@ -423,10 +423,11 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     systemPrompt = expandSystemPrompt(raw, agentCtx);
     if (children.length > 0) {
       const childList = children.map(c => {
-        const firstLine = c.system_prompt.split('\n')[0].slice(0, 120);
-        return `- ${c.name}: ${firstLine}`;
+        const firstLine = c.system_prompt.split('\n')[0];
+        const desc = firstLine.length > 120 ? firstLine.slice(0, 120) + '…' : firstLine;
+        return `- ${c.name}: "${desc}"`;
       }).join('\n');
-      systemPrompt += `\n\n# Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool:\n${childList}`;
+      systemPrompt += `\n\n# Your Team\nYou have ${children.length} child agent(s) you can delegate to using the Delegate tool (first line of their system prompt shown):\n${childList}`;
     }
     await run.persistMessage('system', systemPrompt);
   }
