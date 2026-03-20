@@ -192,7 +192,15 @@
   display: inline-flex;
 
   &__trigger {
-    gap: 2px;
+    gap: 4px;
+  }
+
+  &__name {
+    font-size: 11px;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__dropdown {

@@ -66,10 +66,11 @@ function formatRunDate(iso: string): string {
 
 interface AgentsPageProps {
   authEnabled: boolean;
+  username?: string | null;
   onLogout: () => void;
 }
 
-export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
+export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps) {
   const { agentId, runId } = useParams();
   const navigate = useNavigate();
 
@@ -726,7 +727,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
               <div className="panel-header">
                 <div className="panel-header__info" />
                 <div className="panel-header__actions">
-                  <UserMenu onLogout={onLogout} />
+                  <UserMenu username={username} onLogout={onLogout} />
                 </div>
               </div>
             )}
@@ -817,7 +818,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                     </button>
                   )}
                   <button className="btn icon-btn" onClick={handleRefreshMessages} title="Refresh"><RefreshCw size={13} /></button>
-                  {authEnabled && <UserMenu onLogout={onLogout} />}
+                  {authEnabled && <UserMenu username={username} onLogout={onLogout} />}
                 </div>
               </div>
             </div>

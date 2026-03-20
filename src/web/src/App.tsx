@@ -47,9 +47,9 @@ export function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<AgentsPage authEnabled={true} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
-      <Route path="/agents/:agentId" element={<AgentsPage authEnabled={true} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
-      <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage authEnabled={true} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
+      <Route path="/" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
+      <Route path="/agents/:agentId" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
+      <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

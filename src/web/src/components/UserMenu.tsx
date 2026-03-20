@@ -4,10 +4,11 @@ import { getCsrfToken, setCsrfToken, clearTaurusCaches } from '../api';
 import { AccountSettingsModal } from './AccountSettingsModal';
 
 interface UserMenuProps {
+  username?: string | null;
   onLogout: () => void;
 }
 
-export function UserMenu({ onLogout }: UserMenuProps) {
+export function UserMenu({ username, onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,6 +40,7 @@ export function UserMenu({ onLogout }: UserMenuProps) {
       <div className="user-menu" ref={ref}>
         <button className="btn icon-btn user-menu__trigger" onClick={() => setOpen(v => !v)}>
           <User size={13} />
+          {username && <span className="user-menu__name">{username}</span>}
           <ChevronDown size={10} />
         </button>
         {open && (
