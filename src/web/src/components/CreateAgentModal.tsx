@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { api } from '../api';
-import { AgentForm, type AgentFormData } from './AgentForm';
+import { AgentForm, type AgentFormData, type AgentFormDraft } from './AgentForm';
 import type { Agent } from '../types';
 
 interface CreateAgentModalProps {
@@ -8,6 +8,8 @@ interface CreateAgentModalProps {
   onClose: () => void;
   onCreated: (agentId: string) => void;
 }
+
+let createAgentDraft: AgentFormDraft | null = null;
 
 export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModalProps) {
   useEffect(() => {
@@ -39,6 +41,7 @@ export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModa
       return;
     }
 
+    createAgentDraft = null;
     onCreated(result.id);
   }
 
@@ -47,7 +50,14 @@ export function CreateAgentModal({ agents, onClose, onCreated }: CreateAgentModa
       <div className="modal">
         <div className="modal__header"><h3>Create Agent</h3></div>
         <div className="modal__body">
-          <AgentForm agents={agents} onSubmit={handleSubmit} onCancel={onClose} submitLabel="Create" />
+          <AgentForm
+            agents={agents}
+            draft={createAgentDraft}
+            onDraftChange={(draft) => { createAgentDraft = draft; }}
+            onSubmit={handleSubmit}
+            onCancel={onClose}
+            submitLabel="Create"
+          />
         </div>
       </div>
     </div>
