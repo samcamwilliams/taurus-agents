@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type http from 'node:http';
-import { TAURUS_DATA_PATH } from '../../core/config.js';
+import { TAURUS_DATA_PATH } from '../../core/config/index.js';
 
 // ── Configuration ──
 

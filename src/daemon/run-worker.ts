@@ -35,7 +35,7 @@ import { FileTracker } from '../tools/shell/file-tracker.js';
 import { computeCost } from '../core/models.js';
 import { BraveSearchProvider } from '../tools/web/brave-search.js';
 import { BrowserTool } from '../tools/web/browser.js';
-import { setSecrets, setAllowedEnvFallback, getSecret, drivePath } from '../core/config.js';
+import { setSecrets, setAllowedEnvFallback, getSecret, drivePath } from '../core/config/index.js';
 import sharp from 'sharp';
 import { checkBudget, type BudgetContext } from '../core/budget.js';
 import User from '../db/models/User.js';

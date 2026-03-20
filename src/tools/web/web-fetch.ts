@@ -5,7 +5,7 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import { isUrlSafe } from './url-safety.js';
 import { DEFAULT_FETCH_HEADERS } from '../../core/defaults.js';
-import { getSecret } from '../../core/config.js';
+import { getSecret } from '../../core/config/index.js';
 
 const MAX_RESPONSE_BYTES = 5_000_000;
 const MAX_OUTPUT_CHARS = 50_000;

@@ -2,7 +2,7 @@ import type { InferenceProvider } from './base.js';
 import { AnthropicProvider } from './anthropic.js';
 import { OpenAIResponsesProvider } from './openai-responses.js';
 import { OpenAIChatCompletionsProvider } from './openai-chatcompletions.js';
-import { getSecret } from '../../core/config.js';
+import { getSecret } from '../../core/config/index.js';
 
 /**
  * Registry of OpenAI Chat Completions-compatible providers.

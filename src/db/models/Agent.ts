@@ -8,7 +8,7 @@ import {
   agentResourceLimitsFromValues,
   resourceLimitsToDockerMemoryMb,
   type AgentResourceLimits,
-} from '../../core/config.js';
+} from '../../core/config/index.js';
 
 const sequelize = Database.init();
 

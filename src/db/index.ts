@@ -2,7 +2,7 @@ import { Sequelize } from 'sequelize';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
-import { TAURUS_DATA_PATH } from '../core/config.js';
+import { TAURUS_DATA_PATH } from '../core/config/index.js';
 
 export class Database {
   static client: Sequelize;

@@ -11,7 +11,7 @@
 
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../db/index.js';
-import { hasSecretOverride } from './config.js';
+import { hasSecretOverride } from './config/index.js';
 
 export interface BudgetContext {
   userId: string;

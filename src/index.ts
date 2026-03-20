@@ -22,7 +22,7 @@ import { acquireLock, releaseLock } from './daemon/lockfile.js';
 import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
-import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config.js';
+import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config/index.js';
 import { banner } from './utils/cli.js';
 
 const PORT = parseInt(process.env.TAURUS_PORT ?? '7777', 10);

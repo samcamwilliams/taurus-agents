@@ -31,7 +31,7 @@ import {
   agentResourceLimitsFromValues,
   resourceLimitsToDockerMemoryMb,
   type AgentResourceLimits,
-} from '../core/config.js';
+} from '../core/config/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKER_PATH = path.join(__dirname, 'run-worker.ts');

@@ -19,7 +19,7 @@ import {
   DOCKER_USE_INIT,
   agentResourceLimitsFromValues,
   resourceLimitsToDockerMemoryMb,
-} from '../core/config.js';
+} from '../core/config/index.js';
 
 const exec = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

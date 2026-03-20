@@ -4,7 +4,7 @@ import { json, error, parseBody, route, type Route } from '../helpers.js';
 import { assertAccessToAgent, assertRunBelongsToAgent, assertMessageBelongsToRun } from '../auth/index.js';
 import { NotFoundError } from '../../core/errors.js';
 import { DEFAULT_TOOLS } from '../../core/defaults.js';
-import { ALLOW_ARBITRARY_BIND_MOUNTS } from '../../core/config.js';
+import { ALLOW_ARBITRARY_BIND_MOUNTS } from '../../core/config/index.js';
 
 /**
  * Shared handler for POST /api/ask and POST /api/agents/:id/ask.

@@ -2,7 +2,7 @@ import { json, route, type Route } from '../helpers.js';
 import { DEFAULT_MODEL, DEFAULT_DOCKER_IMAGE, DEFAULT_TOOLS, READ_ONLY_TOOLS, SUPERVISOR_TOOLS, DEFAULT_MAX_TURNS, DEFAULT_TIMEOUT_MS } from '../../core/defaults.js';
 import { TOOL_CATALOG, TOOL_DEFINITIONS } from '../../tools/catalog.js';
 import { listModels } from '../../core/models.js';
-import { ALLOW_ARBITRARY_BIND_MOUNTS, DEFAULT_AGENT_RESOURCE_LIMITS } from '../../core/config.js';
+import { ALLOW_ARBITRARY_BIND_MOUNTS, DEFAULT_AGENT_RESOURCE_LIMITS } from '../../core/config/index.js';
 
 export function toolRoutes(): Route[] {
   return [
