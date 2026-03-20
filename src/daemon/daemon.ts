@@ -840,9 +840,15 @@ export class Daemon {
 
         // Route result back to the caller (subrun parent or delegator)
         const completedRun = managed.runs.get(runId);
-        if (completedRun?.callerRequestId) {
-          this.routeResultToCaller(completedRun, agentId, runId, msg.summary, msg.error, msg.tokens, msg.images, msg.hitMaxTurns);
-          completedRun.callerRequestId = null;
+        if (completedRun?.callerType) {
+          if (completedRun.callerRequestId) {
+            // Blocking mode: route result directly to the waiting tool call
+            this.routeResultToCaller(completedRun, agentId, runId, msg.summary, msg.error, msg.tokens, msg.images, msg.hitMaxTurns);
+            completedRun.callerRequestId = null;
+          } else {
+            // Background mode: notify the source run that dispatched this work
+            this.notifyCallerOfBackgroundCompletion(completedRun, agentId, runId, msg.summary, msg.error, msg.hitMaxTurns);
+          }
         }
 
         await this.updateRunStatus(agentId, runId, msg.error ? 'error' : 'completed', msg.error || undefined);
@@ -1011,8 +1017,10 @@ export class Daemon {
 
     const childManagedRun = managed.runs.get(runId);
     if (childManagedRun) {
+      // Always store caller info so we can notify on completion
+      childManagedRun.callerType = 'subrun';
       if (msg.background) {
-        // Background mode: respond immediately, don't tag for routing
+        // Background mode: respond immediately, no callerRequestId (no blocking routing)
         const callerRun = managed.runs.get(parentRunId);
         if (callerRun) {
           callerRun.process.send({
@@ -1025,7 +1033,6 @@ export class Daemon {
       } else {
         // Blocking mode: tag so run_complete routes the result back
         childManagedRun.callerRequestId = msg.requestId;
-        childManagedRun.callerType = 'subrun';
       }
     }
 
@@ -1093,8 +1100,12 @@ export class Daemon {
     // Tag the child run for cross-agent routing
     const childManagedRun = targetManaged.runs.get(runId);
     if (childManagedRun) {
+      // Always store caller info so we can notify on completion
+      childManagedRun.callerType = 'delegate';
+      childManagedRun.callerAgentId = callerAgentId;
+      childManagedRun.callerRunId = callerRunId;
       if (msg.background) {
-        // Background mode: respond immediately, don't tag for routing
+        // Background mode: respond immediately, no callerRequestId (no blocking routing)
         const callerManaged = this.agents.get(callerAgentId);
         const callerRun = callerManaged?.runs.get(callerRunId);
         if (callerRun) {
@@ -1108,9 +1119,6 @@ export class Daemon {
       } else {
         // Blocking mode: tag so run_complete routes the result back
         childManagedRun.callerRequestId = msg.requestId;
-        childManagedRun.callerType = 'delegate';
-        childManagedRun.callerAgentId = callerAgentId;
-        childManagedRun.callerRunId = callerRunId;
       }
     }
 
@@ -1411,6 +1419,46 @@ export class Daemon {
         ...(run.callerType === 'delegate' ? { tokens, images } : {}),
         ...(hitMaxTurns ? { hitMaxTurns: true } : {}),
       } as ParentMessage);
+    }
+  }
+
+  /**
+   * Notify the source run that dispatched a background child.
+   * If the source run is still active, inject a message. If idle, continue the run.
+   */
+  private notifyCallerOfBackgroundCompletion(
+    run: ManagedRun, childAgentId: string, childRunId: string,
+    summary: string, error?: string, hitMaxTurns?: boolean,
+  ): void {
+    const label = run.callerType === 'subrun' ? 'Background subrun' : 'Background delegation';
+    const status = error ? `failed: ${error}` : hitMaxTurns ? 'hit max turns (may be incomplete)' : 'completed';
+    const message = `[${label} ${childRunId} ${status}]\n${summary}`;
+
+    // Identify the source run that dispatched this background work
+    let sourceAgentId: string;
+    let sourceRunId: string;
+    if (run.callerType === 'subrun') {
+      sourceAgentId = childAgentId; // subruns are in the same agent
+      sourceRunId = run.parentRunId!;
+    } else {
+      sourceAgentId = run.callerAgentId!;
+      sourceRunId = run.callerRunId!;
+    }
+
+    const sourceManaged = this.agents.get(sourceAgentId);
+    if (!sourceManaged) return;
+
+    const sourceRun = sourceManaged.runs.get(sourceRunId);
+    if (sourceRun) {
+      // Source run still active — inject
+      sourceRun.process.send({ type: 'inject', message } as ParentMessage);
+      this.logger('info', `[${sourceManaged.agent.name}] Background run ${childRunId} completed → injected into run ${sourceRunId}`);
+    } else {
+      // Source run is idle — continue it with the notification
+      this.continueRun(sourceAgentId, sourceRunId, message).catch(err => {
+        this.logger('error', `[${sourceManaged.agent.name}] Failed to continue run ${sourceRunId} with background result: ${err.message}`);
+      });
+      this.logger('info', `[${sourceManaged.agent.name}] Background run ${childRunId} completed → resuming run ${sourceRunId}`);
     }
   }
 

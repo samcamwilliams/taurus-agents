@@ -57,6 +57,21 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
   let turns = 0;
   chatml.setTools(tools.getToolDefinitions(allowedTools));
 
+  /** Drain the injection queue and append as a user message. Returns true if any were consumed. */
+  function drainInjectedMessages(): boolean {
+    const messages = getInjectedMessages?.() ?? [];
+    if (messages.length === 0) return false;
+    const blocks: ContentBlock[] = [];
+    for (const msg of messages) {
+      if (msg.text) blocks.push({ type: 'text', text: `[User message mid-turn]: ${msg.text}` });
+      for (const img of msg.images ?? []) {
+        blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+      }
+    }
+    chatml.appendUser(blocks);
+    return true;
+  }
+
   while (true) {
     if (signal?.aborted) {
       yield { type: 'done' };
@@ -69,20 +84,7 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     }
 
     // ── Check for injected user messages ──
-    const injected = getInjectedMessages?.() ?? [];
-    if (injected.length > 0) {
-      const combinedText = injected.map(m => m.text).filter(Boolean).join('\n\n');
-      const allImages = injected.flatMap(m => m.images ?? []);
-
-      // Build content blocks for the injected message
-      const blocks: ContentBlock[] = [];
-      if (combinedText) blocks.push({ type: 'text', text: `[User message mid-turn]: ${combinedText}` });
-      for (const img of allImages) {
-        blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
-      }
-
-      chatml.appendUser(blocks);
-    }
+    drainInjectedMessages();
 
     // ── Pre-inference compaction: compact before a call that would overflow ──
     if (model && limitOutputTokens) {
@@ -144,8 +146,13 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
       }
     }
 
-    // If model finished without requesting tools → done
+    // If model finished without requesting tools → check for pending injected messages
     if (stopReason !== 'tool_use') {
+      if (drainInjectedMessages()) {
+        // Messages arrived during inference — loop back to process them
+        turns++;
+        continue;
+      }
       yield { type: 'done' };
       return;
     }
