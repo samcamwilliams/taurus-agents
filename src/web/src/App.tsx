@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AgentsPage } from './pages/AgentsPage';
 import { LoginPage } from './pages/LoginPage';
-import { setCsrfToken } from './api';
+import { setCsrfToken, clearTaurusCaches } from './api';
 import { useTheme } from './hooks/useTheme';
 
 type AuthState = 'loading' | 'authenticated' | 'login';
@@ -23,10 +23,11 @@ export function App() {
           if (data.theme) setTheme(data.theme);
           setAuth('authenticated');
         } else {
+          clearTaurusCaches();
           setAuth('login');
         }
       })
-      .catch(() => setAuth('login'));
+      .catch(() => { clearTaurusCaches(); setAuth('login'); });
   }, [setTheme]);
 
   if (auth === 'loading') return null;

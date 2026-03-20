@@ -13,6 +13,17 @@ export function getCsrfToken(): string | null {
   return csrfToken;
 }
 
+// ── Session cleanup ──
+
+/** Clear all Taurus SW caches (prefix-based so it survives cache version bumps). */
+export async function clearTaurusCaches(): Promise<void> {
+  if (!('caches' in window)) return;
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith('taurus-')).map(k => caches.delete(k)));
+  } catch { /* best-effort */ }
+}
+
 // ── Request helper ──
 
 async function request<T>(path: string, opts: Omit<RequestInit, 'body'> & { body?: unknown } = {}): Promise<T> {

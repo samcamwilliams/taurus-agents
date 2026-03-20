@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, ChevronDown, LogOut, UserCog } from 'lucide-react';
-import { getCsrfToken, setCsrfToken } from '../api';
+import { getCsrfToken, setCsrfToken, clearTaurusCaches } from '../api';
 import { AccountSettingsModal } from './AccountSettingsModal';
 
 interface UserMenuProps {
@@ -27,6 +27,8 @@ export function UserMenu({ onLogout }: UserMenuProps) {
       method: 'POST',
       headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
+    // Clear SW caches so a different user on this browser gets a fresh page
+    await clearTaurusCaches();
     setCsrfToken(null);
     setOpen(false);
     onLogout();
