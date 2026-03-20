@@ -124,13 +124,26 @@ export class DockerService {
 
     // Add arbitrary bind mounts (disabled in production by default)
     const mounts = typeof agent.mounts === 'string' ? JSON.parse(agent.mounts) : (agent.mounts ?? []);
+    if (!Array.isArray(mounts)) throw new Error('mounts must be an array');
     if (!ALLOW_ARBITRARY_BIND_MOUNTS && mounts.length > 0) {
       throw new Error('Arbitrary bind mounts are disabled (TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS)');
     }
     for (const m of mounts) {
+      if (typeof m.host !== 'string' || typeof m.container !== 'string') {
+        throw new Error('Mount host and container must be strings');
+      }
+      // Colons corrupt Docker's `-v source:dest[:opts]` parsing — reject them.
+      // Null bytes can truncate paths at the C level.
+      if (m.host.includes(':') || m.host.includes('\0')) {
+        throw new Error(`Invalid characters in bind mount host path: ${m.host}`);
+      }
+      if (m.container.includes(':') || m.container.includes('\0')) {
+        throw new Error(`Invalid characters in bind mount container path: ${m.container}`);
+      }
       if (!m.host.startsWith('/')) throw new Error(`Bind mount host path must be absolute: ${m.host}`);
       if (!m.container.startsWith('/')) throw new Error(`Bind mount container path must be absolute: ${m.container}`);
-      const spec = m.readonly ? `${m.host}:${m.container}:ro` : `${m.host}:${m.container}`;
+      const ro = m.readonly === true;
+      const spec = ro ? `${m.host}:${m.container}:ro` : `${m.host}:${m.container}`;
       createArgs.push('-v', spec);
     }
 
