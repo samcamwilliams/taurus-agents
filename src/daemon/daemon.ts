@@ -420,6 +420,7 @@ export class Daemon {
 
     await this.forkWorker(agentId, run.id, null, {
       type: 'start', agentId, runId: run.id, trigger, input, images,
+      schedule: managed.agent.schedule || undefined,
     });
 
     this.logger('info', `Agent "${managed.agent.name}" run started (run: ${run.id})`);

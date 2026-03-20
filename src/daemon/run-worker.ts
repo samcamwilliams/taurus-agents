@@ -285,10 +285,14 @@ function buildChatMLFromHistory(chatml: ChatML, history: Message[], fileTracker:
 
 // ── Build input message for the agent ──
 
-function buildInputMessage(trigger: TriggerType, input?: string): string {
+function buildInputMessage(trigger: TriggerType, input?: string, schedule?: string): string {
   if (input) return input;
   if (trigger === 'schedule') {
-    return `You have been triggered by your scheduled run. Time at the start of the run: ${new Date().toISOString()}. Execute your task.`;
+    const parts = [`You have been triggered by your scheduled run.`];
+    if (schedule) parts.push(`Schedule: \`${schedule}\``);
+    parts.push(`Current time: ${new Date().toISOString()}.`);
+    parts.push('Execute your task.');
+    return parts.join(' ');
   }
   if (trigger === 'manual') {
     return `You have been manually triggered. Execute your task.`;
@@ -384,7 +388,7 @@ function patchIncompleteToolCalls(messages: ChatMessage[]): void {
 
 // ── Main run function ──
 
-async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[], toolOverride?: string[]): Promise<void> {
+async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[], toolOverride?: string[], schedule?: string): Promise<void> {
   // 1. Load agent and run from DB
   const agent = await Agent.findByPk(agentId);
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
@@ -400,7 +404,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   // Allowlist specific fields — never pass the full agent object, as user prompts
   // can reference {{agent.*}} and would leak private data (keys, metadata, etc.).
   const agentCtx: Record<string, Record<string, string>> = {
-    agent: { name: agent.name, model: agent.model, cwd: agent.cwd },
+    agent: { name: agent.name, model: agent.model, cwd: agent.cwd, ...(agent.schedule ? { schedule: agent.schedule } : {}) },
   };
   if (agent.parent_agent_id) {
     const parent = await Agent.findByPk(agent.parent_agent_id, { attributes: ['name'] });
@@ -423,7 +427,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     }
     await run.persistMessage('system', systemPrompt);
   }
-  const inputText = resume ? input : buildInputMessage(trigger, input);
+  const inputText = resume ? input : buildInputMessage(trigger, input, schedule);
   if (inputText) {
     await run.persistMessage('user', buildUserContent(inputText, images));
   }
@@ -475,7 +479,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     buildChatMLFromHistory(chatml, history, fileTracker);
     // If no input was provided for resume, synthesize a continuation prompt
     if (!inputText && (!chatml.getMessages().length || chatml.getMessages().at(-1)?.role === 'assistant')) {
-      const contMsg = 'Continue from where you left off.';
+      const contMsg = `Continue from where you left off. Current time: ${new Date().toISOString()}.`;
       chatml.addUser(contMsg);
       await run.persistMessage('user', contMsg);
     }
@@ -727,7 +731,7 @@ process.on('message', async (msg: ParentMessage) => {
       if (msg.secrets) setSecrets(msg.secrets);
       setAllowedEnvFallback(msg.sharedSecrets ?? null);
       try {
-        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.tools);
+        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.tools, msg.schedule);
       } catch (err: any) {
         let errorMsg = err.message || String(err);
         // Enhance "X_KEY is required" factory errors with BYOK guidance

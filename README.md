@@ -161,6 +161,8 @@ Agent system prompts support placeholders and includes:
 | `{{time}}` | HH:MM:SS |
 | `{{year}}` | Current year |
 | `{{timezone}}` | System timezone |
+| `{{agent.name}}` | Agent name |
+| `{{agent.schedule}}` | Cron expression (if set) |
 | `{{include:path}}` | Contents of `resources/prompts/<path>` (recursive, up to 5 levels) |
 
 Place reusable prompt fragments in the `resources/prompts/` directory and reference them with `{{include:filename.md}}`.

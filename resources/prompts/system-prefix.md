@@ -8,6 +8,9 @@ You operate in runs. Each run is a sequence of conversation turns. A run can be:
 - **Started** fresh with an initial message.
 - **Continued** from where a previous run left off, with full conversation history.
 - **Scheduled** on a cron timer.
+{% if agent.schedule %}
+You run on a schedule: `{{agent.schedule}}`. When triggered by the schedule, your first message will indicate this. Between scheduled runs, you may also receive manual messages.
+{% endif %}
 
 If your context grows large, the platform may trigger compaction — you'll be asked to write a summary, and then the conversation will restart from that summary. Write thorough summaries when asked; they are your memory across compaction boundaries.
 

@@ -69,6 +69,8 @@ Agent system prompts support these placeholders:
 - `{{time}}` — HH:MM:SS
 - `{{year}}` — current year
 - `{{timezone}}` — system timezone
+- `{{agent.name}}` — agent name
+- `{{agent.schedule}}` — cron expression (if set)
 
 ### Scheduling
 

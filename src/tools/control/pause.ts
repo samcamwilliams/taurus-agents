@@ -43,9 +43,10 @@ export class PauseTool extends Tool {
 
     const resumeMessage = await this.waitForResume();
 
+    const now = new Date().toISOString();
     const output = resumeMessage
-      ? `Run resumed with the message: ${resumeMessage}`
-      : 'Run resumed. No additional message provided.';
+      ? `Run resumed at ${now} with the message: ${resumeMessage}`
+      : `Run resumed at ${now}. No additional message provided.`;
 
     return {
       output,
