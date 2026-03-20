@@ -147,8 +147,13 @@ export function authRoutes(): Route[] {
       ctx.res.end(JSON.stringify({ ok: true, theme }));
     }),
 
-    // Self-service password change
+    // Self-service password change — rate-limited by user ID (unforgeable from session)
     route('PUT', '/api/auth/password', async (ctx) => {
+      const rateLimitKey = `pw:${ctx.user.id}`;
+      if (!checkLoginRateLimit(rateLimitKey)) {
+        return error(ctx.res, 'Too many attempts — try again later', 429);
+      }
+
       const body = await parseBody(ctx.req);
       const { current_password, new_password } = body;
 
@@ -163,8 +168,12 @@ export function authRoutes(): Route[] {
       if (!user) throw new NotFoundError('User not found');
 
       const valid = await user.verifyPassword(current_password);
-      if (!valid) throw new DisplayableError('Current password is incorrect', 401);
+      if (!valid) {
+        recordLoginFailure(rateLimitKey);
+        throw new DisplayableError('Current password is incorrect', 401);
+      }
 
+      clearLoginFailures(rateLimitKey);
       const hash = await User.hashPassword(new_password);
       await user.update({ password_hash: hash });
 
