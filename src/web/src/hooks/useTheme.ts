@@ -2,7 +2,7 @@ import { createContext, createElement, useContext, useLayoutEffect, useState, ty
 
 const THEMES = ['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin'] as const;
 export type Theme = typeof THEMES[number];
-export const DEFAULT_THEME: Theme = 'light';
+export const DEFAULT_THEME: Theme = 'night';
 
 const THEME_STORAGE_KEY = 'taurus-theme';
 const THEME_COOKIE_KEY = 'taurus_theme';

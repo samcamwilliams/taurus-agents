@@ -166,15 +166,8 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
 
-    h1 {
+    .logo {
       grid-column: 2;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 17px;
-      font-weight: 100;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--c-text);
-      transform: translateX(-11px);
     }
 
     .btn {

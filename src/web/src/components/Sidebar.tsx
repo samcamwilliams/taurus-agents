@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import type { Agent } from '../types';
+import { Logo } from './Logo';
 import { StatusDot } from './StatusDot';
 import { Countdown } from './Countdown';
 import { TreeView, type TreeItem } from './TreeView';
@@ -26,7 +27,7 @@ export function Sidebar({ agents, selectedId, onCreateClick, onTriggerSchedule, 
   return (
     <div className="sidebar">
       <div className="sidebar__header">
-        <h1>Taurus</h1>
+        <Logo />
         <button className="btn primary" onClick={onCreateClick}><Plus size={14} /> New</button>
       </div>
       <TreeView

@@ -1,5 +1,6 @@
 import type { Theme } from '../hooks/useTheme';
 import { useState, type FormEvent } from 'react';
+import { Logo } from '../components/Logo';
 
 interface LoginPageProps {
   onLogin: (payload: { csrfToken: string; username?: string | null; theme?: Theme | null }) => void;
@@ -49,7 +50,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       </div>
       <div className="login-shell">
         <section className="login-intro" aria-label="Taurus">
-          <div className="login-intro__eyebrow">Taurus</div>
+          <Logo className="login-intro__eyebrow" />
           <h1>
             <span>Cybernetic</span>
             <span>Control</span>

@@ -22,6 +22,15 @@ input[type="radio"] {
   accent-color: var(--c-marker);
 }
 
+.logo {
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--c-text);
+}
+
 html, body, #root {
   height: 100%;
 }
@@ -295,14 +304,6 @@ body {
     box-shadow: 0 4px 16px rgba(16, 24, 28, 0.08);
   }
 
-  .sidebar__header h1 {
-    font-family: $font-mono;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    color: #0f1720;
-  }
-
   .panel-header h2 {
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -564,14 +565,6 @@ body {
   .user-menu__dropdown {
     background: rgba(9, 24, 28, 0.96);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  }
-
-  .sidebar__header h1 {
-    font-family: $font-mono;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    color: #e2efec;
   }
 
   .panel-header__meta,
