@@ -192,6 +192,18 @@ function hydrateTrackerFromMessages(tracker: FileTracker, messages: Message[]): 
   }
 }
 
+const DASHBOARD_PROMPT_GUIDANCE = `## Dashboards
+Human-facing dashboards live under /shared/public/<dashboard-name>/.
+Each dashboard is a microsite rooted at /shared/public/<dashboard-name>/index.html.
+Create new dashboards there when you need a site, and update existing directories in place when you need to revise or extend one.
+Keep assets relative to that dashboard directory so the site serves cleanly.`;
+
+function withDashboardPromptGuidance(prompt: string): string {
+  return prompt.includes('/shared/public/')
+    ? prompt
+    : `${prompt}\n\n${DASHBOARD_PROMPT_GUIDANCE}`;
+}
+
 /**
  * Build (or rebuild) a ChatML from persisted message history.
  *
@@ -203,7 +215,8 @@ function buildChatMLFromHistory(chatml: ChatML, history: Message[], fileTracker:
 
   const systemMsg = history.find(m => m.role === 'system');
   if (systemMsg) {
-    chatml.setSystem(typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content));
+    const content = typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content);
+    chatml.setSystem(withDashboardPromptGuidance(content));
   }
 
   // Find last compaction boundary
@@ -417,7 +430,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   //    If init fails (bad model name, Docker down, etc.), the user's message is still saved.
   let systemPrompt: string | undefined;
   if (!resume) {
-    systemPrompt = expandSystemPrompt(agent.system_prompt);
+    systemPrompt = withDashboardPromptGuidance(expandSystemPrompt(agent.system_prompt));
     const children = await Agent.findAll({ where: { parent_agent_id: agentId } });
     if (children.length > 0) {
       const childList = children.map(c => {
@@ -475,7 +488,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
     // loadFullRunHistory includes the user message persisted above
     const history = await loadFullRunHistory(runId);
     if (!history.some((m: Message) => m.role === 'system')) {
-      chatml.setSystem(expandSystemPrompt(agent.system_prompt));
+      chatml.setSystem(withDashboardPromptGuidance(expandSystemPrompt(agent.system_prompt)));
     }
     buildChatMLFromHistory(chatml, history, fileTracker);
     // If no input was provided for resume, synthesize a continuation prompt
