@@ -17,6 +17,7 @@ export function toolRoutes(): Route[] {
           supervisor_tools: SUPERVISOR_TOOLS,
           max_turns: DEFAULT_MAX_TURNS,
           timeout_ms: DEFAULT_TIMEOUT_MS,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           allow_bind_mounts: capabilities.arbitraryBindMounts,
           ...(capabilities.resourceLimitsApi ? { resource_limits: DEFAULT_AGENT_RESOURCE_LIMITS } : {}),
         },

@@ -7,6 +7,75 @@ import type { Agent } from '../types';
 
 export type MountEntry = { host: string; container: string; readonly?: boolean };
 
+// ── Schedule Picker ──
+
+function buildSchedulePresets(tz?: string): { label: string; value: string }[] {
+  // Short timezone label: "UTC", "EST", "CET", etc.
+  const tzLabel = tz
+    ? new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
+        .formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value ?? tz
+    : '';
+  const s = tzLabel ? ` ${tzLabel}` : '';
+  return [
+    { label: 'Every 5 minutes', value: 'every 5 minutes' },
+    { label: 'Every 10 minutes', value: 'every 10 minutes' },
+    { label: 'Every 15 minutes', value: 'every 15 minutes' },
+    { label: 'Every 30 minutes', value: 'every 30 minutes' },
+    { label: 'Every hour', value: 'every hour' },
+    { label: 'Every 2 hours', value: 'every 2 hours' },
+    { label: 'Every 4 hours', value: 'every 4 hours' },
+    { label: 'Every 6 hours', value: 'every 6 hours' },
+    { label: 'Every 12 hours', value: 'every 12 hours' },
+    { label: `Daily (9:00 AM${s})`, value: 'daily' },
+    { label: `Daily at midnight${s}`, value: 'daily at midnight' },
+    { label: `Weekly (Mon 9:00 AM${s})`, value: 'weekly' },
+    { label: `Monthly (1st, 9:00 AM${s})`, value: 'monthly' },
+  ];
+}
+
+function SchedulePicker({ value, onChange, timezone }: { value: string; onChange: (v: string) => void; timezone?: string }) {
+  const presets = buildSchedulePresets(timezone);
+  const presetValues = new Set(presets.map(p => p.value));
+  const isCustom = value !== '' && !presetValues.has(value);
+  const [showCustom, setShowCustom] = useState(isCustom);
+
+  const selectValue = showCustom ? '__custom__' : (!value ? '' : (presetValues.has(value) ? value : '__custom__'));
+
+  return (
+    <>
+      <select
+        value={selectValue}
+        onChange={e => {
+          const v = e.target.value;
+          if (v === '__custom__') {
+            setShowCustom(true);
+            // Don't clear — keep existing custom value
+            if (!isCustom) onChange('');
+          } else {
+            setShowCustom(false);
+            onChange(v);
+          }
+        }}
+      >
+        <option value="">None</option>
+        {presets.map(p => (
+          <option key={p.value} value={p.value}>{p.label}</option>
+        ))}
+        <option value="__custom__">Custom...</option>
+      </select>
+      {showCustom && (
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="e.g. daily at 9:00, */10 * * * *"
+          style={{ marginTop: 6 }}
+        />
+      )}
+    </>
+  );
+}
+
 export interface AgentFormData {
   name: string;
   system_prompt: string;
@@ -115,6 +184,7 @@ export function AgentForm({ initial, draft, agents, onSubmit, onCancel, onDraftC
     docker_image: string;
     max_turns: number;
     timeout_ms: number;
+    timezone: string;
     allow_bind_mounts: boolean;
     resource_limits: { cpus: number; memory_gb: number; pids_limit: number };
   } | null>(null);
@@ -131,6 +201,7 @@ export function AgentForm({ initial, draft, agents, onSubmit, onCancel, onDraftC
         docker_image: res.defaults.docker_image,
         max_turns: res.defaults.max_turns,
         timeout_ms: res.defaults.timeout_ms,
+        timezone: res.defaults.timezone ?? '',
         allow_bind_mounts: res.defaults.allow_bind_mounts,
         resource_limits: res.defaults.resource_limits ?? { cpus: 0, memory_gb: 0, pids_limit: 0 },
       });
@@ -408,13 +479,7 @@ export function AgentForm({ initial, draft, agents, onSubmit, onCancel, onDraftC
 
       <fieldset className="field-group">
         <legend>Schedule</legend>
-        <label>Cron Expression</label>
-        <input
-          type="text"
-          value={schedule}
-          onChange={e => setSchedule(e.target.value)}
-          placeholder="e.g. every 5 minutes, daily at 9:00, */10 * * * *"
-        />
+        <SchedulePicker value={schedule} onChange={setSchedule} timezone={defaults?.timezone} />
         {schedule && (
           <div className="field-group__row">
             <div className="field-group__field">

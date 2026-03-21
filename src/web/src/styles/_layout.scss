@@ -358,25 +358,30 @@
   align-items: stretch;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
-  line-height: 16px;
   color: var(--c-amber);
   background: var(--c-bg);
   border: 1px solid var(--c-border);
   border-radius: 10px;
   white-space: nowrap;
 
+  &__label,
+  &__value {
+    display: flex;
+    align-items: center;
+  }
+
   &__label {
-    line-height: 16px;
     color: var(--c-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 0 4px 0 7px;
+    padding: 2px 4px 2px 7px;
     border-right: 1px solid var(--c-border);
     opacity: 0.6;
   }
 
   &__value {
-    padding: 0 7px 0 5px;
+    padding: 2px 7px 2px 5px;
+    font-size: 9px;
     font-weight: 300;
   }
 

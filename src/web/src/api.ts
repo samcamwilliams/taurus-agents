@@ -143,6 +143,7 @@ export const api = {
       supervisor_tools: string[];
       max_turns: number;
       timeout_ms: number;
+      timezone?: string;
       allow_bind_mounts: boolean;
       resource_limits?: { cpus: number; memory_gb: number; pids_limit: number };
     };

@@ -62,11 +62,6 @@ export function UserMenu({ username, onLogout, canInstall, onInstall, installLab
                 <Palette size={13} /> Theme
               </button>
             )}
-            {canInstall && onInstall && (
-              <button className="user-menu__item" onClick={() => { setOpen(false); onInstall(); }}>
-                <Download size={13} /> {installLabel || 'Install'}
-              </button>
-            )}
             <button className="user-menu__item" onClick={handleLogout}>
               <LogOut size={13} /> Sign out
             </button>
