@@ -1629,6 +1629,15 @@ export class Daemon {
       this.updateRunStatus(agentId, runId, code === null ? 'stopped' : 'error').catch(() => {});
     }
 
+    // Cascade: stop child runs whose parent just exited
+    if (managed.runs.size > 0) {
+      for (const [childRunId, childRun] of managed.runs) {
+        if (childRun.parentRunId === runId) {
+          this.stopRun(agentId, childRunId, 'parent run exited').catch(() => {});
+        }
+      }
+    }
+
     // Notify any blocking /api/ask waiters (in case child died without run_complete)
     this.notifyRunCompletion(runId, {
       summary: '',

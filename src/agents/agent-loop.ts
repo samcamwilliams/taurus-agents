@@ -63,9 +63,10 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
   let turns = 0;
   chatml.setTools(tools.getToolDefinitions(allowedTools));
 
-  /** Drain the injection queue and append each as a separate user message. Yields user_message events. */
-  async function* drainInjectedMessages(): AsyncGenerator<AgentEvent> {
+  /** Process injected messages: wrap in XML envelope, append to chatml, return events. */
+  function processInjectedMessages(): { role: 'user'; content: string | ContentBlock[] ; meta?: Record<string, any> }[] {
     const messages = getInjectedMessages?.() ?? [];
+    const results: { role: 'user'; content: string | ContentBlock[]; meta?: Record<string, any> }[] = [];
     for (const message of messages) {
       const blocks: ContentBlock[] = [];
       const from = message.meta?.author?.label ?? 'user';
@@ -82,8 +83,9 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
         : blocks;
 
       chatml.appendUser(content);
-      yield { type: 'user_message', message: { role: 'user', content }, meta: message.meta };
+      results.push({ role: 'user', content, meta: message.meta });
     }
+    return results;
   }
 
   while (true) {
@@ -98,7 +100,9 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     }
 
     // ── Check for injected user messages ──
-    yield* drainInjectedMessages();
+    for (const injected of processInjectedMessages()) {
+      yield { type: 'user_message', message: { role: 'user', content: injected.content }, meta: injected.meta };
+    }
 
     // ── Pre-inference compaction: compact before a call that would overflow ──
     if (model && limitOutputTokens) {
@@ -162,8 +166,12 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
 
     // If model finished without requesting tools → check for pending injected messages
     if (stopReason !== 'tool_use') {
-      if (drainInjectedMessages()) {
-        // Messages arrived during inference — loop back to process them
+      const postInferenceInjections = processInjectedMessages();
+      if (postInferenceInjections.length > 0) {
+        // Messages arrived during inference — yield events and loop back
+        for (const injected of postInferenceInjections) {
+          yield { type: 'user_message', message: { role: 'user', content: injected.content }, meta: injected.meta };
+        }
         turns++;
         continue;
       }
