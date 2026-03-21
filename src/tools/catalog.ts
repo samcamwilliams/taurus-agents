@@ -20,6 +20,8 @@ import { NotifyTool } from './control/notify.js';
 import { SubrunTool } from './control/subrun.js';
 import { DelegateTool } from './control/delegate.js';
 import { SupervisorTool } from './control/supervisor.js';
+import { MessageTool } from './control/message.js';
+import { InspectTool } from './control/inspect.js';
 import { WaitTool } from './control/wait.js';
 import { FileTracker } from './shell/file-tracker.js';
 
@@ -39,6 +41,8 @@ const ALL_TOOLS: Tool[] = [
   new PauseTool(noop, noop),
   new NotifyTool(noop),
   new SubrunTool(noop, noop),
+  new MessageTool(noop, noop),
+  new InspectTool(noop, noop),
   new WaitTool(noop, noop),
   new DelegateTool(noop, noop),
   new SupervisorTool(noop, noop),

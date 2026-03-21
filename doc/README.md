@@ -55,7 +55,8 @@ A run is a single execution of an agent. It contains a sequence of messages (use
 | Subrun | control | Run subtasks in the same container |
 | Wait | control | Wait for background runs or sleep |
 | Delegate | control | Delegate a task to a child agent |
-| MessageParent | control | Send a message back to the parent run |
+| Message | control | Send a non-blocking message to the parent run |
+| Inspect | control | Inspect run history (own runs or child agent runs) |
 | Supervisor | control | Manage child agents |
 | WebSearch | web | Brave Search API |
 | WebFetch | web | Fetch and extract web pages |

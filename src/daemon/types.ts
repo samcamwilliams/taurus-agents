@@ -27,9 +27,10 @@ export type ParentMessage =
   | { type: 'inject'; message: string; images?: IpcImage[]; messageMeta?: MessageMeta }
   | { type: 'signal'; name: string; payload: unknown }
   | { type: 'subrun_result'; requestId: string; runId: string; summary: string; error?: string; hitMaxTurns?: boolean }
-  | { type: 'message_parent_result'; requestId: string; summary: string; runId?: string; error?: string }
+  | { type: 'message_result'; requestId: string; summary: string; runId?: string; error?: string }
   | { type: 'delegate_result'; requestId: string; summary: string; runId: string; error?: string; tokens?: { input: number; output: number; cost: number }; images?: IpcImage[]; hitMaxTurns?: boolean }
   | { type: 'supervisor_result'; requestId: string; result: unknown; error?: string }
+  | { type: 'inspect_result'; requestId: string; result: unknown; error?: string }
   | { type: 'wait_result'; requestId: string; completed: Record<string, { summary: string; error?: string; hitMaxTurns?: boolean }>; pending: string[] };
 
 // ─── IPC: Child → Parent (coordination only — no DB writes) ───
@@ -44,8 +45,9 @@ export type ChildMessage =
       images?: IpcImage[]; hitMaxTurns?: boolean }
   | { type: 'signal_emit'; name: string; payload: unknown }
   | { type: 'subrun_request'; requestId: string; input: string; tools?: string[]; max_turns?: number; timeout_ms?: number; run_id?: string; background?: boolean }
-  | { type: 'message_parent_request'; requestId: string; message: string }
+  | { type: 'message_request'; requestId: string; message: string }
   | { type: 'delegate_request'; requestId: string; targetAgent: string; input: string; context?: string; run_id?: string; background?: boolean }
   | { type: 'supervisor_request'; requestId: string; action: string; params: Record<string, unknown> }
+  | { type: 'inspect_request'; requestId: string; agent?: string; run_id?: string; brief?: boolean; limit?: number }
   | { type: 'wait_request'; requestId: string; run_ids?: string[]; timeout_ms?: number }
   | { type: 'error'; error: string; stack?: string };

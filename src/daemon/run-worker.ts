@@ -23,7 +23,8 @@ import { ToolRegistry } from '../tools/registry.js';
 import { PersistentShell } from './persistent-shell.js';
 import { PersistentBashTool } from '../tools/shell/bash.js';
 import { PauseTool } from '../tools/control/pause.js';
-import { MessageParentTool, type MessageParentRequest, type MessageParentResult } from '../tools/control/message-parent.js';
+import { MessageTool, type MessageRequest, type MessageResult } from '../tools/control/message.js';
+import { InspectTool, type InspectRequest, type InspectResult } from '../tools/control/inspect.js';
 import { NotifyTool, type NotifyPayload } from '../tools/control/notify.js';
 import { ShellReadTool } from '../tools/shell/read.js';
 import { ShellWriteTool } from '../tools/shell/write.js';
@@ -98,17 +99,31 @@ function waitForSubrunResult(requestId: string): Promise<SubrunResult> {
   });
 }
 
-// ── Message-parent machinery ──
+// ── Message machinery ──
 
-const messageParentResolvers = new Map<string, (result: MessageParentResult) => void>();
+const messageResolvers = new Map<string, (result: MessageResult) => void>();
 
-function sendMessageParentRequest(request: MessageParentRequest): void {
-  send({ type: 'message_parent_request', ...request });
+function sendMessageRequest(request: MessageRequest): void {
+  send({ type: 'message_request', ...request });
 }
 
-function waitForMessageParentResult(requestId: string): Promise<MessageParentResult> {
+function waitForMessageResult(requestId: string): Promise<MessageResult> {
   return new Promise((resolve) => {
-    messageParentResolvers.set(requestId, resolve);
+    messageResolvers.set(requestId, resolve);
+  });
+}
+
+// ── Inspect machinery ──
+
+const inspectResolvers = new Map<string, (result: InspectResult) => void>();
+
+function sendInspectRequest(request: InspectRequest): void {
+  send({ type: 'inspect_request', ...request });
+}
+
+function waitForInspectResult(requestId: string): Promise<InspectResult> {
+  return new Promise((resolve) => {
+    inspectResolvers.set(requestId, resolve);
   });
 }
 
@@ -180,9 +195,10 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   }),
   Browser:   (s) => new BrowserTool(s),
   Pause:     ()  => new PauseTool(sendPause, waitForResume),
-  MessageParent: () => new MessageParentTool(sendMessageParentRequest, waitForMessageParentResult),
+  Message:  () => new MessageTool(sendMessageRequest, waitForMessageResult),
   Notify:    ()  => new NotifyTool(emitNotification),
   Subrun:    ()  => new SubrunTool(sendSubrunRequest, waitForSubrunResult),
+  Inspect:   ()  => new InspectTool(sendInspectRequest, waitForInspectResult),
   Wait:      ()  => new WaitTool(sendWaitRequest, waitForWaitResult),
   Delegate:  ()  => new DelegateTool(sendDelegateRequest, waitForDelegateResult),
   Supervisor: () => new SupervisorTool(sendSupervisorRequest, waitForSupervisorResult),
@@ -477,10 +493,10 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   await shell.spawn();
 
   // 5. Register tools
-  // Pause is the agent's safety valve to ask for human input.
-  // Subrun/delegate children never get Pause (nobody can resume them — deadlock).
-  // They get MessageParent instead, so they can send results back to the caller.
-  const ALWAYS_ON_TOOLS = (trigger === 'subrun' || trigger === 'delegate') ? ['MessageParent'] : ['Pause'];
+  // Pause is always on — routes to human (top-level) or parent agent (children).
+  // Children also get Message for non-blocking updates to the parent.
+  const ALWAYS_ON_TOOLS = ['Pause'];
+  if (trigger === 'subrun' || trigger === 'delegate') ALWAYS_ON_TOOLS.push('Message');
   const TOOL_GROUPS: Record<string, string[]> = {
     supervisor: ['Delegate', 'Supervisor'],
   };
@@ -794,10 +810,10 @@ process.on('message', async (msg: ParentMessage) => {
       break;
     }
 
-    case 'message_parent_result': {
-      const resolver = messageParentResolvers.get(msg.requestId);
+    case 'message_result': {
+      const resolver = messageResolvers.get(msg.requestId);
       if (resolver) {
-        messageParentResolvers.delete(msg.requestId);
+        messageResolvers.delete(msg.requestId);
         resolver({ summary: msg.summary, runId: msg.runId, error: msg.error });
       }
       break;
@@ -816,6 +832,15 @@ process.on('message', async (msg: ParentMessage) => {
       const resolver = supervisorResolvers.get(msg.requestId);
       if (resolver) {
         supervisorResolvers.delete(msg.requestId);
+        resolver({ result: msg.result, error: msg.error });
+      }
+      break;
+    }
+
+    case 'inspect_result': {
+      const resolver = inspectResolvers.get(msg.requestId);
+      if (resolver) {
+        inspectResolvers.delete(msg.requestId);
         resolver({ result: msg.result, error: msg.error });
       }
       break;

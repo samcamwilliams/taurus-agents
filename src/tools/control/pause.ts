@@ -2,18 +2,22 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 
 /**
- * PauseTool — allows an agent to pause itself and wait for human input.
+ * PauseTool — allows an agent to pause and wait for input.
  *
  * When an agent calls this tool, the worker sends a 'paused' message to the
- * Daemon via IPC and blocks until a 'resume' message arrives. The Daemon
- * updates the agent status and the web UI shows a resume button.
+ * Daemon via IPC and blocks until a 'resume' message arrives.
+ *
+ * Context-aware routing:
+ * - Top-level agents: pauses for human input (web UI shows resume button)
+ * - Child agents (subrun/delegate): routes the pause reason to the parent
+ *   agent, which can resume the child via inject_message
  *
  * The sendPause/waitForResume callbacks are injected by the agent worker.
  */
 export class PauseTool extends Tool {
   readonly name = 'Pause';
   readonly group = 'Control';
-  readonly description = 'Pause this agent and wait for human input. Use ONLY when you need a decision, approval, or additional information from a human before continuing. This will HALT execution until a human responds — do NOT use it for planning, thinking, or organizing your work.';
+  readonly description = 'Pause and wait for input. If you are a top-level agent, this waits for human input via the dashboard. If you were launched by another agent, this sends your request to the parent and waits for their response. Use when you need a decision, approval, or additional information before continuing.';
   readonly requiresApproval = false; // The tool IS the approval mechanism
   readonly inputSchema = {
     type: 'object' as const,

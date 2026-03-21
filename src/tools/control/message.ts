@@ -1,27 +1,27 @@
 import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 
-export interface MessageParentRequest {
+export interface MessageRequest {
   requestId: string;
   message: string;
 }
 
-export interface MessageParentResult {
+export interface MessageResult {
   summary: string;
   runId?: string;
   error?: string;
 }
 
 /**
- * MessageParentTool — queue a message into the parent/delegator run.
+ * MessageTool — queue a message into the parent/delegator run.
  *
  * Uses the same injection path Taurus already uses for human messages, so the
  * parent receives it on the next loop turn.
  */
-export class MessageParentTool extends Tool {
-  readonly name = 'MessageParent';
+export class MessageTool extends Tool {
+  readonly name = 'Message';
   readonly group = 'Control';
-  readonly description = 'Queue a message into the run that launched you. Taurus prefixes the sender and timestamp automatically, and the parent receives it on the next turn.';
+  readonly description = 'Send a message to the run that launched you. The message is delivered to the parent on its next turn. This does not pause your execution — use Pause if you need to wait for a response.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,
@@ -34,12 +34,12 @@ export class MessageParentTool extends Tool {
     required: ['message'],
   };
 
-  private sendRequest: (request: MessageParentRequest) => void;
-  private waitForResult: (requestId: string) => Promise<MessageParentResult>;
+  private sendRequest: (request: MessageRequest) => void;
+  private waitForResult: (requestId: string) => Promise<MessageResult>;
 
   constructor(
-    sendRequest: (request: MessageParentRequest) => void,
-    waitForResult: (requestId: string) => Promise<MessageParentResult>,
+    sendRequest: (request: MessageRequest) => void,
+    waitForResult: (requestId: string) => Promise<MessageResult>,
   ) {
     super();
     this.sendRequest = sendRequest;
@@ -58,7 +58,7 @@ export class MessageParentTool extends Tool {
 
     if (result.error) {
       return {
-        output: `MessageParent failed: ${result.error}`,
+        output: `Message failed: ${result.error}`,
         isError: true,
         durationMs: 0,
       };

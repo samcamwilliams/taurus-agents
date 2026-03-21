@@ -888,13 +888,21 @@ export class Daemon {
         if (run) run.status = 'paused';
         await this.deriveAgentStatus(agentId);
         await this.updateRunStatus(agentId, runId, 'paused');
-        this.logger('info', `[${managed.agent.name}] Paused: ${msg.reason}`);
-        this.sse.broadcast(agentId, {
-          type: 'agent_paused',
-          agentId,
-          reason: msg.reason,
-          timestamp: new Date().toISOString(),
-        });
+
+        if (run?.callerType) {
+          // Child agent paused — route to parent
+          this.logger('info', `[${managed.agent.name}] Paused (routing to parent): ${msg.reason}`);
+          this.routePauseToParent(managed, run, agentId, runId, msg.reason);
+        } else {
+          // Top-level agent paused — notify human via SSE
+          this.logger('info', `[${managed.agent.name}] Paused: ${msg.reason}`);
+          this.sse.broadcast(agentId, {
+            type: 'agent_paused',
+            agentId,
+            reason: msg.reason,
+            timestamp: new Date().toISOString(),
+          });
+        }
         break;
       }
 
@@ -953,12 +961,12 @@ export class Daemon {
         });
         break;
 
-      case 'message_parent_request':
-        this.handleMessageParentRequest(agentId, runId, msg).catch((err: any) => {
-          this.logger('error', `[${managed.agent.name}] MessageParent failed: ${err.message}`);
+      case 'message_request':
+        this.handleMessageRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Message failed: ${err.message}`);
           const callerRun = managed.runs.get(runId);
           if (callerRun) {
-            callerRun.process.send({ type: 'message_parent_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
+            callerRun.process.send({ type: 'message_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
           }
         });
         break;
@@ -976,6 +984,16 @@ export class Daemon {
       case 'supervisor_request':
         this.handleSupervisorRequest(agentId, runId, msg).catch((err: any) => {
           this.logger('error', `[${managed.agent.name}] Supervisor request failed: ${err.message}`);
+        });
+        break;
+
+      case 'inspect_request':
+        this.handleInspectRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] Inspect failed: ${err.message}`);
+          const callerRun = managed.runs.get(runId);
+          if (callerRun) {
+            callerRun.process.send({ type: 'inspect_result', requestId: msg.requestId, result: null, error: err.message } as ParentMessage);
+          }
         });
         break;
 
@@ -1126,7 +1144,7 @@ export class Daemon {
     this.logger('info', `[${managed.agent.name}] Subrun ${runId} (parent: ${parentRunId}${msg.background ? ', background' : ''})`);
   }
 
-  private async handleMessageParentRequest(
+  private async handleMessageRequest(
     callerAgentId: string,
     callerRunId: string,
     msg: { requestId: string; message: string },
@@ -1159,7 +1177,7 @@ export class Daemon {
     });
 
     callerRun.process.send({
-      type: 'message_parent_result',
+      type: 'message_result',
       requestId: msg.requestId,
       summary: 'Message queued for the parent run.',
       runId: routedRunId,
@@ -1354,46 +1372,6 @@ export class Daemon {
           break;
         }
 
-        case 'inspect_run': {
-          const p = msg.params as { key: string; run_id?: string; brief?: boolean };
-          const child = this.findChildByName(callerAgentId, p.key);
-          if (!child) throw new Error(`Child "${p.key}" not found`);
-          const brief = p.brief !== false;
-          const targetRunId = p.run_id;
-          const run = targetRunId
-            ? await Run.findByPk(targetRunId)
-            : (await Run.findAll({ where: { agent_id: child.id }, order: [['created_at', 'DESC']], limit: 1 }))[0];
-          if (!run) {
-            result = { status: 'no_runs' };
-          } else {
-            const totalMessages = await Message.count({ where: { run_id: run.id } });
-            const messages = await Message.findAll({
-              where: { run_id: run.id },
-              order: [['seq', 'DESC']],
-              limit: 5,
-            });
-            const isTerminal = ['completed', 'error', 'stopped'].includes(run.status);
-            result = {
-              id: run.id,
-              status: run.status,
-              trigger: run.trigger,
-              started_at: run.created_at,
-              ...(isTerminal ? { completed_at: run.updated_at } : {}),
-              message_count: totalMessages,
-              messages: messages.reverse().map(m => {
-                let content = typeof m.content === 'string'
-                  ? m.content
-                  : JSON.stringify(m.content);
-                if (brief && content.length > 200) {
-                  content = content.slice(0, 200) + '…';
-                }
-                return { role: m.role, content, created_at: m.created_at };
-              }),
-            };
-          }
-          break;
-        }
-
         case 'inject_message': {
           const p = msg.params as { key: string; message: string };
           const child = this.findChildByName(callerAgentId, p.key);
@@ -1429,6 +1407,140 @@ export class Daemon {
         error: err.message,
       });
     }
+  }
+
+  private routePauseToParent(
+    managed: ManagedAgent, run: ManagedRun,
+    childAgentId: string, childRunId: string, reason: string,
+  ): void {
+    // Resolve the parent run that launched this child
+    let sourceAgentId: string;
+    let sourceRunId: string | null;
+    if (run.callerType === 'subrun') {
+      // Subrun: parent is in the same agent
+      sourceAgentId = childAgentId;
+      sourceRunId = run.parentRunId;
+    } else {
+      // Delegate: parent is the delegating agent
+      sourceAgentId = run.callerAgentId!;
+      sourceRunId = run.callerRunId!;
+    }
+
+    if (!sourceRunId) {
+      this.logger('error', `[${managed.agent.name}] Cannot route pause to parent: no source run`);
+      return;
+    }
+
+    const agentName = managed.agent.name;
+    const shortId = childRunId.split('-')[0].toUpperCase();
+    const message = `<child-paused agent="${agentName}" run="${shortId}">\n${reason}\n</child-paused>`;
+
+    const sourceManaged = this.agents.get(sourceAgentId);
+    if (!sourceManaged) return;
+
+    const sourceRun = sourceManaged.runs.get(sourceRunId);
+    if (sourceRun) {
+      // Parent run is active — inject the pause message
+      const messageMeta: MessageMeta = {
+        author: { kind: 'agent', agentId: childAgentId, runId: childRunId, shortId, label: agentName },
+      };
+      sourceRun.process.send({ type: 'inject', message, messageMeta } as ParentMessage);
+    } else {
+      // Parent run is idle — continue it with the pause message
+      this.continueRun(sourceAgentId, sourceRunId, message).catch(err => {
+        this.logger('error', `Failed to route child pause to parent: ${err.message}`);
+      });
+    }
+  }
+
+  private async handleInspectRequest(
+    callerAgentId: string,
+    callerRunId: string,
+    msg: { requestId: string; agent?: string; run_id?: string; brief?: boolean; limit?: number },
+  ): Promise<void> {
+    const callerManaged = this.agents.get(callerAgentId);
+    if (!callerManaged) throw new Error(`Agent not found: ${callerAgentId}`);
+
+    const callerRun = callerManaged.runs.get(callerRunId);
+    if (!callerRun) throw new Error(`Run not found: ${callerRunId}`);
+
+    // Resolve target agent: self or a child
+    let targetAgentId: string;
+    if (msg.agent && msg.agent !== 'self') {
+      const child = this.findChildByName(callerAgentId, msg.agent);
+      if (!child) throw new Error(`Child "${msg.agent}" not found`);
+      targetAgentId = child.id;
+    } else {
+      targetAgentId = callerAgentId;
+    }
+
+    const brief = msg.brief !== false;
+    const limit = msg.limit ?? 10;
+    let result: unknown;
+
+    if (msg.run_id) {
+      // Inspect a specific run
+      const run = await Run.findByPk(msg.run_id);
+      if (!run || run.agent_id !== targetAgentId) {
+        throw new Error(`Run "${msg.run_id}" not found for this agent`);
+      }
+      const totalMessages = await Message.count({ where: { run_id: run.id } });
+      const messages = await Message.findAll({
+        where: { run_id: run.id },
+        order: [['seq', 'DESC']],
+        limit: 5,
+      });
+      const isTerminal = ['completed', 'error', 'stopped'].includes(run.status);
+      result = {
+        id: run.id,
+        status: run.status,
+        trigger: run.trigger,
+        started_at: run.created_at,
+        ...(isTerminal ? { completed_at: run.updated_at } : {}),
+        message_count: totalMessages,
+        messages: messages.reverse().map(m => {
+          let content = typeof m.content === 'string'
+            ? m.content
+            : JSON.stringify(m.content);
+          if (brief && content.length > 200) {
+            content = content.slice(0, 200) + '…';
+          }
+          return { role: m.role, content, created_at: m.created_at };
+        }),
+      };
+    } else {
+      // List recent runs
+      const runs = await Run.findAll({
+        where: { agent_id: targetAgentId },
+        order: [['created_at', 'DESC']],
+        limit,
+      });
+      if (runs.length === 0) {
+        result = { runs: [], message: 'No runs found.' };
+      } else {
+        result = {
+          runs: await Promise.all(runs.map(async (r: any) => {
+            const msgCount = await Message.count({ where: { run_id: r.id } });
+            const isTerminal = ['completed', 'error', 'stopped'].includes(r.status);
+            return {
+              id: r.id,
+              status: r.status,
+              trigger: r.trigger,
+              started_at: r.created_at,
+              ...(isTerminal ? { completed_at: r.updated_at } : {}),
+              message_count: msgCount,
+              ...(r.run_error ? { error: r.run_error } : {}),
+            };
+          })),
+        };
+      }
+    }
+
+    callerRun.process.send({
+      type: 'inspect_result',
+      requestId: msg.requestId,
+      result,
+    } as ParentMessage);
   }
 
   private async handleWaitRequest(

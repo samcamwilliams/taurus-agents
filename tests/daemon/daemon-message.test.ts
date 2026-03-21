@@ -1,5 +1,5 @@
 /**
- * MessageParent IPC tests — child-to-parent message routing for subruns and delegates.
+ * Message IPC tests — child-to-parent message routing for subruns and delegates.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -13,7 +13,7 @@ import * as mocks from '../helpers/daemon-mocks.js';
 
 const { Daemon } = await import('../../src/daemon/daemon.js');
 
-describe('MessageParent', () => {
+describe('Message', () => {
   let daemon: InstanceType<typeof Daemon>;
 
   beforeEach(async () => {
@@ -36,9 +36,9 @@ describe('MessageParent', () => {
     const childWorker = mocks.latestFakeChild;
     expect(childWorker).not.toBe(parentWorker);
 
-    // Child sends a message_parent_request
+    // Child sends a message_request
     childWorker.emit('message', {
-      type: 'message_parent_request',
+      type: 'message_request',
       requestId: 'mp-1',
       message: 'Found something interesting',
     });
@@ -57,7 +57,7 @@ describe('MessageParent', () => {
     expect(injectMsg.messageMeta.author.label).toBe(mockAgentData.name);
   });
 
-  it('sends message_parent_result back to the child', async () => {
+  it('sends message_result back to the child', async () => {
     await daemon.startRun('agent-1', 'manual', 'hello');
     const parentWorker = mocks.latestFakeChild;
 
@@ -71,13 +71,13 @@ describe('MessageParent', () => {
     const childWorker = mocks.latestFakeChild;
 
     childWorker.emit('message', {
-      type: 'message_parent_request',
+      type: 'message_request',
       requestId: 'mp-2',
       message: 'Status update',
     });
     await new Promise(r => setTimeout(r, 50));
 
-    const result = childWorker.sent.find((m: any) => m.type === 'message_parent_result');
+    const result = childWorker.sent.find((m: any) => m.type === 'message_result');
     expect(result).toBeDefined();
     expect(result.requestId).toBe('mp-2');
     expect(result.summary).toBe('Message queued for the parent run.');
@@ -101,9 +101,9 @@ describe('MessageParent', () => {
     const childWorker = mocks.latestFakeChild;
     expect(childWorker).not.toBe(parentWorker);
 
-    // Child agent sends message_parent_request
+    // Child agent sends message_request
     childWorker.emit('message', {
-      type: 'message_parent_request',
+      type: 'message_request',
       requestId: 'mp-del',
       message: 'Research progress: 50%',
     });
@@ -119,7 +119,7 @@ describe('MessageParent', () => {
     expect(injectMsg.messageMeta.author.label).toBe(mockChildAgentData.name);
 
     // Child should get the result
-    const result = childWorker.sent.find((m: any) => m.type === 'message_parent_result');
+    const result = childWorker.sent.find((m: any) => m.type === 'message_result');
     expect(result).toBeDefined();
     expect(result.requestId).toBe('mp-del');
     expect(result.summary).toBe('Message queued for the parent run.');
@@ -132,15 +132,15 @@ describe('MessageParent', () => {
 
     // Try to message parent — should fail since this is a top-level run
     worker.emit('message', {
-      type: 'message_parent_request',
+      type: 'message_request',
       requestId: 'mp-fail',
       message: 'This should fail',
     });
     await new Promise(r => setTimeout(r, 50));
 
     // The daemon logs the error and sends the result back as an error
-    // Since handleMessageParentRequest throws, the catch block sends an error result
-    const result = worker.sent.find((m: any) => m.type === 'message_parent_result');
+    // Since handleMessageRequest throws, the catch block sends an error result
+    const result = worker.sent.find((m: any) => m.type === 'message_result');
     expect(result).toBeDefined();
     expect(result.requestId).toBe('mp-fail');
     expect(result.error).toBeDefined();
@@ -162,7 +162,7 @@ describe('MessageParent', () => {
     const childRunId = childStartMsg.runId;
 
     childWorker.emit('message', {
-      type: 'message_parent_request',
+      type: 'message_request',
       requestId: 'mp-short',
       message: 'Check this',
     });
