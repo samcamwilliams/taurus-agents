@@ -241,6 +241,37 @@
   }
 }
 
+.dashboard-item {
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    color: #2563eb;
+    background: color-mix(in srgb, #2563eb 14%, transparent);
+    border: 1px solid color-mix(in srgb, #2563eb 28%, transparent);
+    flex-shrink: 0;
+
+    &--header {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  &__name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__path {
+    color: var(--c-muted);
+  }
+}
+
 // ── Panel Header ──
 
 .panel-header {
@@ -427,6 +458,21 @@
   display: flex;
   min-height: 0;
   overflow: hidden;
+}
+
+.dashboard-view {
+  flex: 1;
+  min-height: 0;
+  background: var(--c-bg);
+  border-top: 1px solid var(--c-border);
+  display: flex;
+}
+
+.dashboard-view__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
 }
 
 // ── Empty State ──

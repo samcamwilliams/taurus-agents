@@ -27,6 +27,14 @@ export interface Agent {
   updated_at: string;
 }
 
+export interface Dashboard {
+  slug: string;
+  name: string;
+  path: string;
+  root_agent_id: string;
+  url: string;
+}
+
 export type RunStatus = 'running' | 'paused' | 'completed' | 'error' | 'stopped';
 
 export interface Run {
