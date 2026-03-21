@@ -21,7 +21,7 @@ import { ThemePicker } from '../components/ThemePicker';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
-import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, ExternalLink, LayoutDashboard } from 'lucide-react';
+import { Play, Square, PlayCircle, FastForward, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, ExternalLink, LayoutDashboard } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
@@ -928,7 +928,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
               <div className="panel-header__actions">
                 <div className="panel-header__action-row panel-header__action-row--primary">
                   {isStopped && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
-                  {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><RotateCw size={13} /> Continue</button>}
+                  {isStopped && runs.length > 0 && <button className="btn" onClick={handleContinueRun}><FastForward size={13} /> Continue</button>}
                   {isRunning && <button className="btn" onClick={handleStopRun}><Square size={13} /> {isMobile ? 'Stop' : 'Stop All'}</button>}
                   {isPaused && <button className="btn" onClick={handleResume}><PlayCircle size={13} /> Resume</button>}
                   {isPaused && <button className="btn primary" onClick={handleStartRun}><Play size={13} /> {isMobile ? 'New' : 'New Run'}</button>}
