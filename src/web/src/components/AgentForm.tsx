@@ -126,7 +126,14 @@ export function AgentForm({ initial, draft, agents, onSubmit, onCancel, onDraftC
       if (!initial && draft?.tools === undefined) {
         setSelectedTools(new Set(res.defaults.tools));
       }
-      setDefaults(res.defaults);
+      setDefaults({
+        model: res.defaults.model,
+        docker_image: res.defaults.docker_image,
+        max_turns: res.defaults.max_turns,
+        timeout_ms: res.defaults.timeout_ms,
+        allow_bind_mounts: res.defaults.allow_bind_mounts,
+        resource_limits: res.defaults.resource_limits ?? { cpus: 0, memory_gb: 0, pids_limit: 0 },
+      });
       setAllToolNames(res.tools.map((t: { name: string }) => t.name));
       setReadonlyTools(res.defaults.readonly_tools);
     }).catch(() => {});

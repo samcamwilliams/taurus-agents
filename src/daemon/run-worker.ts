@@ -8,7 +8,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ParentMessage, ChildMessage, TriggerType, LogLevel, IpcImage } from './types.js';
+import type { ParentMessage, ChildMessage, TriggerType, LogLevel, IpcImage, MessageMeta } from './types.js';
 import Agent from '../db/models/Agent.js';
 import Run from '../db/models/Run.js';
 import Message from '../db/models/Message.js';
@@ -23,6 +23,7 @@ import { ToolRegistry } from '../tools/registry.js';
 import { PersistentShell } from './persistent-shell.js';
 import { PersistentBashTool } from '../tools/shell/bash.js';
 import { PauseTool } from '../tools/control/pause.js';
+import { MessageParentTool, type MessageParentRequest, type MessageParentResult } from '../tools/control/message-parent.js';
 import { NotifyTool, type NotifyPayload } from '../tools/control/notify.js';
 import { ShellReadTool } from '../tools/shell/read.js';
 import { ShellWriteTool } from '../tools/shell/write.js';
@@ -97,6 +98,20 @@ function waitForSubrunResult(requestId: string): Promise<SubrunResult> {
   });
 }
 
+// ── Message-parent machinery ──
+
+const messageParentResolvers = new Map<string, (result: MessageParentResult) => void>();
+
+function sendMessageParentRequest(request: MessageParentRequest): void {
+  send({ type: 'message_parent_request', ...request });
+}
+
+function waitForMessageParentResult(requestId: string): Promise<MessageParentResult> {
+  return new Promise((resolve) => {
+    messageParentResolvers.set(requestId, resolve);
+  });
+}
+
 // ── Delegate machinery ──
 
 const delegateResolvers = new Map<string, (result: DelegateResult) => void>();
@@ -145,7 +160,7 @@ const abortController = new AbortController();
 
 // ── Message injection queue ──
 
-type InjectedMessage = { text: string; images?: { base64: string; mediaType: string }[] };
+type InjectedMessage = { text: string; images?: { base64: string; mediaType: string }[]; meta?: MessageMeta };
 const injectQueue: InjectedMessage[] = [];
 
 // ── Tool factories ──
@@ -165,6 +180,7 @@ const TOOL_FACTORIES: Record<string, ToolFactory> = {
   }),
   Browser:   (s) => new BrowserTool(s),
   Pause:     ()  => new PauseTool(sendPause, waitForResume),
+  MessageParent: () => new MessageParentTool(sendMessageParentRequest, waitForMessageParentResult),
   Notify:    ()  => new NotifyTool(emitNotification),
   Subrun:    ()  => new SubrunTool(sendSubrunRequest, waitForSubrunResult),
   Wait:      ()  => new WaitTool(sendWaitRequest, waitForWaitResult),
@@ -389,7 +405,7 @@ function patchIncompleteToolCalls(messages: ChatMessage[]): void {
 
 // ── Main run function ──
 
-async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[], toolOverride?: string[], schedule?: string): Promise<void> {
+async function runAgent(agentId: string, runId: string, trigger: TriggerType, input?: string, resume?: boolean, images?: IpcImage[], inputMeta?: MessageMeta, toolOverride?: string[], schedule?: string): Promise<void> {
   // 1. Load agent and run from DB
   const agent = await Agent.findByPk(agentId);
   if (!agent) throw new Error(`Agent not found: ${agentId}`);
@@ -434,7 +450,7 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   }
   const inputText = resume ? input : buildInputMessage(trigger, input, schedule);
   if (inputText) {
-    await run.persistMessage('user', buildUserContent(inputText, images));
+    await run.persistMessage('user', buildUserContent(inputText, images), inputMeta ? { meta: inputMeta } : undefined);
   }
 
   // 3. Initialize inference
@@ -463,7 +479,8 @@ async function runAgent(agentId: string, runId: string, trigger: TriggerType, in
   // 5. Register tools
   // Pause is the agent's safety valve to ask for human input.
   // Subrun/delegate children never get Pause (nobody can resume them — deadlock).
-  const ALWAYS_ON_TOOLS = (trigger === 'subrun' || trigger === 'delegate') ? [] : ['Pause'];
+  // They get MessageParent instead, so they can send results back to the caller.
+  const ALWAYS_ON_TOOLS = (trigger === 'subrun' || trigger === 'delegate') ? ['MessageParent'] : ['Pause'];
   const TOOL_GROUPS: Record<string, string[]> = {
     supervisor: ['Delegate', 'Supervisor'],
   };
@@ -738,7 +755,7 @@ process.on('message', async (msg: ParentMessage) => {
       if (msg.secrets) setSecrets(msg.secrets);
       setAllowedEnvFallback(msg.sharedSecrets ?? null);
       try {
-        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.tools, msg.schedule);
+        await runAgent(msg.agentId, msg.runId, msg.trigger, msg.input, msg.resume, msg.images, msg.messageMeta, msg.tools, msg.schedule);
       } catch (err: any) {
         let errorMsg = err.message || String(err);
         // Enhance "X_KEY is required" factory errors with BYOK guidance
@@ -764,7 +781,7 @@ process.on('message', async (msg: ParentMessage) => {
       break;
 
     case 'inject':
-      injectQueue.push({ text: msg.message, images: msg.images });
+      injectQueue.push({ text: msg.message, images: msg.images, meta: msg.messageMeta });
       log('info', 'agent.inject', `Message queued for next turn: ${msg.message}`);
       break;
 
@@ -773,6 +790,15 @@ process.on('message', async (msg: ParentMessage) => {
       if (resolver) {
         subrunResolvers.delete(msg.requestId);
         resolver({ summary: msg.summary, runId: msg.runId, error: msg.error, hitMaxTurns: msg.hitMaxTurns });
+      }
+      break;
+    }
+
+    case 'message_parent_result': {
+      const resolver = messageParentResolvers.get(msg.requestId);
+      if (resolver) {
+        messageParentResolvers.delete(msg.requestId);
+        resolver({ summary: msg.summary, runId: msg.runId, error: msg.error });
       }
       break;
     }

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
 import { Markdown } from './Markdown';
-import { fmtSmartTime } from '../utils/format';
+import { fmtSmartTime, stripInjectedMessageEnvelope } from '../utils/format';
 import { JsonKV } from './JsonKV';
 import { DiffView } from './DiffView';
 import { Lightbox } from './Lightbox';
@@ -320,6 +320,21 @@ function MessageContent({ content, role, showMetadata, toolMeta }: { content: un
   return <pre className="msg-raw">{JSON.stringify(content, null, 2)}</pre>;
 }
 
+function getMessageVariant(msg: MessageRecord): 'user' | 'assistant' | 'system' | 'compaction' | 'agent' {
+  if (msg.role === 'user' && msg.author?.kind === 'agent') return 'agent';
+  return msg.role;
+}
+
+function getMessageLabel(msg: MessageRecord): string {
+  return msg.author?.label ?? msg.role;
+}
+
+function getDisplayMessageContent(msg: MessageRecord): unknown {
+  return msg.role === 'user'
+    ? stripInjectedMessageEnvelope(msg.content)
+    : msg.content;
+}
+
 // ── Main message view ──
 
 interface MessageViewProps {
@@ -334,10 +349,31 @@ interface MessageViewProps {
   showMetadata?: boolean;
   onInspect?: (message: MessageRecord) => void;
   onDelete?: (message: MessageRecord) => void;
+  onOpenRun?: (agentId: string, runId: string) => void;
   children?: React.ReactNode;
 }
 
-export function MessageView({ runId, messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, children }: MessageViewProps) {
+function MessageRoleLabel({ message, onOpenRun }: { message: MessageRecord; onOpenRun?: (agentId: string, runId: string) => void }) {
+  if (message.author?.kind === 'agent' && message.author.agent_id && message.author.run_id) {
+    return (
+      <>
+        <span>Agent</span>
+        <button
+          type="button"
+          className="message__role-link"
+          onClick={() => onOpenRun?.(message.author!.agent_id, message.author!.run_id!)}
+          title={`Open run ${message.author.run_id}`}
+        >
+          #{message.author.short_id}
+        </button>
+      </>
+    );
+  }
+
+  return <>{getMessageLabel(message)}</>;
+}
+
+export function MessageView({ runId, messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, onOpenRun, children }: MessageViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -468,10 +504,12 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
             );
           }
           const isOptimistic = msg.id.startsWith('_optimistic_');
+          const variant = getMessageVariant(msg);
+          const label = getMessageLabel(msg);
           return (
-          <div key={msg.id} className={`message message--${msg.role}${isOptimistic ? ' message--optimistic' : ''}`}>
+          <div key={msg.id} className={`message message--${variant}${isOptimistic ? ' message--optimistic' : ''}`}>
             <div className="message__header">
-              <span className="message__role">{msg.role}</span>
+              <span className="message__role"><MessageRoleLabel message={msg} onOpenRun={onOpenRun} /></span>
               <span className="message__meta">
                 {isOptimistic
                   ? <span className="message__pill message__pill--sending">sending</span>
@@ -481,7 +519,7 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
               {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
             </div>
             <div className="message__body">
-              <MessageContent content={msg.content} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
+              <MessageContent content={getDisplayMessageContent(msg)} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
             </div>
             {showMetadata && msg.usage && (
               <div className="message__footer">

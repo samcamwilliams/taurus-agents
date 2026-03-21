@@ -67,6 +67,14 @@ export interface MessageUsage {
   nativeCost?: number;
 }
 
+export interface MessageAuthor {
+  kind: 'agent';
+  agent_id: string;
+  run_id?: string;
+  short_id: string;
+  label: string;
+}
+
 export interface MessageRecord {
   id: string;
   run_id: string;
@@ -80,6 +88,7 @@ export interface MessageRecord {
   cost?: number;
   model?: string;
   compaction?: { tokensBefore: number; messagesCompacted: number; compactedAt: string };
+  author?: MessageAuthor;
   toolMeta?: Record<string, any>;
   created_at: string;
 }

@@ -94,6 +94,7 @@ Set the corresponding API key in `.env` for each provider you use.
 | Subrun | control | Run subtasks in the same container with a separate conversation |
 | Wait | control | Wait for background runs to complete, or sleep for a duration |
 | Delegate | control | Delegate a task to a child agent (sync or background) |
+| MessageParent | control | Send a message back to the parent run |
 | Supervisor | control | Manage child agents: create, update, delete, inspect, inject messages, stop runs |
 | WebSearch | web | Search via Brave Search API |
 | WebFetch | web | Fetch and extract web page content |

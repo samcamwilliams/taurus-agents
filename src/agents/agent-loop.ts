@@ -4,6 +4,12 @@ import type { InferenceService } from '../inference/service.js';
 import type { ToolRegistry } from '../tools/registry.js';
 import { maybeCompact, shouldCompact } from './compaction.js';
 
+type InjectedMessage = {
+  text: string;
+  images?: { base64: string; mediaType: string }[];
+  meta?: Record<string, any>;
+};
+
 export interface AgentLoopParams {
   chatml: ChatML;
   inference: InferenceService;
@@ -28,7 +34,7 @@ export interface AgentLoopParams {
   limitOutputTokens?: number;
 
   /** Returns queued injected messages (drains the queue). Used for mid-run user messages. */
-  getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
+  getInjectedMessages?: () => InjectedMessage[];
 
   /** Called before each inference call. Throw to abort the run (e.g. budget exceeded). */
   beforeInference?: () => Promise<void>;
@@ -57,19 +63,27 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
   let turns = 0;
   chatml.setTools(tools.getToolDefinitions(allowedTools));
 
-  /** Drain the injection queue and append as a user message. Returns true if any were consumed. */
-  function drainInjectedMessages(): boolean {
+  /** Drain the injection queue and append each as a separate user message. Yields user_message events. */
+  async function* drainInjectedMessages(): AsyncGenerator<AgentEvent> {
     const messages = getInjectedMessages?.() ?? [];
-    if (messages.length === 0) return false;
-    const blocks: ContentBlock[] = [];
-    for (const msg of messages) {
-      if (msg.text) blocks.push({ type: 'text', text: `[User message mid-turn]: ${msg.text}` });
-      for (const img of msg.images ?? []) {
+    for (const message of messages) {
+      const blocks: ContentBlock[] = [];
+      const from = message.meta?.author?.label ?? 'user';
+      const runAttr = message.meta?.author?.runId ? ` run="${message.meta.author.runId}"` : '';
+      const envelope = `<message-received from="${from}"${runAttr}>`;
+      if (message.text) blocks.push({ type: 'text', text: `${envelope}\n${message.text}\n</message-received>` });
+      for (const img of message.images ?? []) {
         blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
       }
+      if (blocks.length === 0) continue;
+
+      const content = (blocks.length === 1 && blocks[0].type === 'text')
+        ? blocks[0].text
+        : blocks;
+
+      chatml.appendUser(content);
+      yield { type: 'user_message', message: { role: 'user', content }, meta: message.meta };
     }
-    chatml.appendUser(blocks);
-    return true;
   }
 
   while (true) {
@@ -84,7 +98,7 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     }
 
     // ── Check for injected user messages ──
-    drainInjectedMessages();
+    yield* drainInjectedMessages();
 
     // ── Pre-inference compaction: compact before a call that would overflow ──
     if (model && limitOutputTokens) {

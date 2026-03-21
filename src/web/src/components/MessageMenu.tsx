@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Copy, FileText, Search, Trash2 } from 'lucide-react';
 import type { MessageRecord } from '../types';
-import { fmtCost, fmtTokens, extractMessageText } from '../utils/format';
+import { fmtCost, fmtTokens, extractMessageText, stripInjectedMessageEnvelope } from '../utils/format';
 import { copyToClipboard } from '../utils/clipboard';
 
 interface MessageMenuProps {
@@ -13,6 +13,10 @@ interface MessageMenuProps {
 export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const messageLabel = message.author?.label ?? message.role;
+  const messageContent = message.role === 'user'
+    ? stripInjectedMessageEnvelope(message.content)
+    : message.content;
 
   // Close on click outside
   useEffect(() => {
@@ -41,7 +45,7 @@ export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) 
           <button
             className="msg-menu__item"
             onClick={async () => {
-              await copyToClipboard(extractMessageText(message.content));
+              await copyToClipboard(extractMessageText(messageContent));
               setOpen(false);
             }}
           >
@@ -50,7 +54,7 @@ export function MessageMenu({ message, onInspect, onDelete }: MessageMenuProps) 
           <button
             className="msg-menu__item"
             onClick={async () => {
-              const md = `**${message.role}** (${new Date(message.created_at).toLocaleString()})\n\n${extractMessageText(message.content)}`;
+              const md = `**${messageLabel}** (${new Date(message.created_at).toLocaleString()})\n\n${extractMessageText(messageContent)}`;
               await copyToClipboard(md);
               setOpen(false);
             }}

@@ -27,6 +27,36 @@ export function fmtSmartTime(date: Date): string {
   return `${datePart}, ${date.toLocaleTimeString()}`;
 }
 
+const MESSAGE_RECEIVED_RE = /^<message-received[^>]*>\n?([\s\S]*?)\n?<\/message-received>\s*$/;
+
+function stripEnvelopeFromText(text: string): string {
+  const match = text.match(MESSAGE_RECEIVED_RE);
+  return match ? match[1] : text;
+}
+
+export function stripInjectedMessageEnvelope(content: unknown): unknown {
+  if (typeof content === 'string') {
+    return stripEnvelopeFromText(content);
+  }
+  if (!Array.isArray(content) || content.length === 0) return content;
+
+  let changed = false;
+  const next = [...content];
+  const first = next[0] as any;
+  if (first?.type === 'text' && typeof first.text === 'string') {
+    const stripped = stripEnvelopeFromText(first.text);
+    if (stripped !== first.text) {
+      changed = true;
+      if (stripped) {
+        next[0] = { ...first, text: stripped };
+      } else {
+        next.shift();
+      }
+    }
+  }
+  return changed ? next : content;
+}
+
 /** Extract plain text from message content for clipboard. */
 export function extractMessageText(content: unknown): string {
   if (typeof content === 'string') return content;
