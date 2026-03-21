@@ -811,9 +811,9 @@
   }
 
   &--error {
-    background: var(--c-status-error);
-    border: 1px solid var(--c-red);
-    color: var(--c-red);
+    background: color-mix(in srgb, var(--c-red) 12%, var(--c-bg));
+    border: 1px solid color-mix(in srgb, var(--c-red) 30%, var(--c-border));
+    color: var(--c-text);
   }
 
   &--info {

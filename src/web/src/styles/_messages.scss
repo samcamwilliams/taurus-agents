@@ -1210,8 +1210,8 @@
   margin: 12px 16px;
   padding: 10px 14px;
   border-radius: 6px;
-  background: rgba(220, 50, 50, 0.08);
-  border: 1px solid rgba(220, 50, 50, 0.25);
+  background: color-mix(in srgb, var(--c-red) 8%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, var(--c-red) 25%, var(--c-border));
   font-size: 13px;
   line-height: 1.5;
 
@@ -1221,7 +1221,7 @@
   }
 
   &__text {
-    color: var(--c-red);
+    color: var(--c-text);
     word-break: break-word;
   }
 }
