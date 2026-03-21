@@ -96,10 +96,12 @@ export class DockerService {
     // Workspace is per-agent; shared is per-tree (all agents in a hierarchy share the root's).
     const workspacePath = drivePath(agent.user_id, agent.id, 'workspace');
     const sharedPath = drivePath(agent.user_id, rootAgentId, 'shared');
+    const sharedPublicPath = path.join(sharedPath, 'public');
 
     // Ensure directories exist on host before docker create
     fs.mkdirSync(workspacePath, { recursive: true });
     fs.mkdirSync(sharedPath, { recursive: true });
+    fs.mkdirSync(sharedPublicPath, { recursive: true });
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host

@@ -5,6 +5,8 @@ This is your workspace inside a Docker container. Key things to know:
 ## Persistent vs ephemeral
 
 - `/workspace` is mounted on a persistent volume — files here survive container restarts.
+- `/shared` is the team-shared persistent volume for your whole agent tree.
+- Human-facing dashboards belong in `/shared/public/<dashboard-name>/`, with `/shared/public/<dashboard-name>/index.html` as the site entrypoint.
 - Everything else (system packages, global npm/pip installs, /root, /tmp) is **ephemeral** and will be lost if the container is recreated.
 
 ## If you need to install something
