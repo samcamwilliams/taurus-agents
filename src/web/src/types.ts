@@ -33,6 +33,7 @@ export interface Dashboard {
   path: string;
   root_agent_id: string;
   url: string;
+  updated_at: string | null;
 }
 
 export type RunStatus = 'running' | 'paused' | 'completed' | 'error' | 'stopped';

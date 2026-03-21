@@ -31,10 +31,46 @@ type DashboardDescriptor = {
   path: string;
   root_agent_id: string;
   url: string;
+  updated_at: string | null;
 };
 
 function getMimeType(filePath: string): string {
   return MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+}
+
+function getLatestMtimeMs(rootPath: string): number | null {
+  if (!fs.existsSync(rootPath)) return null;
+
+  let latest: number | null = null;
+  const stack = [rootPath];
+
+  while (stack.length > 0) {
+    const currentPath = stack.pop()!;
+
+    let stats: fs.Stats;
+    try {
+      stats = fs.statSync(currentPath);
+    } catch {
+      continue;
+    }
+
+    latest = latest == null ? stats.mtimeMs : Math.max(latest, stats.mtimeMs);
+
+    if (!stats.isDirectory()) continue;
+
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(currentPath, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      stack.push(path.join(currentPath, entry.name));
+    }
+  }
+
+  return latest;
 }
 
 function decodeSegment(segment: string | undefined): string | null {
@@ -72,13 +108,18 @@ function listDashboardsFromDir(publicDir: string, rootAgentId: string): Dashboar
   return fs.readdirSync(publicDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-    .map((entry) => ({
-      slug: entry.name,
-      name: entry.name,
-      path: `/shared/public/${entry.name}`,
-      root_agent_id: rootAgentId,
-      url: `/dashboards/${rootAgentId}/${encodeURIComponent(entry.name)}/`,
-    }));
+    .map((entry) => {
+      const dashboardDir = path.join(publicDir, entry.name);
+      const updatedAtMs = getLatestMtimeMs(dashboardDir);
+      return {
+        slug: entry.name,
+        name: entry.name,
+        path: `/shared/public/${entry.name}`,
+        root_agent_id: rootAgentId,
+        url: `/dashboards/${rootAgentId}/${encodeURIComponent(entry.name)}/`,
+        updated_at: updatedAtMs != null ? new Date(updatedAtMs).toISOString() : null,
+      };
+    });
 }
 
 export function dashboardRoutes(daemon: Daemon): Route[] {

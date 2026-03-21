@@ -24,6 +24,7 @@ import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode,
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
+const DASHBOARD_POLL_MS = 2_000;
 
 function formatRunDate(iso: string): string {
   const date = new Date(iso);
@@ -81,6 +82,10 @@ function findRootAgentId(agents: Agent[], agentId: string | undefined): string |
   return agentId;
 }
 
+function dashboardActivityKey(dashboard: Pick<Dashboard, 'root_agent_id' | 'slug'>): string {
+  return `${dashboard.root_agent_id}:${dashboard.slug}`;
+}
+
 interface AgentsPageProps {
   authEnabled: boolean;
   onLogout: () => void;
@@ -93,6 +98,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
+  const [acknowledgedDashboardUpdates, setAcknowledgedDashboardUpdates] = useState<Record<string, number>>({});
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -194,28 +200,44 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     }
 
     let stale = false;
-    setDashboardsLoading(true);
+    let refreshing = false;
 
-    Promise.all(
-      rootAgents.map(async (rootAgent) => {
-        try {
-          return await api.listDashboards(rootAgent.id);
-        } catch {
-          return [];
-        }
-      }),
-    )
-      .then((results) => {
+    const refreshDashboards = async (showLoading = false) => {
+      if (refreshing) return;
+      refreshing = true;
+      if (showLoading) setDashboardsLoading(true);
+
+      try {
+        const results = await Promise.all(
+          rootAgents.map(async (rootAgent) => {
+            try {
+              return await api.listDashboards(rootAgent.id);
+            } catch {
+              return [];
+            }
+          }),
+        );
+
         if (stale) return;
-        const merged = results.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+        const merged = results
+          .flat()
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
         setDashboards(merged);
-      })
-      .finally(() => {
-        if (!stale) setDashboardsLoading(false);
-      });
+      } finally {
+        refreshing = false;
+        if (showLoading && !stale) setDashboardsLoading(false);
+      }
+    };
+
+    void refreshDashboards(true);
+    const interval = window.setInterval(() => {
+      void refreshDashboards(false);
+    }, DASHBOARD_POLL_MS);
 
     return () => {
       stale = true;
+      window.clearInterval(interval);
     };
   }, [agents]);
 
@@ -517,6 +539,21 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
       ? `agent:${agentId}`
       : null;
 
+  useEffect(() => {
+    if (!selectedDashboard) return;
+
+    const key = dashboardActivityKey(selectedDashboard);
+    const acknowledgedAt = Math.max(
+      Date.now(),
+      selectedDashboard.updated_at ? Date.parse(selectedDashboard.updated_at) || 0 : 0,
+    );
+
+    setAcknowledgedDashboardUpdates((prev) => {
+      if ((prev[key] ?? 0) >= acknowledgedAt) return prev;
+      return { ...prev, [key]: acknowledgedAt };
+    });
+  }, [selectedDashboard?.root_agent_id, selectedDashboard?.slug]);
+
   // Adapt runs for TreeView
   const treeRuns: (Run & TreeItem)[] = runs.map(r => ({
     ...r,
@@ -764,6 +801,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
             <Sidebar
               agents={agents}
               dashboards={dashboards}
+              acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
               selectedId={selectedTreeId}
               onCreateClick={() => {
                 setShowCreateModal(true);
@@ -788,6 +826,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
         <Sidebar
           agents={agents}
           dashboards={dashboards}
+          acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
           selectedId={selectedTreeId}
           onCreateClick={() => setShowCreateModal(true)}
           onTriggerSchedule={handleTriggerSchedule}
