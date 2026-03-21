@@ -4,6 +4,19 @@ import { OpenAIResponsesProvider } from './openai-responses.js';
 import { OpenAIChatCompletionsProvider } from './openai-chatcompletions.js';
 import { getSecret } from '../../core/config/index.js';
 
+/** Override map — tests register mock providers here so resolveProvider returns them. */
+const providerOverrides = new Map<string, InferenceProvider>();
+
+/** Register a provider override for a given backend prefix (e.g. 'mock'). */
+export function registerProviderOverride(backend: string, provider: InferenceProvider): void {
+  providerOverrides.set(backend, provider);
+}
+
+/** Clear all provider overrides. */
+export function clearProviderOverrides(): void {
+  providerOverrides.clear();
+}
+
 /**
  * Registry of OpenAI Chat Completions-compatible providers.
  *
@@ -67,6 +80,10 @@ export function resolveProvider(model: string): InferenceProvider {
 
   const backend = model.slice(0, firstSlash);
 
+  // Test overrides (registered by integration tests)
+  const override = providerOverrides.get(backend);
+  if (override) return override;
+
   // Native providers
   switch (backend) {
     case 'anthropic': {
@@ -115,6 +132,7 @@ export function resolveProvider(model: string): InferenceProvider {
         name: 'custom',
       });
     }
+
   }
 
   // Chat Completions-compatible registry

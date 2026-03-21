@@ -22,6 +22,10 @@
     "makemigration": "tsx node_modules/sequelize-auto-migrations/bin/makemigration.js && for f in src/db/migrations/*.js; do [ -f \"$f\" ] && base=$(basename \"$f\" .js) && num=${base%%-*} && name=${base#*-} && padded=$(printf '%03d' \"$num\") && mv \"$f\" \"src/db/migrations/${padded}-${name}.cjs\"; done",
     "migrate": "npx sequelize-cli db:migrate",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:daemon": "vitest run --project daemon",
+    "test:integration": "vitest run --project integration",
+    "test:docker": "TAURUS_TEST_DOCKER=1 vitest run --project integration",
     "test:watch": "vitest"
   },
   "dependencies": {

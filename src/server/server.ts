@@ -92,7 +92,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
           await r.handler(ctx);
         } catch (err: any) {
           if (err instanceof DisplayableError) {
-            console.error(`[${err.status}] ${err.message}`);
+            if (process.env.NODE_ENV !== 'test') console.error(`[${err.status}] ${err.message}`);
             if (!res.headersSent) error(res, err.message, err.status);
           } else {
             console.error('Internal error:', err);
