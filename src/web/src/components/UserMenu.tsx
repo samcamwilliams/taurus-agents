@@ -49,6 +49,11 @@ export function UserMenu({ username, onLogout, canInstall, onInstall, installLab
         </button>
         {open && (
           <div className="user-menu__dropdown">
+            {canInstall && onInstall && installLabel && (
+              <button className="user-menu__item" onClick={() => { setOpen(false); onInstall(); }}>
+                <Download size={13} /> <span style={{ whiteSpace: 'nowrap' }}>{installLabel}</span>
+              </button>
+            )}
             <button className="user-menu__item" onClick={() => { setOpen(false); setShowSettings(true); }}>
               <UserCog size={13} /> <span style={{ whiteSpace: 'nowrap' }}>Profile</span>
             </button>

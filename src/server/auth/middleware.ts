@@ -77,8 +77,9 @@ export async function authenticate(req: http.IncomingMessage): Promise<AuthResul
     return { ok: true, user: { id: '', role: 'user', isLoggedIn: true } };
   }
 
-  // Static files — let the SPA load so it can show the login page
-  if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/ws/')) {
+  // Static files / SPA shell — let the app load so it can show the login page.
+  // Dashboard microsites are protected content and must authenticate like API routes.
+  if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/ws/') && !url.pathname.startsWith('/dashboards/')) {
     return { ok: true, user: { id: '', role: 'user', isLoggedIn: true } };
   }
 

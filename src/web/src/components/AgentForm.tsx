@@ -29,13 +29,38 @@ export interface AgentFormData {
   propagate_children: boolean;
 }
 
+export interface AgentFormDraft {
+  name: string;
+  system_prompt: string;
+  tools: string[];
+  cwd: string;
+  model: string;
+  docker_image: string;
+  schedule: string;
+  schedule_overlap: 'skip' | 'queue' | 'kill';
+  schedule_mode: 'new' | 'continue';
+  max_turns: string;
+  timeout_ms: string;
+  mounts: MountEntry[];
+  resource_limits: {
+    cpus: string;
+    memory_gb: string;
+    pids_limit: string;
+  };
+  parent_agent_id: string;
+  propagate_children: boolean;
+}
+
 interface AgentFormProps {
   /** Pre-fill from existing agent (edit mode) */
   initial?: Agent;
+  /** In-memory draft for create mode */
+  draft?: AgentFormDraft | null;
   /** All agents for the parent selector (create mode) */
   agents?: Agent[];
   onSubmit: (data: AgentFormData) => void;
   onCancel: () => void;
+  onDraftChange?: (draft: AgentFormDraft) => void;
   submitLabel?: string;
 }
 
@@ -66,24 +91,24 @@ function countDescendants(agentId: string, all: Agent[]): number {
   return count;
 }
 
-export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = 'Create' }: AgentFormProps) {
-  const [name, setName] = useState(initial?.name ?? '');
-  const [systemPrompt, setSystemPrompt] = useState(initial?.system_prompt ?? 'You are a helpful agent. Today\'s date is {{date}}.');
-  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(initial?.tools ?? []));
-  const [cwd, setCwd] = useState(initial?.cwd ?? '');
-  const [model, setModel] = useState(initial?.model ?? '');
-  const [dockerImage, setDockerImage] = useState(initial?.docker_image ?? '');
-  const [schedule, setSchedule] = useState(initial?.schedule ?? '');
-  const [scheduleOverlap, setScheduleOverlap] = useState<'skip' | 'queue' | 'kill'>(initial?.schedule_overlap ?? 'skip');
-  const [scheduleMode, setScheduleMode] = useState<'new' | 'continue'>(initial?.schedule_mode ?? 'new');
-  const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : '');
-  const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : '');
-  const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? []);
-  const [cpuLimit, setCpuLimit] = useState<string>(initial ? String(initial.resource_limits.cpus) : '');
-  const [memoryGb, setMemoryGb] = useState<string>(initial ? String(initial.resource_limits.memory_gb) : '');
-  const [pidsLimit, setPidsLimit] = useState<string>(initial ? String(initial.resource_limits.pids_limit) : '');
-  const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? '');
-  const [propagateChildren, setPropagateChildren] = useState(false);
+export function AgentForm({ initial, draft, agents, onSubmit, onCancel, onDraftChange, submitLabel = 'Create' }: AgentFormProps) {
+  const [name, setName] = useState(initial?.name ?? draft?.name ?? '');
+  const [systemPrompt, setSystemPrompt] = useState(initial?.system_prompt ?? draft?.system_prompt ?? 'You are a helpful agent. Today\'s date is {{date}}.');
+  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set(initial?.tools ?? draft?.tools ?? []));
+  const [cwd, setCwd] = useState(initial?.cwd ?? draft?.cwd ?? '');
+  const [model, setModel] = useState(initial?.model ?? draft?.model ?? '');
+  const [dockerImage, setDockerImage] = useState(initial?.docker_image ?? draft?.docker_image ?? '');
+  const [schedule, setSchedule] = useState(initial?.schedule ?? draft?.schedule ?? '');
+  const [scheduleOverlap, setScheduleOverlap] = useState<'skip' | 'queue' | 'kill'>(initial?.schedule_overlap ?? draft?.schedule_overlap ?? 'skip');
+  const [scheduleMode, setScheduleMode] = useState<'new' | 'continue'>(initial?.schedule_mode ?? draft?.schedule_mode ?? 'new');
+  const [maxTurns, setMaxTurns] = useState<string>(initial ? String(initial.max_turns) : (draft?.max_turns ?? ''));
+  const [timeoutMs, setTimeoutMs] = useState<string>(initial ? String(initial.timeout_ms / 1000) : (draft?.timeout_ms ?? ''));
+  const [mounts, setMounts] = useState<MountEntry[]>(initial?.mounts ?? draft?.mounts ?? []);
+  const [cpuLimit, setCpuLimit] = useState<string>(initial ? String(initial.resource_limits.cpus) : (draft?.resource_limits.cpus ?? ''));
+  const [memoryGb, setMemoryGb] = useState<string>(initial ? String(initial.resource_limits.memory_gb) : (draft?.resource_limits.memory_gb ?? ''));
+  const [pidsLimit, setPidsLimit] = useState<string>(initial ? String(initial.resource_limits.pids_limit) : (draft?.resource_limits.pids_limit ?? ''));
+  const [parentAgentId, setParentAgentId] = useState(initial?.parent_agent_id ?? draft?.parent_agent_id ?? '');
+  const [propagateChildren, setPropagateChildren] = useState(draft?.propagate_children ?? false);
   const [modelTouched, setModelTouched] = useState(false);
   const [defaults, setDefaults] = useState<{
     model: string;
@@ -98,14 +123,58 @@ export function AgentForm({ initial, agents, onSubmit, onCancel, submitLabel = '
 
   useEffect(() => {
     api.listTools().then(res => {
-      if (!initial) {
+      if (!initial && draft?.tools === undefined) {
         setSelectedTools(new Set(res.defaults.tools));
       }
       setDefaults(res.defaults);
       setAllToolNames(res.tools.map((t: { name: string }) => t.name));
       setReadonlyTools(res.defaults.readonly_tools);
     }).catch(() => {});
-  }, [initial]);
+  }, [draft?.tools, initial]);
+
+  useEffect(() => {
+    if (!onDraftChange || initial) return;
+    onDraftChange({
+      name,
+      system_prompt: systemPrompt,
+      tools: [...selectedTools],
+      cwd,
+      model,
+      docker_image: dockerImage,
+      schedule,
+      schedule_overlap: scheduleOverlap,
+      schedule_mode: scheduleMode,
+      max_turns: maxTurns,
+      timeout_ms: timeoutMs,
+      mounts,
+      resource_limits: {
+        cpus: cpuLimit,
+        memory_gb: memoryGb,
+        pids_limit: pidsLimit,
+      },
+      parent_agent_id: parentAgentId,
+      propagate_children: propagateChildren,
+    });
+  }, [
+    cpuLimit,
+    cwd,
+    dockerImage,
+    initial,
+    maxTurns,
+    memoryGb,
+    mounts,
+    name,
+    onDraftChange,
+    parentAgentId,
+    pidsLimit,
+    propagateChildren,
+    schedule,
+    scheduleOverlap,
+    selectedTools,
+    systemPrompt,
+    timeoutMs,
+    model,
+  ]);
 
   function validateMounts(): string | null {
     for (let i = 0; i < mounts.length; i++) {

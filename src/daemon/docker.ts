@@ -98,11 +98,13 @@ export class DockerService {
     const workspacePath = drivePath(agent.user_id, agent.id, 'workspace');
     const sharedPath = drivePath(agent.user_id, rootAgentId, 'shared');
     const taurusPath = drivePath(agent.user_id, agent.id, 'taurus');
+    const sharedPublicPath = path.join(sharedPath, 'public');
 
     // Ensure directories exist on host before docker create
     fs.mkdirSync(workspacePath, { recursive: true });
     fs.mkdirSync(sharedPath, { recursive: true });
     fs.mkdirSync(taurusPath, { recursive: true });
+    fs.mkdirSync(sharedPublicPath, { recursive: true });
 
     // Create and start container
     // Chromium/Playwright needs >64MB /dev/shm; --shm-size is safer than --ipc=host

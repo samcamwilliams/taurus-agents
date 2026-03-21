@@ -1,4 +1,4 @@
-import type { Agent, Run, MessageRecord } from './types';
+import type { Agent, Dashboard, Run, MessageRecord } from './types';
 import type { Theme } from './hooks/useTheme';
 
 // ── CSRF token management ──
@@ -50,6 +50,10 @@ export const api = {
   listAgents(folder_id?: string): Promise<Agent[]> {
     const qs = folder_id ? `?folder_id=${folder_id}` : '';
     return request(`/api/agents${qs}`);
+  },
+
+  listDashboards(agentId: string): Promise<Dashboard[]> {
+    return request(`/api/agents/${agentId}/dashboards`);
   },
 
   createAgent(data: {

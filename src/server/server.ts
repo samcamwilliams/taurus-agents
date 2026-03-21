@@ -15,6 +15,7 @@ import { toolRoutes } from './routes/tools.js';
 import { fileRoutes } from './routes/files.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { getExtensions } from '../core/extensions.js';
+import { dashboardRoutes } from './routes/dashboards.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
     ...toolRoutes(),
     ...fileRoutes(daemon),
     ...notificationRoutes(daemon),
+    ...dashboardRoutes(daemon),
     // Cloud/enterprise extension routes (billing, admin, etc.)
     // In community edition this returns [].
     ...getExtensions().extraRoutes(daemon),

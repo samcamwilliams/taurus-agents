@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Agent, Run, MessageRecord } from '../types';
+import type { Agent, Dashboard, Run, MessageRecord } from '../types';
 import { api } from '../api';
 import { Sidebar } from '../components/Sidebar';
 import { StatusDot } from '../components/StatusDot';
@@ -21,10 +21,28 @@ import { ThemePicker } from '../components/ThemePicker';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
-import { Play, RotateCw, Square, PlayCircle, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff } from 'lucide-react';
+import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, ExternalLink, LayoutDashboard } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
+const DASHBOARD_POLL_MS = 2_000;
+
+function findRootAgentId(agents: Agent[], agentId: string | undefined): string | null {
+  if (!agentId) return null;
+  let currentId: string | null = agentId;
+  const visited = new Set<string>();
+  while (currentId) {
+    const current = agents.find((agent) => agent.id === currentId);
+    if (!current || !current.parent_agent_id || visited.has(current.id)) return currentId;
+    visited.add(current.id);
+    currentId = current.parent_agent_id;
+  }
+  return agentId;
+}
+
+function dashboardActivityKey(dashboard: Pick<Dashboard, 'root_agent_id' | 'slug'>): string {
+  return `${dashboard.root_agent_id}:${dashboard.slug}`;
+}
 
 function formatRunDate(iso: string): string {
   const date = new Date(iso);
@@ -72,10 +90,13 @@ interface AgentsPageProps {
 }
 
 export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps) {
-  const { agentId, runId } = useParams();
+  const { agentId, runId, dashboardName } = useParams();
   const navigate = useNavigate();
 
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [dashboards, setDashboards] = useState<Dashboard[]>([]);
+  const [dashboardsLoading, setDashboardsLoading] = useState(false);
+  const [acknowledgedDashboardUpdates, setAcknowledgedDashboardUpdates] = useState<Record<string, number>>({});
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -87,6 +108,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [showMetadata, setShowMetadata] = useState(false);
   const [inspectMessage, setInspectMessage] = useState<MessageRecord | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('runs');
+  const [dashboardFrameKey, setDashboardFrameKey] = useState(0);
   // Lazy-mount: Terminal and FileBrowser trigger container startup on mount,
   // so only mount them once the user actually clicks their tab.
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(new Set(['runs']));
@@ -114,11 +136,13 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const streamingThinkingRef = useRef('');
   const streamingToolOutputRef = useRef('');
   const runStreamingRef = useRef<Record<string, string>>({});
+  const dashboardNameRef = useRef(dashboardName);
   useEffect(() => { agentIdRef.current = agentId; }, [agentId]);
   useEffect(() => {
     runIdRef.current = runId;
     if (agentId && runId) lastRunByAgent.current[agentId] = runId;
   }, [agentId, runId]);
+  useEffect(() => { dashboardNameRef.current = dashboardName; }, [dashboardName]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   useEffect(() => {
@@ -168,6 +192,42 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
     return () => clearInterval(interval);
   }, [loadAgents]);
 
+  // ── Poll dashboards from all root agents ──
+
+  useEffect(() => {
+    const rootAgents = agents.filter((agent) => !agent.parent_agent_id);
+    if (rootAgents.length === 0) {
+      setDashboards([]);
+      setDashboardsLoading(false);
+      return;
+    }
+
+    let stale = false;
+    let refreshing = false;
+
+    const refreshDashboards = async (showLoading = false) => {
+      if (refreshing) return;
+      refreshing = true;
+      if (showLoading) setDashboardsLoading(true);
+      try {
+        const results = await Promise.all(
+          rootAgents.map(async (rootAgent) => {
+            try { return await api.listDashboards(rootAgent.id); } catch { return []; }
+          }),
+        );
+        if (stale) return;
+        setDashboards(results.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })));
+      } finally {
+        refreshing = false;
+        if (showLoading && !stale) setDashboardsLoading(false);
+      }
+    };
+
+    void refreshDashboards(true);
+    const interval = window.setInterval(() => { void refreshDashboards(false); }, DASHBOARD_POLL_MS);
+    return () => { stale = true; window.clearInterval(interval); };
+  }, [agents]);
+
   // ── Load runs when agent changes + auto-select latest ──
 
   useEffect(() => {
@@ -180,7 +240,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
     api.listRuns(aid).then(loadedRuns => {
       if (agentIdRef.current !== aid) return; // stale response
       setRuns(loadedRuns);
-      if (loadedRuns.length > 0 && !runIdRef.current) {
+      if (loadedRuns.length > 0 && !runIdRef.current && !dashboardNameRef.current) {
         const remembered = lastRunByAgent.current[aid];
         const targetId = remembered && loadedRuns.some(r => r.id === remembered) ? remembered : loadedRuns[0].id;
         navigate(`/agents/${aid}/runs/${targetId}`, { replace: true });
@@ -244,7 +304,11 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
 
   useEffect(() => {
     setMobileRunsOpen(false);
-  }, [runId, activeTab, agentId]);
+  }, [runId, activeTab, agentId, dashboardName]);
+
+  useEffect(() => {
+    setDashboardFrameKey(0);
+  }, [agentId, dashboardName]);
 
   function activateTab(tab: Tab) {
     setActiveTab(tab);
@@ -462,7 +526,33 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   // ── Derived state ──
 
   const selectedAgent = agents.find(a => a.id === agentId) ?? null;
+  const selectedRootAgentId = findRootAgentId(agents, agentId);
+  const selectedRootAgent = agents.find((a) => a.id === selectedRootAgentId) ?? selectedAgent;
+  const selectedDashboard = dashboardName
+    ? dashboards.find((d) =>
+      d.slug === dashboardName &&
+      d.root_agent_id === (selectedRootAgentId ?? agentId),
+    ) ?? null
+    : null;
   const selectedRun = runs.find(r => r.id === runId) ?? null;
+  const selectedTreeId = dashboardName
+    ? `dashboard:${selectedDashboard?.root_agent_id ?? selectedRootAgentId ?? agentId}:${dashboardName}`
+    : agentId
+      ? `agent:${agentId}`
+      : null;
+
+  useEffect(() => {
+    if (!selectedDashboard) return;
+    const key = dashboardActivityKey(selectedDashboard);
+    const acknowledgedAt = Math.max(
+      Date.now(),
+      selectedDashboard.updated_at ? Date.parse(selectedDashboard.updated_at) || 0 : 0,
+    );
+    setAcknowledgedDashboardUpdates((prev) => {
+      if ((prev[key] ?? 0) >= acknowledgedAt) return prev;
+      return { ...prev, [key]: acknowledgedAt };
+    });
+  }, [selectedDashboard?.root_agent_id, selectedDashboard?.slug]);
 
   // Adapt runs for TreeView
   const treeRuns: (Run & TreeItem)[] = runs.map(r => ({
@@ -701,7 +791,9 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
           <aside className={`app-drawer app-drawer--agents${mobileAgentsOpen ? ' app-drawer--open' : ''}`}>
             <Sidebar
               agents={agents}
-              selectedId={agentId ?? null}
+              dashboards={dashboards}
+              acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
+              selectedId={selectedTreeId}
               onCreateClick={() => {
                 setShowCreateModal(true);
                 setMobileAgentsOpen(false);
@@ -724,7 +816,9 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       ) : (
         <Sidebar
           agents={agents}
-          selectedId={agentId ?? null}
+          dashboards={dashboards}
+          acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
+          selectedId={selectedTreeId}
           onCreateClick={() => setShowCreateModal(true)}
           onTriggerSchedule={handleTriggerSchedule}
         />
@@ -752,6 +846,68 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
                 </>
               ) : (
                 'Select or create an agent'
+              )}
+            </div>
+          </>
+        ) : dashboardName ? (
+          <>
+            <div className="panel-header">
+              <div className="panel-header__info">
+                {isMobile && (
+                  <button
+                    className={`btn icon-btn${mobileAgentsOpen ? ' btn--active' : ''}`}
+                    onClick={() => {
+                      setMobileAgentsOpen(v => !v);
+                      setMobileRunsOpen(false);
+                    }}
+                    title="Agents"
+                  >
+                    <Menu size={13} />
+                  </button>
+                )}
+                <div className="panel-header__title">
+                  <div className="panel-header__title-main">
+                    <span className="dashboard-item__icon dashboard-item__icon--header">
+                      <LayoutDashboard size={14} />
+                    </span>
+                    <h2>{selectedDashboard?.name ?? dashboardName}</h2>
+                  </div>
+                  <div className="panel-header__details">
+                    <span className="panel-header__meta">{selectedRootAgent?.name ?? selectedAgent?.name}</span>
+                    {selectedDashboard && <span className="panel-header__meta">{selectedDashboard.path}</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="panel-header__actions">
+                <div className="panel-header__action-row panel-header__action-row--utility">
+                  {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
+                  <button className="btn icon-btn" onClick={() => setDashboardFrameKey(key => key + 1)} title="Refresh dashboard">
+                    <RefreshCw size={13} />
+                  </button>
+                  {selectedDashboard && (
+                    <a className="btn icon-btn" href={selectedDashboard.url} target="_blank" rel="noreferrer" title="Open dashboard">
+                      <ExternalLink size={13} />
+                    </a>
+                  )}
+                  {authEnabled && <UserMenu username={username} onLogout={onLogout} canInstall={canInstall && !isInstalled} onInstall={handleInstall} installLabel={installLabel} onChangeTheme={() => setShowThemePicker(true)} />}
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-view">
+              {/* Sandboxed: scripts run but no access to parent, cookies, or APIs */}
+              {selectedDashboard ? (
+                <iframe
+                  key={`${selectedDashboard.url}:${dashboardFrameKey}`}
+                  className="dashboard-view__frame"
+                  sandbox="allow-scripts"
+                  src={selectedDashboard.url}
+                  title={`Dashboard ${selectedDashboard.name}`}
+                />
+              ) : (
+                <div className="empty-state">
+                  {dashboardsLoading ? 'Loading dashboard...' : 'Dashboard not found'}
+                </div>
               )}
             </div>
           </>

@@ -49,6 +49,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
       <Route path="/agents/:agentId" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
+      <Route path="/agents/:agentId/dashboards/:dashboardName" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
       <Route path="/agents/:agentId/runs/:runId" element={<AgentsPage authEnabled={true} username={username} onLogout={() => { navigate('/', { replace: true }); setAuth('login'); setUsername(null); }} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

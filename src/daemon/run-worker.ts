@@ -220,7 +220,8 @@ function buildChatMLFromHistory(chatml: ChatML, history: Message[], fileTracker:
 
   const systemMsg = history.find(m => m.role === 'system');
   if (systemMsg) {
-    chatml.setSystem(typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content));
+    const content = typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content);
+    chatml.setSystem(content);
   }
 
   // Find last compaction boundary
