@@ -25,8 +25,6 @@ import { Play, RotateCw, Square, PlayCircle, RefreshCw, MessageSquare, FileCode,
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
-const DASHBOARD_POLL_MS = 2_000;
-
 function findRootAgentId(agents: Agent[], agentId: string | undefined): string | null {
   if (!agentId) return null;
   let currentId: string | null = agentId;
@@ -38,10 +36,6 @@ function findRootAgentId(agents: Agent[], agentId: string | undefined): string |
     currentId = current.parent_agent_id;
   }
   return agentId;
-}
-
-function dashboardActivityKey(dashboard: Pick<Dashboard, 'root_agent_id' | 'slug'>): string {
-  return `${dashboard.root_agent_id}:${dashboard.slug}`;
 }
 
 function formatRunDate(iso: string): string {
@@ -96,7 +90,6 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
-  const [acknowledgedDashboardUpdates, setAcknowledgedDashboardUpdates] = useState<Record<string, number>>({});
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -224,8 +217,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
     };
 
     void refreshDashboards(true);
-    const interval = window.setInterval(() => { void refreshDashboards(false); }, DASHBOARD_POLL_MS);
-    return () => { stale = true; window.clearInterval(interval); };
+    return () => { stale = true; };
   }, [agents]);
 
   // ── Load runs when agent changes + auto-select latest ──
@@ -541,19 +533,6 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       ? `agent:${agentId}`
       : null;
 
-  useEffect(() => {
-    if (!selectedDashboard) return;
-    const key = dashboardActivityKey(selectedDashboard);
-    const acknowledgedAt = Math.max(
-      Date.now(),
-      selectedDashboard.updated_at ? Date.parse(selectedDashboard.updated_at) || 0 : 0,
-    );
-    setAcknowledgedDashboardUpdates((prev) => {
-      if ((prev[key] ?? 0) >= acknowledgedAt) return prev;
-      return { ...prev, [key]: acknowledgedAt };
-    });
-  }, [selectedDashboard?.root_agent_id, selectedDashboard?.slug]);
-
   // Adapt runs for TreeView
   const treeRuns: (Run & TreeItem)[] = runs.map(r => ({
     ...r,
@@ -792,7 +771,6 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
             <Sidebar
               agents={agents}
               dashboards={dashboards}
-              acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
               selectedId={selectedTreeId}
               onCreateClick={() => {
                 setShowCreateModal(true);
@@ -817,7 +795,6 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
         <Sidebar
           agents={agents}
           dashboards={dashboards}
-          acknowledgedDashboardUpdates={acknowledgedDashboardUpdates}
           selectedId={selectedTreeId}
           onCreateClick={() => setShowCreateModal(true)}
           onTriggerSchedule={handleTriggerSchedule}

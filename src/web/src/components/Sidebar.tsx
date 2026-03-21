@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Plus } from 'lucide-react';
 import type { Agent, Dashboard } from '../types';
@@ -10,7 +10,6 @@ import { TreeView, type TreeItem } from './TreeView';
 interface SidebarProps {
   agents: Agent[];
   dashboards?: Dashboard[];
-  acknowledgedDashboardUpdates?: Record<string, number>;
   selectedId: string | null;
   onCreateClick: () => void;
   onTriggerSchedule?: (agentId: string) => void;
@@ -21,49 +20,15 @@ type SidebarTreeItem =
   | (TreeItem & { kind: 'agent'; agent: Agent })
   | (TreeItem & { kind: 'dashboard'; dashboard: Dashboard });
 
-const DASHBOARD_PING_MS = 3_000;
-const DASHBOARD_RECENT_MS = 30_000;
-
-function dashboardActivityKey(dashboard: Pick<Dashboard, 'root_agent_id' | 'slug'>): string {
-  return `${dashboard.root_agent_id}:${dashboard.slug}`;
-}
-
-function getDashboardActivityState(
-  dashboard: Dashboard,
-  now: number,
-  acknowledgedDashboardUpdates: Record<string, number>,
-): 'fresh' | 'recent' | 'stale' | null {
-  if (!dashboard.updated_at) return null;
-
-  const updatedAtMs = Date.parse(dashboard.updated_at);
-  if (!Number.isFinite(updatedAtMs)) return null;
-
-  const acknowledgedAt = acknowledgedDashboardUpdates[dashboardActivityKey(dashboard)] ?? 0;
-  if (updatedAtMs <= acknowledgedAt) return null;
-
-  const ageMs = now - updatedAtMs;
-  if (ageMs <= DASHBOARD_PING_MS) return 'fresh';
-  if (ageMs <= DASHBOARD_RECENT_MS) return 'recent';
-  return 'stale';
-}
-
 export function Sidebar({
   agents,
   dashboards = [],
-  acknowledgedDashboardUpdates = {},
   selectedId,
   onCreateClick,
   onTriggerSchedule,
   onSelect,
 }: SidebarProps) {
   const navigate = useNavigate();
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (dashboards.length === 0) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [dashboards.length]);
 
   const treeItems = useMemo<SidebarTreeItem[]>(() => [
     ...agents.map((agent) => ({
@@ -106,14 +71,9 @@ export function Sidebar({
             return <StatusDot status={item.agent.status} />;
           }
 
-          const activityState = getDashboardActivityState(item.dashboard, now, acknowledgedDashboardUpdates);
-
           return (
-            <span className="dashboard-item__icon-wrap" title="dashboard">
-              <span className="dashboard-item__icon">
-                <LayoutDashboard size={12} />
-              </span>
-              <span className={`dashboard-item__activity${activityState ? ` dashboard-item__activity--${activityState}` : ' dashboard-item__activity--off'}`} />
+            <span className="dashboard-item__icon" title="dashboard">
+              <LayoutDashboard size={12} />
             </span>
           );
         }}
