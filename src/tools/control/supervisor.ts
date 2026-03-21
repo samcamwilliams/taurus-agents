@@ -25,7 +25,7 @@ export class SupervisorTool extends Tool {
   readonly name = 'Supervisor';
   readonly group = 'Supervisor';
   readonly description = `Manage your child agents. Actions:
-- list_team: See all children with status and current run info. No params needed.
+- list_team: See all children with description, model, status, active runs, and last completed run. No params needed.
 - create_agent: Create a child. Params: { key, system_prompt, tools?, model?, resource_limits? }
 - update_agent: Update a child's config. Params: { key, system_prompt?, tools?, model?, resource_limits? }
 - delete_agent: Remove a child (cascades to grandchildren). Params: { key }

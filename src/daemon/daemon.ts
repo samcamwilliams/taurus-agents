@@ -1295,24 +1295,29 @@ export class Daemon {
           const teamResults = [];
           for (const c of children) {
             const cm = this.agents.get(c.id);
-            const latestRun = cm ? [...cm.runs.values()].pop() : undefined;
-            let runInfo: Record<string, unknown> | null = null;
-            if (latestRun) {
-              const run = await Run.findByPk(latestRun.runId);
-              const msgCount = run ? await Message.count({ where: { run_id: run.id } }) : 0;
-              const lastMsg = run ? await Message.findOne({ where: { run_id: run.id }, order: [['seq', 'DESC']] }) : null;
-              runInfo = {
-                id: latestRun.runId,
-                status: latestRun.status,
-                started_at: run?.created_at ?? null,
-                message_count: msgCount,
-                last_message_at: lastMsg?.created_at ?? null,
-              };
+            // Description: first line of system prompt
+            const firstLine = c.system_prompt.split('\n')[0];
+            const description = firstLine.length > 120 ? firstLine.slice(0, 120) + '…' : firstLine;
+            // Collect all active runs
+            const activeRuns: Record<string, unknown>[] = [];
+            if (cm) {
+              for (const [runId, mr] of cm.runs) {
+                activeRuns.push({ id: runId, status: mr.status });
+              }
             }
+            // Last completed run from DB
+            const lastRun = await Run.findOne({
+              where: { agent_id: c.id, status: 'completed' },
+              order: [['created_at', 'DESC']],
+              attributes: ['id', 'status', 'created_at'],
+            });
             teamResults.push({
-              key: c.name,
+              name: c.name,
+              description,
+              model: c.model,
               status: c.status,
-              currentRun: runInfo,
+              activeRuns,
+              lastCompletedRun: lastRun ? { id: lastRun.id, completed_at: lastRun.created_at } : null,
             });
           }
           result = teamResults;
