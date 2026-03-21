@@ -15,8 +15,8 @@ import type Agent from '../db/models/Agent.js';
 import type { LogLevel } from './types.js';
 import {
   drivePath,
-  ALLOW_ARBITRARY_BIND_MOUNTS,
   DOCKER_USE_INIT,
+  capabilities,
   agentResourceLimitsFromValues,
   resourceLimitsToDockerMemoryMb,
 } from '../core/config/index.js';
@@ -127,8 +127,8 @@ export class DockerService {
     // Add arbitrary bind mounts (disabled in production by default)
     const mounts = typeof agent.mounts === 'string' ? JSON.parse(agent.mounts) : (agent.mounts ?? []);
     if (!Array.isArray(mounts)) throw new Error('mounts must be an array');
-    if (!ALLOW_ARBITRARY_BIND_MOUNTS && mounts.length > 0) {
-      throw new Error('Arbitrary bind mounts are disabled (TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS)');
+    if (!capabilities.arbitraryBindMounts && mounts.length > 0) {
+      throw new Error('Arbitrary bind mounts are disabled (TAURUS_capabilities.arbitraryBindMounts)');
     }
     for (const m of mounts) {
       if (typeof m.host !== 'string' || typeof m.container !== 'string') {

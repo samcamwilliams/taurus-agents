@@ -22,7 +22,7 @@ import { acquireLock, releaseLock } from './daemon/lockfile.js';
 import { resetApiKeyUserCache } from './server/auth/index.js';
 import User from './db/models/User.js';
 import Folder from './db/models/Folder.js';
-import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, ALLOW_ARBITRARY_BIND_MOUNTS } from './core/config/index.js';
+import { TAURUS_DATA_PATH, TAURUS_DRIVE_PATH, TAURUS_ENV, capabilities } from './core/config/index.js';
 import { getExtensions } from './core/extensions.js';
 import { banner } from './utils/cli.js';
 
@@ -70,11 +70,11 @@ async function handleAddUser(): Promise<void> {
 // ── Main daemon ──
 
 async function main() {
-  // Validate NODE_ENV early
+  // TAURUS_ENV is validated at import time (mode.ts exits on invalid value).
+  // NODE_ENV: warn if unexpected but don't fatal — it's only for Node.js ecosystem behavior now.
   const nodeEnv = process.env.NODE_ENV;
-  if (nodeEnv && nodeEnv !== 'development' && nodeEnv !== 'production') {
-    console.error(`Fatal: NODE_ENV must be "development" or "production", got "${nodeEnv}"`);
-    process.exit(1);
+  if (nodeEnv && nodeEnv !== 'development' && nodeEnv !== 'production' && nodeEnv !== 'test') {
+    console.warn(`Warning: NODE_ENV="${nodeEnv}" is non-standard (expected "development" or "production")`);
   }
 
   // Check for subcommands before daemon boot
@@ -119,13 +119,14 @@ async function main() {
   server.listen(PORT, () => {
     const rows: Array<[string, string] | null> = [
       ['URL', `http://localhost:${PORT}`],
+      ['Mode', TAURUS_ENV],
       ['Agents', String(agentCount)],
       ['Data', TAURUS_DATA_PATH],
       ['Drives', TAURUS_DRIVE_PATH],
-      ['Mounts', ALLOW_ARBITRARY_BIND_MOUNTS ? 'allowed' : 'disabled'],
+      ['Mounts', capabilities.arbitraryBindMounts ? 'allowed' : 'disabled'],
       null,
     ];
-    if (defaultPassword && process.env.NODE_ENV !== 'production') {
+    if (defaultPassword && capabilities.showDefaultPassword) {
       rows.push(['Login', defaultUser.username], ['Password', defaultPassword]);
     } else {
       rows.push(['User', defaultUser.username]);

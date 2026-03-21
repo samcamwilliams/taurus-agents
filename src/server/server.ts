@@ -15,6 +15,7 @@ import { toolRoutes } from './routes/tools.js';
 import { fileRoutes } from './routes/files.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { getExtensions } from '../core/extensions.js';
+import { capabilities } from '../core/config/index.js';
 import { dashboardRoutes } from './routes/dashboards.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -99,8 +100,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
           } else {
             console.error('Internal error:', err);
             if (!res.headersSent) {
-              const isDev = process.env.NODE_ENV !== 'production';
-              error(res, isDev ? `Internal error: ${err.message}` : 'Internal error', 500);
+              error(res, capabilities.verboseErrors ? `Internal error: ${err.message}` : 'Internal error', 500);
             }
           }
         }

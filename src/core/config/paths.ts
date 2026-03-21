@@ -7,11 +7,6 @@
  * TAURUS_DRIVE_PATH:  Base directory for agent storage (workspace + shared volumes).
  *                     Default: ${TAURUS_DATA_PATH}/taurus-drives.
  *
- * ALLOW_ARBITRARY_BIND_MOUNTS:  Whether the agent `mounts` field (arbitrary host
- *                               bind mounts) is allowed. Default: true when
- *                               NODE_ENV=development, false otherwise. Override via
- *                               TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS env var.
- *
  * DOCKER_USE_INIT:  Whether to pass --init to docker create. Default: true.
  *
  * drivePath():  Build an absolute path under TAURUS_DRIVE_PATH with traversal
@@ -40,15 +35,6 @@ fs.mkdirSync(resolvedDrivePath, { recursive: true });
 export const TAURUS_DRIVE_PATH = fs.realpathSync(resolvedDrivePath);
 
 // ── Docker flags ──
-
-const envBindMounts = process.env.TAURUS_ALLOW_ARBITRARY_BIND_MOUNTS;
-
-/** Whether agents are allowed to specify custom host bind mounts.
- *  Dangerous in multi-tenant — allows container access to arbitrary host paths. */
-export const ALLOW_ARBITRARY_BIND_MOUNTS: boolean =
-  envBindMounts !== undefined
-    ? envBindMounts === 'true'
-    : process.env.NODE_ENV === 'development';
 
 /**
  * Pass `--init` to `docker create` so the container gets a tiny init process

@@ -5,13 +5,13 @@
  * beforeInference hook. It reads monthly spend fresh from DB every time
  * (not cached), so it catches resumes, concurrent runs, and mid-run exhaustion.
  *
- * Only enforced outside development (NODE_ENV !== 'development'), for non-admin users
- * who are using shared server API keys (not BYOK).
+ * Only enforced when capabilities.budgetEnforcement is enabled (production by default),
+ * for non-admin users who are using shared server API keys (not BYOK).
  */
 
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../db/index.js';
-import { hasSecretOverride } from './config/index.js';
+import { hasSecretOverride, capabilities } from './config/index.js';
 
 export interface BudgetContext {
   userId: string;
@@ -41,7 +41,7 @@ export class BudgetExceededError extends Error {
  * if the user has their own override set.
  */
 export async function checkBudget(ctx: BudgetContext): Promise<void> {
-  if (process.env.NODE_ENV === 'development') return;
+  if (!capabilities.budgetEnforcement) return;
   if (ctx.userRole === 'admin') return;
   if (ctx.userMeta?.budget_exempt) return;
 

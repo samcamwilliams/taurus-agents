@@ -4,7 +4,7 @@ import { json, error, parseBody, route, type Route } from '../helpers.js';
 import { assertAccessToAgent, assertRunBelongsToAgent, assertMessageBelongsToRun } from '../auth/index.js';
 import { NotFoundError } from '../../core/errors.js';
 import { DEFAULT_TOOLS } from '../../core/defaults.js';
-import { ALLOW_ARBITRARY_BIND_MOUNTS } from '../../core/config/index.js';
+import { capabilities } from '../../core/config/index.js';
 
 /**
  * Shared handler for POST /api/ask and POST /api/agents/:id/ask.
@@ -105,10 +105,10 @@ export function agentRoutes(daemon: Daemon): Route[] {
       if (!body.name || !body.system_prompt) {
         return error(ctx.res, 'name and system_prompt are required');
       }
-      if (!ALLOW_ARBITRARY_BIND_MOUNTS && body.mounts?.length > 0) {
+      if (!capabilities.arbitraryBindMounts && body.mounts?.length > 0) {
         return error(ctx.res, 'Arbitrary bind mounts are disabled in this deployment', 403);
       }
-      const isLocal = process.env.NODE_ENV === 'development';
+      const allowResourceLimits = capabilities.resourceLimitsApi;
       try {
         const agent = await daemon.createAgent({
           name: body.name,
@@ -127,7 +127,7 @@ export function agentRoutes(daemon: Daemon): Route[] {
           metadata: body.metadata,
           docker_image: body.docker_image,
           mounts: body.mounts,
-          resource_limits: isLocal ? body.resource_limits : undefined,
+          resource_limits: allowResourceLimits ? body.resource_limits : undefined,
         });
         json(ctx.res, agent, 201);
       } catch (err: any) {
@@ -148,10 +148,10 @@ export function agentRoutes(daemon: Daemon): Route[] {
     route('PUT', '/api/agents/:id', async (ctx) => {
       await assertAccessToAgent(ctx.params.id, ctx.user);
       const body = await parseBody(ctx.req);
-      if (!ALLOW_ARBITRARY_BIND_MOUNTS && body.mounts?.length > 0) {
+      if (!capabilities.arbitraryBindMounts && body.mounts?.length > 0) {
         return error(ctx.res, 'Arbitrary bind mounts are disabled in this deployment', 403);
       }
-      if (process.env.NODE_ENV !== 'development') delete body.resource_limits;
+      if (!capabilities.resourceLimitsApi) delete body.resource_limits;
       try {
         const agent = await daemon.updateAgent(ctx.params.id, body);
         json(ctx.res, agent);
