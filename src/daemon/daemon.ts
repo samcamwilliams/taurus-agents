@@ -79,13 +79,13 @@ export class Daemon {
   readonly sse: SSEBroadcaster;
   readonly scheduler: Scheduler;
 
-  constructor(logger?: (level: LogLevel, msg: string) => void) {
+  constructor(logger?: (level: LogLevel, msg: string) => void, docker?: DockerService) {
     this.logger = logger ?? ((level, msg) => {
       const ts = new Date().toISOString().slice(11, 19);
       const prefix = { debug: 'DBG', info: 'INF', warn: 'WRN', error: 'ERR' }[level];
       console.log(`[${ts}] ${prefix} ${msg}`);
     });
-    this.docker = new DockerService(this.logger);
+    this.docker = docker ?? new DockerService(this.logger);
     this.sse = new SSEBroadcaster();
     this.scheduler = new Scheduler(this, this.logger);
   }
@@ -199,6 +199,18 @@ export class Daemon {
     }
 
     const resourceLimits = resolveAgentResourceLimits(input.resource_limits);
+
+    // App-level uniqueness check. The DB index doesn't catch NULL parent_agent_id
+    // duplicates (SQLite NULL != NULL) and soft-deleted rows block name reuse.
+    // Do NOT remove this check even if the DB index appears to handle it.
+    const existing = await Agent.findOne({
+      where: {
+        user_id: input.user_id,
+        parent_agent_id: input.parent_agent_id ?? null,
+        name: input.name,
+      },
+    });
+    if (existing) throw new Error(`Agent named "${input.name}" already exists`);
 
     const agent = await Agent.create({
       name: input.name,
@@ -361,6 +373,13 @@ export class Daemon {
       }
 
       await AgentLog.destroy({ where: { agent_id: agentId } }); // hard delete (no paranoid)
+      // Rename before soft-delete so the name slot is freed for reuse.
+      // The unique index still covers deleted rows, so without this rename,
+      // creating a new agent with the same name would hit a constraint violation.
+      const agentRecord = await Agent.findByPk(agentId);
+      if (agentRecord) {
+        await agentRecord.update({ name: `${agentRecord.name}__deleted_${Date.now()}` });
+      }
       // Soft-delete agent — afterDestroy hooks cascade to runs → messages
       await Agent.destroy({ where: { id: agentId }, individualHooks: true });
       this.agents.delete(agentId);

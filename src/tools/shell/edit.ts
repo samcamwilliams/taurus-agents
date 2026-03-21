@@ -2,6 +2,7 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
 import type { FileTracker } from './file-tracker.js';
+import { shellQuote } from './shell-quote.js';
 
 export class ShellEditTool extends Tool {
   readonly name = 'Edit';
@@ -30,7 +31,7 @@ export class ShellEditTool extends Tool {
 
     // Freshness + size check: get mtime and size in one call
     const statResult = await this.shell.exec(
-      `stat -c '%Y %s' ${JSON.stringify(fp)} 2>/dev/null || stat -f '%m %z' ${JSON.stringify(fp)} 2>/dev/null`,
+      `stat -c '%Y %s' ${shellQuote(fp)} 2>/dev/null || stat -f '%m %z' ${shellQuote(fp)} 2>/dev/null`,
     );
     if (statResult.exitCode !== 0) {
       return { output: `File not found: ${fp}`, isError: true, durationMs: statResult.durationMs };
@@ -59,7 +60,8 @@ export class ShellEditTool extends Tool {
     // PersistentShell strips trailing \n from stdout, which would lose the file's
     // final newline if we used `cat` directly.
     // 10MB outputLimit — sized for MAX_EDIT_SIZE (5MB) after base64 expansion (~6.7MB).
-    const readResult = await this.shell.exec(`base64 ${JSON.stringify(fp)}`, { outputLimit: 10_000_000 });
+    // Use stdin redirect (`< file`) instead of positional arg — macOS base64 doesn't accept `base64 file`.
+    const readResult = await this.shell.exec(`base64 < ${shellQuote(fp)}`, { outputLimit: 10_000_000 });
     if (readResult.exitCode !== 0) {
       return { output: `File not found: ${fp}`, isError: true, durationMs: readResult.durationMs };
     }
@@ -81,14 +83,14 @@ export class ShellEditTool extends Tool {
       : content.replace(input.old_string, input.new_string);
 
     const b64 = Buffer.from(newContent).toString('base64');
-    const writeResult = await this.shell.exec(`echo ${JSON.stringify(b64)} | base64 -d > ${JSON.stringify(fp)}`);
+    const writeResult = await this.shell.exec(`echo ${JSON.stringify(b64)} | base64 -d > ${shellQuote(fp)}`);
 
     if (writeResult.exitCode !== 0) {
       return { output: `Error writing file: ${writeResult.stdout}`, isError: true, durationMs: writeResult.durationMs };
     }
 
     // Update tracked mtime after successful edit
-    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const stat = await this.shell.exec(`stat -c %Y ${shellQuote(fp)} 2>/dev/null || stat -f %m ${shellQuote(fp)} 2>/dev/null`);
     const newMtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
       this.tracker.updateMtime(fp, newMtime);

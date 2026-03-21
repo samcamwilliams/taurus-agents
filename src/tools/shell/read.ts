@@ -3,6 +3,7 @@ import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
 import type { FileTracker } from './file-tracker.js';
 import { resizeImageIfNeeded } from './resize-image.js';
+import { shellQuote } from './shell-quote.js';
 
 const MAX_LINE_LENGTH = 2000;
 
@@ -36,7 +37,7 @@ export class ShellReadTool extends Tool {
     const end = offset + limit - 1;
 
     // Detect file type via MIME (file command may not be installed in minimal images)
-    const probe = await this.shell.exec(`file --mime-type -b ${JSON.stringify(fp)} 2>/dev/null`);
+    const probe = await this.shell.exec(`file --mime-type -b ${shellQuote(fp)} 2>/dev/null`);
     const rawMime = probe.exitCode === 0 ? probe.stdout.trim() : '';
     // file(1) may exit 0 even when the file doesn't exist, putting the error in stdout.
     // Only trust the output if it looks like a valid MIME type (e.g. "text/plain").
@@ -44,7 +45,7 @@ export class ShellReadTool extends Tool {
 
     // If file command failed, check that the file at least exists
     if (!mime) {
-      const exists = await this.shell.exec(`test -f ${JSON.stringify(fp)} && echo ok`);
+      const exists = await this.shell.exec(`test -f ${shellQuote(fp)} && echo ok`);
       if (exists.exitCode !== 0) {
         return { output: `File not found: ${fp}`, isError: true, durationMs: probe.durationMs + exists.durationMs };
       }
@@ -56,7 +57,8 @@ export class ShellReadTool extends Tool {
     if (imageMediaType) {
       // Raise output limit for base64 — images easily exceed the default 100KB shell limit.
       // 20MB base64 ≈ 15MB raw image, well above Anthropic's practical limit.
-      const b64Result = await this.shell.exec(`base64 ${JSON.stringify(fp)}`, { outputLimit: 20_000_000 });
+      // Use stdin redirect (`< file`) instead of positional arg — macOS base64 doesn't accept `base64 file`.
+      const b64Result = await this.shell.exec(`base64 < ${shellQuote(fp)}`, { outputLimit: 20_000_000 });
       if (b64Result.exitCode !== 0) {
         return { output: `Error reading image: ${fp}`, isError: true, durationMs: b64Result.durationMs };
       }
@@ -80,7 +82,7 @@ export class ShellReadTool extends Tool {
     }
 
     // Text file — normal read with line numbers
-    const cmd = `wc -l < ${JSON.stringify(fp)} 2>/dev/null; sed -n '${offset},${end}p' ${JSON.stringify(fp)} 2>&1`;
+    const cmd = `wc -l < ${shellQuote(fp)} 2>/dev/null; sed -n '${offset},${end}p' ${shellQuote(fp)} 2>&1`;
     const result = await this.shell.exec(cmd);
 
     if (result.exitCode !== 0) {
@@ -108,7 +110,7 @@ export class ShellReadTool extends Tool {
       : '';
 
     // Track mtime for freshness enforcement (mtime 0 = stat unavailable, still allows edits)
-    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const stat = await this.shell.exec(`stat -c %Y ${shellQuote(fp)} 2>/dev/null || stat -f %m ${shellQuote(fp)} 2>/dev/null`);
     const mtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
       this.tracker.markRead(fp, mtime);

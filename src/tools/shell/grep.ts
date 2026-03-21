@@ -1,6 +1,7 @@
 import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
+import { shellQuote } from './shell-quote.js';
 
 interface GrepInput {
   pattern: string;
@@ -125,13 +126,13 @@ export class ShellGrepTool extends Tool {
 
     // File type filter
     if (input.type) flags.push(`--type`, input.type);
-    if (input.glob) flags.push(`--glob`, JSON.stringify(input.glob));
+    if (input.glob) flags.push(`--glob`, shellQuote(input.glob));
 
     const paginationPipe = offset > 0
       ? `| tail -n +${offset + 1} | head -${limit}`
       : `| head -${limit}`;
 
-    return `rg ${flags.join(' ')} ${JSON.stringify(input.pattern)} ${JSON.stringify(searchPath)} 2>/dev/null ${paginationPipe}`;
+    return `rg ${flags.join(' ')} ${shellQuote(input.pattern)} ${shellQuote(searchPath)} 2>/dev/null ${paginationPipe}`;
   }
 
   private buildGrepCommand(input: GrepInput, searchPath: string): string {
@@ -144,7 +145,7 @@ export class ShellGrepTool extends Tool {
     if (mode === 'files_with_matches') flags.push('-l');
     if (mode === 'count') flags.push('-c');
     if (input.case_insensitive) flags.push('-i');
-    if (input.glob) flags.push(`--include=${JSON.stringify(input.glob)}`);
+    if (input.glob) flags.push(`--include=${shellQuote(input.glob)}`);
 
     // Context lines
     const ctxC = input['-C'] ?? input.context;
@@ -160,7 +161,7 @@ export class ShellGrepTool extends Tool {
       ? `| tail -n +${offset + 1} | head -${limit}`
       : `| head -${limit}`;
 
-    return `grep ${flags.join(' ')} ${JSON.stringify(input.pattern)} ${JSON.stringify(searchPath)} 2>/dev/null ${paginationPipe}`;
+    return `grep ${flags.join(' ')} ${shellQuote(input.pattern)} ${shellQuote(searchPath)} 2>/dev/null ${paginationPipe}`;
   }
 }
 

@@ -2,6 +2,7 @@ import type { ToolResult, ToolContext } from '../../core/types.js';
 import { Tool } from '../base.js';
 import type { PersistentShell } from '../../daemon/persistent-shell.js';
 import type { FileTracker } from './file-tracker.js';
+import { shellQuote } from './shell-quote.js';
 
 export class ShellWriteTool extends Tool {
   readonly name = 'Write';
@@ -25,13 +26,15 @@ export class ShellWriteTool extends Tool {
     // Check if file already exists (for warning, not blocking)
     let existed = false;
     if (this.tracker) {
-      const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+      const stat = await this.shell.exec(`stat -c %Y ${shellQuote(fp)} 2>/dev/null || stat -f %m ${shellQuote(fp)} 2>/dev/null`);
       existed = stat.exitCode === 0;
     }
 
-    // Ensure parent directory exists, then write via base64 to avoid escaping issues
+    // Ensure parent directory exists, then write via base64 to avoid escaping issues.
+    // shellQuote uses single quotes to prevent $expansion and `command substitution`.
+    // The "$(dirname ...)" is double-quoted to prevent word splitting on paths with spaces.
     const b64 = Buffer.from(input.content).toString('base64');
-    const cmd = `mkdir -p $(dirname ${JSON.stringify(fp)}) && echo ${JSON.stringify(b64)} | base64 -d > ${JSON.stringify(fp)}`;
+    const cmd = `mkdir -p "$(dirname ${shellQuote(fp)})" && echo ${JSON.stringify(b64)} | base64 -d > ${shellQuote(fp)}`;
     const result = await this.shell.exec(cmd);
 
     if (result.exitCode !== 0) {
@@ -39,7 +42,7 @@ export class ShellWriteTool extends Tool {
     }
 
     // Update tracked mtime
-    const stat = await this.shell.exec(`stat -c %Y ${JSON.stringify(fp)} 2>/dev/null || stat -f %m ${JSON.stringify(fp)} 2>/dev/null`);
+    const stat = await this.shell.exec(`stat -c %Y ${shellQuote(fp)} 2>/dev/null || stat -f %m ${shellQuote(fp)} 2>/dev/null`);
     const newMtime = stat.exitCode === 0 ? parseInt(stat.stdout.trim(), 10) : 0;
     if (this.tracker) {
       this.tracker.updateMtime(fp, newMtime);
