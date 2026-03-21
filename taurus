@@ -14,7 +14,12 @@ case "${1:-}" in
     exec npx tsx --env-file=.env src/index.ts "${@:2}"
     ;;
   seed)
-    # Create a test agent via the API
+    # Create a test agent via the API — refused in production
+    ENV="${TAURUS_ENV:-$(grep -s '^TAURUS_ENV=' .env | cut -d= -f2)}"
+    if [ "$ENV" = "production" ]; then
+      echo "Refusing to seed in production. Use TAURUS_ENV=development to override."
+      exit 1
+    fi
     PORT="${2:-7777}"
     NAME="test$(curl -s "http://localhost:$PORT/api/agents" | grep -o '"name":"test[0-9]*"' | wc -l | tr -d ' ')"
     NAME="test$(($(curl -s "http://localhost:$PORT/api/agents" | grep -o '"name":"test[0-9]*"' | wc -l) + 1))"
