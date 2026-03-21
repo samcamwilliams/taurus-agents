@@ -149,6 +149,11 @@
     background: var(--c-bg);
   }
 
+  &--agent {
+    background: color-mix(in srgb, var(--c-amber) 6%, var(--c-bg2));
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--c-amber) 22%, transparent);
+  }
+
   &--assistant {
     background: var(--c-bg2);
   }
@@ -173,9 +178,32 @@
     font-weight: 600;
     text-transform: uppercase;
     color: var(--c-accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 
     .message--user & { color: var(--c-green); }
+    .message--agent & { color: var(--c-amber); }
     .message--system & { color: #7b8fa3; }
+  }
+
+  &__role-link {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.14em;
+
+    &:hover {
+      opacity: 0.82;
+    }
   }
 
   &__meta {

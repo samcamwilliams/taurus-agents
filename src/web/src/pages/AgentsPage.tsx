@@ -694,6 +694,13 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
     }
   }
 
+  function handleOpenLinkedRun(targetAgentId: string, targetRunId: string) {
+    setActiveTab('runs');
+    setMobileAgentsOpen(false);
+    setMobileRunsOpen(false);
+    navigate(`/agents/${targetAgentId}/runs/${targetRunId}`);
+  }
+
   async function handleRefreshMessages() {
     if (agentId && runId) {
       const msgs = await api.getRunMessages(agentId, runId);
@@ -1031,7 +1038,7 @@ export function AgentsPage({ authEnabled, onLogout }: AgentsPageProps) {
                   <RunControls run={selectedRun} onResume={handleResume} onStop={handleStopSelectedRun} />
                 )}
                 {selectedRun ? (
-                  <MessageView runId={selectedRun.id} messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} runError={selectedRun.run_error} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage}>
+                  <MessageView runId={selectedRun.id} messages={messages} streamingText={streamingText} streamingThinking={streamingThinking} streamingToolOutput={streamingToolOutput} isCompacting={isCompacting} runStatus={selectedRun.status} runError={selectedRun.run_error} showMetadata={showMetadata} onInspect={setInspectMessage} onDelete={handleDeleteMessage} onOpenRun={handleOpenLinkedRun}>
                     <RunFooter
                       run={selectedRun}
                       messages={messages}

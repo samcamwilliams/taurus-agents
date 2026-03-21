@@ -12,6 +12,7 @@ export interface SpawnRequest {
 
 export interface SpawnResult {
   summary: string;
+  runId?: string;
   error?: string;
 }
 
@@ -19,14 +20,14 @@ export interface SpawnResult {
  * SpawnTool — spawns a sub-task that runs in a child worker.
  *
  * The child shares the same agent (Docker container, model) but gets its own
- * run, conversation, and TAOR loop. The parent blocks until the child completes.
+ * run, conversation, and TAOR loop. Spawn returns as soon as the child run starts.
  *
  * The sendRequest/waitForResult callbacks are injected by the worker.
  */
 export class SpawnTool extends Tool {
   readonly name = 'Spawn';
   readonly group = 'Control';
-  readonly description = 'Spawn a sub-agent to handle a task. The sub-agent runs in the same container with its own conversation and returns the result when done. Use this to delegate self-contained subtasks.';
+  readonly description = 'Start a background sub-agent run for a self-contained task. The spawned run shares your container but has its own conversation and continues independently after launch. Spawn returns immediately with the run id.';
   readonly requiresApproval = false;
   readonly inputSchema = {
     type: 'object' as const,
@@ -86,10 +87,11 @@ export class SpawnTool extends Tool {
     }
 
     return {
-      output: result.summary,
+      output: result.runId
+        ? `${result.summary}\n[Run: ${result.runId}]`
+        : result.summary,
       isError: false,
       durationMs: 0,
     };
   }
 }
-

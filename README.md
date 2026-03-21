@@ -91,7 +91,7 @@ Set the corresponding API key in `.env` for each provider you use.
 | Bash | exec | Run shell commands in the persistent container shell |
 | Pause | control | Pause execution, wait for human input |
 | Notify | control | Send a notification to Taurus web/PWA clients |
-| Spawn | control | Spawn sub-agents for parallel work |
+| Spawn | control | Start background sub-runs in the same container |
 | Delegate | control | Delegate a task to a child agent and wait for the result |
 | Supervisor | control | Manage child agents: create, update, delete, inspect, inject messages, stop runs |
 | WebSearch | web | Search via Brave Search API |
@@ -133,6 +133,7 @@ agency                          (supervisor)
 └── editor                      (child agent)
 ```
 
+- **Spawn** — start a background run in the same agent/container and keep going
 - **Delegate** — send a task to a child agent and block until it completes
 - **Supervisor** — create, update, delete, inspect, and control child agents
 - **Shared volumes** — all agents in a tree share a `/shared` volume for passing files between agents

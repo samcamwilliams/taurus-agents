@@ -12,7 +12,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
-  AgentStatus, TriggerType, ChildMessage, ParentMessage, LogLevel,
+  AgentStatus, TriggerType, ChildMessage, ParentMessage, LogLevel, MessageMeta,
 } from './types.js';
 import { DockerService } from './docker.js';
 import { SSEBroadcaster } from './sse.js';
@@ -40,8 +40,6 @@ interface ManagedRun {
   runId: string;
   process: ChildProcess;
   parentRunId: string | null;
-  /** Set on spawn children — used to route spawn_result back to the parent worker */
-  spawnRequestId: string | null;
   /** Set on delegate children — used to route delegate_result back to the delegator's worker */
   delegateRequestId: string | null;
   delegatorAgentId: string | null;
@@ -63,6 +61,19 @@ const CONTAINER_IDLE_MS = 5 * 60 * 1000; // 5 min before pausing idle containers
 interface CompletionWaiter {
   resolve: (result: { summary: string; error?: string; tokens?: { input: number; output: number; cost: number } }) => void;
   timer: NodeJS.Timeout;
+}
+
+function buildUserMessageContent(message: string, images?: { base64: string; mediaType: string }[]): string | { type: 'text' | 'image'; text?: string; source?: { type: 'base64'; media_type: string; data: string } }[] {
+  if (!images || images.length === 0) return message;
+  const blocks: { type: 'text' | 'image'; text?: string; source?: { type: 'base64'; media_type: string; data: string } }[] = [];
+  if (message) blocks.push({ type: 'text', text: message });
+  for (const image of images) {
+    blocks.push({
+      type: 'image',
+      source: { type: 'base64', media_type: image.mediaType, data: image.base64 },
+    });
+  }
+  return blocks;
 }
 
 export class Daemon {
@@ -404,7 +415,7 @@ export class Daemon {
 
   // ── Run Management ──
 
-  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string, images?: { base64: string; mediaType: string }[]): Promise<string> {
+  async startRun(agentId: string, trigger: TriggerType = 'manual', input?: string, images?: { base64: string; mediaType: string }[], messageMeta?: MessageMeta): Promise<string> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
 
@@ -418,14 +429,14 @@ export class Daemon {
     });
 
     await this.forkWorker(agentId, run.id, null, {
-      type: 'start', agentId, runId: run.id, trigger, input, images,
+      type: 'start', agentId, runId: run.id, trigger, input, images, messageMeta,
     });
 
     this.logger('info', `Agent "${managed.agent.name}" run started (run: ${run.id})`);
     return run.id;
   }
 
-  async continueRun(agentId: string, runId: string, input?: string, images?: { base64: string; mediaType: string }[]): Promise<void> {
+  async continueRun(agentId: string, runId: string, input?: string, images?: { base64: string; mediaType: string }[], messageMeta?: MessageMeta): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
 
@@ -436,7 +447,13 @@ export class Daemon {
         // Ensure the container is running — it may have been paused by OrbStack
         // (e.g. laptop sleep) while the agent was waiting for user input.
         await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
-        activeRun.process.send({ type: 'resume', message: input } as ParentMessage);
+        if (input && messageMeta) {
+          const dbRun = await Run.findByPk(runId);
+          if (dbRun) {
+            await dbRun.persistMessage('user', buildUserMessageContent(input, images), { meta: messageMeta });
+          }
+        }
+        activeRun.process.send({ type: 'resume', message: input, messageMeta } as ParentMessage);
         activeRun.status = 'running';
         await this.deriveAgentStatus(agentId);
         await this.updateRunStatus(agentId, runId, 'running');
@@ -451,7 +468,7 @@ export class Daemon {
     await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
 
     await this.forkWorker(agentId, runId, null, {
-      type: 'start', agentId, runId, trigger: 'manual', input, images, resume: true,
+      type: 'start', agentId, runId, trigger: 'manual', input, images, messageMeta, resume: true,
     });
 
     this.logger('info', `Agent "${managed.agent.name}" run continued (run: ${runId})`);
@@ -483,7 +500,6 @@ export class Daemon {
       runId,
       process: child,
       parentRunId,
-      spawnRequestId: null,
       delegateRequestId: null,
       delegatorAgentId: null,
       delegatorRunId: null,
@@ -545,15 +561,15 @@ export class Daemon {
     await this.updateRunStatus(agentId, runId, 'stopped');
   }
 
-  /** Stop top-level runs only — cascade kill handles their children */
+  /** Stop every active run for this agent, including spawned background runs. */
   async stopAllRuns(agentId: string, reason: string = 'user requested'): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) return;
-    const topLevel = [...managed.runs.values()].filter(r => !r.parentRunId);
-    await Promise.allSettled(topLevel.map(r => this.stopRun(agentId, r.runId, reason)));
+    const allRuns = [...managed.runs.values()];
+    await Promise.allSettled(allRuns.map(r => this.stopRun(agentId, r.runId, reason)));
   }
 
-  async injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string): Promise<void> {
+  async injectMessage(agentId: string, message: string, images?: { base64: string; mediaType: string }[], runId?: string, messageMeta?: MessageMeta): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
 
@@ -562,14 +578,20 @@ export class Daemon {
 
     if (run.status === 'paused') {
       await this.docker.ensureContainer(managed.agent, this.findRootAgentId(agentId));
-      run.process.send({ type: 'resume', message } as ParentMessage);
+      if (message && messageMeta) {
+        const dbRun = await Run.findByPk(run.runId);
+        if (dbRun) {
+          await dbRun.persistMessage('user', buildUserMessageContent(message, images), { meta: messageMeta });
+        }
+      }
+      run.process.send({ type: 'resume', message, messageMeta } as ParentMessage);
       run.status = 'running';
       await this.deriveAgentStatus(agentId);
       await this.updateRunStatus(agentId, run.runId, 'running');
       return;
     }
 
-    const msg: ParentMessage = { type: 'inject', message, images };
+    const msg: ParentMessage = { type: 'inject', message, images, messageMeta };
     run.process.send(msg);
   }
 
@@ -586,33 +608,34 @@ export class Daemon {
   async sendMessage(
     agentId: string,
     message: string,
-    opts?: { images?: { base64: string; mediaType: string }[]; run_id?: string },
+    opts?: { images?: { base64: string; mediaType: string }[]; run_id?: string; messageMeta?: MessageMeta },
   ): Promise<string> {
     const managed = this.agents.get(agentId);
     if (!managed) throw new Error(`Agent not found: ${agentId}`);
 
     const images = opts?.images;
     const runId = opts?.run_id;
+    const messageMeta = opts?.messageMeta;
 
     if (!runId) {
-      return this.startRun(agentId, 'manual', message, images);
+      return this.startRun(agentId, 'manual', message, images, messageMeta);
     }
 
     // Check if this run has a live worker
     const activeRun = managed.runs.get(runId);
     if (activeRun) {
       if (activeRun.status === 'running') {
-        await this.injectMessage(agentId, message, images, runId);
+        await this.injectMessage(agentId, message, images, runId, messageMeta);
         return runId;
       }
       if (activeRun.status === 'paused') {
-        await this.continueRun(agentId, runId, message, images);
+        await this.continueRun(agentId, runId, message, images, messageMeta);
         return runId;
       }
     }
 
     // Idle run — continue it
-    await this.continueRun(agentId, runId, message, images);
+    await this.continueRun(agentId, runId, message, images, messageMeta);
     return runId;
   }
 
@@ -836,22 +859,7 @@ export class Daemon {
         // Notify waiters synchronously before any awaits — prevents race with handleChildExit
         this.notifyRunCompletion(runId, { summary: msg.summary, error: msg.error, tokens: msg.tokens });
 
-        // If this is a spawn child, route result back to the parent worker
         const completedRun = managed.runs.get(runId);
-        if (completedRun?.spawnRequestId && completedRun.parentRunId) {
-          const parentRun = managed.runs.get(completedRun.parentRunId);
-          if (parentRun) {
-            parentRun.process.send({
-              type: 'spawn_result',
-              requestId: completedRun.spawnRequestId,
-              summary: msg.summary,
-              error: msg.error,
-            } as ParentMessage);
-          }
-          // Clear so handleChildExit doesn't double-send
-          completedRun.spawnRequestId = null;
-        }
-
         // If this is a delegate child, route result back to the delegator's worker (cross-agent)
         if (completedRun?.delegateRequestId && completedRun.delegatorAgentId) {
           const delegatorManaged = this.agents.get(completedRun.delegatorAgentId);
@@ -891,6 +899,16 @@ export class Daemon {
           const parentRun = managed.runs.get(runId);
           if (parentRun) {
             parentRun.process.send({ type: 'spawn_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
+          }
+        });
+        break;
+
+      case 'message_parent_request':
+        this.handleMessageParentRequest(agentId, runId, msg).catch((err: any) => {
+          this.logger('error', `[${managed.agent.name}] MessageParent failed: ${err.message}`);
+          const callerRun = managed.runs.get(runId);
+          if (callerRun) {
+            callerRun.process.send({ type: 'message_parent_result', requestId: msg.requestId, summary: '', error: err.message } as ParentMessage);
           }
         });
         break;
@@ -946,21 +964,7 @@ export class Daemon {
         this.logger('error', `[${managed.agent.name}] Error: ${msg.error}`);
         this.notifyRunCompletion(runId, { summary: '', error: msg.error });
 
-        // Route error to parent if this is a spawn child
         const erroredRun = managed.runs.get(runId);
-        if (erroredRun?.spawnRequestId && erroredRun.parentRunId) {
-          const parentRun = managed.runs.get(erroredRun.parentRunId);
-          if (parentRun) {
-            parentRun.process.send({
-              type: 'spawn_result',
-              requestId: erroredRun.spawnRequestId,
-              summary: '',
-              error: msg.error,
-            } as ParentMessage);
-          }
-          erroredRun.spawnRequestId = null;
-        }
-
         // Route error to delegator if this is a delegate child (cross-agent)
         if (erroredRun?.delegateRequestId && erroredRun.delegatorAgentId) {
           const delegatorManaged = this.agents.get(erroredRun.delegatorAgentId);
@@ -1024,13 +1028,58 @@ export class Daemon {
       tools: childTools,
     });
 
-    // Tag the child run so we can route the result back
-    const childManagedRun = managed.runs.get(childRun.id);
-    if (childManagedRun) {
-      childManagedRun.spawnRequestId = msg.requestId;
+    const parentRun = managed.runs.get(parentRunId);
+    if (parentRun) {
+      parentRun.process.send({
+        type: 'spawn_result',
+        requestId: msg.requestId,
+        summary: 'Background run started.',
+        runId: childRun.id,
+      } as ParentMessage);
     }
 
     this.logger('info', `[${managed.agent.name}] Spawned child run ${childRun.id} (parent: ${parentRunId})`);
+  }
+
+  private async handleMessageParentRequest(
+    callerAgentId: string,
+    callerRunId: string,
+    msg: { requestId: string; message: string },
+  ): Promise<void> {
+    const callerManaged = this.agents.get(callerAgentId);
+    if (!callerManaged) throw new Error(`Agent not found: ${callerAgentId}`);
+
+    const callerRun = callerManaged.runs.get(callerRunId);
+    if (!callerRun) throw new Error(`Run not found: ${callerRunId}`);
+
+    const targetAgentId = callerRun.delegatorAgentId ?? callerAgentId;
+    const targetRunId = callerRun.delegatorRunId ?? callerRun.parentRunId;
+    if (!targetRunId) {
+      throw new Error('No parent run available for this message');
+    }
+
+    const timestamp = new Date().toISOString();
+    const shortId = callerRunId.split('-')[0].toUpperCase();
+    const prefixedMessage = `[Message from ${callerRunId} at ${timestamp}]\n${msg.message}`;
+    const routedRunId = await this.sendMessage(targetAgentId, prefixedMessage, {
+      run_id: targetRunId,
+      messageMeta: {
+        author: {
+          kind: 'agent',
+          agentId: callerAgentId,
+          runId: callerRunId,
+          shortId,
+          label: `Agent #${shortId}`,
+        },
+      },
+    });
+
+    callerRun.process.send({
+      type: 'message_parent_result',
+      requestId: msg.requestId,
+      summary: 'Message queued for the parent run.',
+      runId: routedRunId,
+    } as ParentMessage);
   }
 
   private async handleDelegateRequest(
@@ -1275,21 +1324,6 @@ export class Daemon {
     const exitedRun = managed.runs.get(runId);
     managed.runs.delete(runId);
 
-    // If this was a spawn child, route result back to the parent worker
-    if (exitedRun?.spawnRequestId && exitedRun.parentRunId) {
-      const parentRun = managed.runs.get(exitedRun.parentRunId);
-      if (parentRun) {
-        // The actual summary comes from run_complete IPC (handled in handleChildMessage).
-        // This is the fallback for abnormal exits.
-        parentRun.process.send({
-          type: 'spawn_result',
-          requestId: exitedRun.spawnRequestId,
-          summary: '',
-          error: code === 0 ? undefined : `Spawn child exited with code ${code}`,
-        } as ParentMessage);
-      }
-    }
-
     // If this was a delegate child, route fallback result to the delegator (cross-agent)
     if (exitedRun?.delegateRequestId && exitedRun.delegatorAgentId) {
       const delegatorManaged = this.agents.get(exitedRun.delegatorAgentId);
@@ -1302,13 +1336,6 @@ export class Daemon {
           runId,
           error: code === 0 ? undefined : `Delegate child exited with code ${code}`,
         } as ParentMessage);
-      }
-    }
-
-    // Cascade kill: stop any child runs whose parent just died
-    for (const [childRunId, childRun] of managed.runs) {
-      if (childRun.parentRunId === runId) {
-        this.stopRun(agentId, childRunId, 'parent run exited').catch(() => {});
       }
     }
 
@@ -1343,7 +1370,7 @@ export class Daemon {
     });
   }
 
-  /** Derive agent status from top-level runs (spawn children are internal to their parent) */
+  /** Derive agent status from top-level runs, falling back to any active background runs. */
   private async deriveAgentStatus(agentId: string): Promise<void> {
     const managed = this.agents.get(agentId);
     if (!managed) return;

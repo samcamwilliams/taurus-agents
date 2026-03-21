@@ -41,9 +41,22 @@ class Message extends Model {
       ? { tokensBefore: meta.tokensBefore, messagesCompacted: meta.messagesCompacted, compactedAt: meta.compactedAt }
       : undefined;
     const model = meta?.model as string | undefined;
-    // Expose tool metadata (keyed by tool_use_id) for user messages with tool results
-    const toolMeta = role === 'user' && meta && !meta.usage ? meta : undefined;
-    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, model, compaction, toolMeta, created_at };
+    const author = role === 'user' && meta?.author
+      ? {
+          kind: meta.author.kind,
+          agent_id: meta.author.agentId,
+          run_id: meta.author.runId,
+          short_id: meta.author.shortId,
+          label: meta.author.label,
+        }
+      : undefined;
+    // Expose tool metadata (keyed by tool_use_id) for user messages with tool results,
+    // while leaving room for other structured user-message metadata like author info.
+    const toolMetaEntries = role === 'user' && meta && !meta.usage
+      ? Object.entries(meta).filter(([key]) => key !== 'author')
+      : [];
+    const toolMeta = toolMetaEntries.length > 0 ? Object.fromEntries(toolMetaEntries) : undefined;
+    return { id, run_id, seq, role, content, stop_reason, input_tokens, output_tokens, usage, cost, model, compaction, author, toolMeta, created_at };
   }
 }
 

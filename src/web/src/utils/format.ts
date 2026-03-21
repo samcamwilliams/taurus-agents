@@ -27,6 +27,31 @@ export function fmtSmartTime(date: Date): string {
   return `${datePart}, ${date.toLocaleTimeString()}`;
 }
 
+const INJECTED_MESSAGE_PREFIX_RE = /^\[(?:Message from [^\]]+ at [^\]]+|You were spawned by [^\]]+ at [^\]]+ with message:)\]\s*\n?/;
+
+export function stripInjectedMessageEnvelope(content: unknown): unknown {
+  if (typeof content === 'string') {
+    return content.replace(INJECTED_MESSAGE_PREFIX_RE, '');
+  }
+  if (!Array.isArray(content) || content.length === 0) return content;
+
+  let changed = false;
+  const next = [...content];
+  const first = next[0] as any;
+  if (first?.type === 'text' && typeof first.text === 'string') {
+    const stripped = first.text.replace(INJECTED_MESSAGE_PREFIX_RE, '');
+    if (stripped !== first.text) {
+      changed = true;
+      if (stripped) {
+        next[0] = { ...first, text: stripped };
+      } else {
+        next.shift();
+      }
+    }
+  }
+  return changed ? next : content;
+}
+
 /** Extract plain text from message content for clipboard. */
 export function extractMessageText(content: unknown): string {
   if (typeof content === 'string') return content;

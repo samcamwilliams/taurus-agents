@@ -4,6 +4,12 @@ import type { InferenceService } from '../inference/service.js';
 import type { ToolRegistry } from '../tools/registry.js';
 import { maybeCompact, shouldCompact } from './compaction.js';
 
+type InjectedMessage = {
+  text: string;
+  images?: { base64: string; mediaType: string }[];
+  meta?: Record<string, any>;
+};
+
 export interface AgentLoopParams {
   chatml: ChatML;
   inference: InferenceService;
@@ -28,7 +34,7 @@ export interface AgentLoopParams {
   limitOutputTokens?: number;
 
   /** Returns queued injected messages (drains the queue). Used for mid-run user messages. */
-  getInjectedMessages?: () => { text: string; images?: { base64: string; mediaType: string }[] }[];
+  getInjectedMessages?: () => InjectedMessage[];
 
   /** Called before each inference call. Throw to abort the run (e.g. budget exceeded). */
   beforeInference?: () => Promise<void>;
@@ -71,17 +77,21 @@ export async function* agentLoop(params: AgentLoopParams): AsyncGenerator<AgentE
     // ── Check for injected user messages ──
     const injected = getInjectedMessages?.() ?? [];
     if (injected.length > 0) {
-      const combinedText = injected.map(m => m.text).filter(Boolean).join('\n\n');
-      const allImages = injected.flatMap(m => m.images ?? []);
+      for (const message of injected) {
+        const blocks: ContentBlock[] = [];
+        if (message.text) blocks.push({ type: 'text', text: message.text });
+        for (const img of message.images ?? []) {
+          blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+        }
+        if (blocks.length === 0) continue;
 
-      // Build content blocks for the injected message
-      const blocks: ContentBlock[] = [];
-      if (combinedText) blocks.push({ type: 'text', text: `[User message mid-turn]: ${combinedText}` });
-      for (const img of allImages) {
-        blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+        const content = (blocks.length === 1 && blocks[0].type === 'text')
+          ? blocks[0].text
+          : blocks;
+
+        chatml.appendUser(content);
+        yield { type: 'user_message', message: { role: 'user', content }, meta: message.meta };
       }
-
-      chatml.appendUser(blocks);
     }
 
     // ── Pre-inference compaction: compact before a call that would overflow ──
