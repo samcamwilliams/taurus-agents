@@ -77,9 +77,10 @@ export async function authenticate(req: http.IncomingMessage): Promise<AuthResul
     return { ok: true, user: { id: '', role: 'user', isLoggedIn: true } };
   }
 
-  // Static files / SPA shell — let the app load so it can show the login page.
-  // Dashboard microsites are protected content and must authenticate like API routes.
-  if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/ws/') && !url.pathname.startsWith('/dashboards/')) {
+  // Static files, SPA shell, and dashboard microsites — no auth required.
+  // Dashboards are public (agent UUID in URL is the unguessable secret);
+  // the iframe sandbox attribute prevents cookie/API access from dashboard JS.
+  if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/ws/')) {
     return { ok: true, user: { id: '', role: 'user', isLoggedIn: true } };
   }
 

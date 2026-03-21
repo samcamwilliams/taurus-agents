@@ -139,8 +139,8 @@ export function dashboardRoutes(daemon: Daemon): Route[] {
       method: 'GET',
       pattern: /^\/dashboards\/(?<id>[^/]+)\/(?<name>[^/]+)(?<rest>\/.*)?$/,
       handler: async (ctx) => {
-        await assertAccessToAgent(ctx.params.id, ctx.user);
-
+        // Public — agent UUID in URL is the unguessable secret.
+        // Auth is not required; iframe sandbox blocks cookie/API access.
         const dashboardName = decodeSegment(ctx.params.name);
         if (!dashboardName) return error(ctx.res, 'Invalid dashboard name', 400);
 
