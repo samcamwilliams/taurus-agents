@@ -14,6 +14,7 @@ import { healthRoutes } from './routes/health.js';
 import { toolRoutes } from './routes/tools.js';
 import { fileRoutes } from './routes/files.js';
 import { notificationRoutes } from './routes/notifications.js';
+import { dashboardRoutes } from './routes/dashboards.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,7 @@ export function createServer(daemon: Daemon, port: number): http.Server {
     ...toolRoutes(),
     ...fileRoutes(daemon),
     ...notificationRoutes(daemon),
+    ...dashboardRoutes(daemon),
   ];
 
   const server = http.createServer(async (req, res) => {
