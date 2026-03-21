@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, GripVertical, X } from 'lucide-react';
-import { THEMES, THEME_LABELS, THEME_DESCRIPTIONS, useTheme } from '../hooks/useTheme';
+import { THEMES, THEME_LABELS, THEME_DESCRIPTIONS, useTheme, type Theme } from '../hooks/useTheme';
 import { api } from '../api';
 
 interface ThemePickerProps {
@@ -13,7 +13,7 @@ export function ThemePicker({ onClose }: ThemePickerProps) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const dragOrigin = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
 
-  const persist = useCallback(async (t: string) => {
+  const persist = useCallback(async (t: Theme) => {
     try { await api.updatePreferences({ theme: t }); } catch { /* best-effort */ }
   }, []);
 

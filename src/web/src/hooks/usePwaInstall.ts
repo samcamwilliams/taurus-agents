@@ -38,20 +38,12 @@ export function usePwaInstall() {
       setIsInstalled(true);
     };
 
-    if ('addEventListener' in media) {
-      media.addEventListener('change', handleStandaloneChange);
-    } else {
-      media.addListener(handleStandaloneChange);
-    }
+    media.addEventListener('change', handleStandaloneChange);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
     return () => {
-      if ('removeEventListener' in media) {
-        media.removeEventListener('change', handleStandaloneChange);
-      } else {
-        media.removeListener(handleStandaloneChange);
-      }
+      media.removeEventListener('change', handleStandaloneChange);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleInstalled);
     };

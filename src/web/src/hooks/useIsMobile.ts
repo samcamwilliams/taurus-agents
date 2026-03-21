@@ -17,13 +17,8 @@ export function useIsMobile(query: string = MOBILE_LAYOUT_QUERY): boolean {
     const handleChange = () => setMatches(media.matches);
 
     handleChange();
-    if ('addEventListener' in media) {
-      media.addEventListener('change', handleChange);
-      return () => media.removeEventListener('change', handleChange);
-    }
-
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
   }, [query]);
 
   return matches;

@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 export async function registerPwaServiceWorker(): Promise<void> {
   if (!import.meta.env.PROD) return;
   if (!('serviceWorker' in navigator)) return;

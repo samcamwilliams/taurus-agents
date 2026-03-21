@@ -76,7 +76,7 @@ export function useAgentNotifications(showToast: (message: string, type?: ToastT
       return false;
     }
 
-    let nextPermission = permission;
+    let nextPermission: NotificationPermission | 'unsupported' = permission;
     if (nextPermission !== 'granted') {
       nextPermission = await Notification.requestPermission();
       setPermission(nextPermission);
