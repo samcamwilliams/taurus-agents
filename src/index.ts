@@ -89,11 +89,15 @@ async function main() {
   await Database.sync();
   await setupAssociations();
 
-  // Ensure default user exists
-  const { user: defaultUser, password: defaultPassword } = await User.ensureDefaultUser();
-
-  // Ensure root folder for the default user
-  await Folder.ensureRootForUser(defaultUser.id);
+  // Ensure default user exists (skipped in production — users managed externally)
+  let defaultUser: { id: string; username: string } | null = null;
+  let defaultPassword: string | null = null;
+  if (TAURUS_ENV !== 'production') {
+    const result = await User.ensureDefaultUser();
+    defaultUser = result.user;
+    defaultPassword = result.password;
+    await Folder.ensureRootForUser(result.user.id);
+  }
 
   // Reset API key user cache after user setup
   resetApiKeyUserCache();
@@ -126,10 +130,12 @@ async function main() {
       ['Mounts', capabilities.arbitraryBindMounts ? 'allowed' : 'disabled'],
       null,
     ];
-    if (defaultPassword && capabilities.showDefaultPassword) {
-      rows.push(['Login', defaultUser.username], ['Password', defaultPassword]);
-    } else {
-      rows.push(['User', defaultUser.username]);
+    if (defaultUser) {
+      if (defaultPassword && capabilities.showDefaultPassword) {
+        rows.push(['Login', defaultUser.username], ['Password', defaultPassword]);
+      } else {
+        rows.push(['User', defaultUser.username]);
+      }
     }
     console.log(banner('v0.1.0', rows));
   });

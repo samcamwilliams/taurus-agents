@@ -514,7 +514,7 @@
 
   &__input-wrap {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     min-width: 0;
     background: var(--c-bg);
     border: 1px solid var(--c-border);
@@ -560,7 +560,6 @@
     justify-content: center;
     padding: 0;
     transition: color 0.1s;
-    margin-bottom: 3px;
 
     &:hover { color: var(--c-text); }
   }
