@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Plus } from 'lucide-react';
+import { Eye, EyeOff, LayoutDashboard, Plus } from 'lucide-react';
 import type { Agent, Dashboard } from '../types';
+import type { ChannelIndicatorMode } from '../hooks/usePreferences';
 import { Logo } from './Logo';
 import { StatusDot } from './StatusDot';
 import { Countdown } from './Countdown';
@@ -13,6 +14,9 @@ interface SidebarProps {
   selectedId: string | null;
   onCreateClick: () => void;
   onTriggerSchedule?: (agentId: string) => void;
+  getIndicatorMode?: (channelKey: string) => ChannelIndicatorMode;
+  getDashboardActivityState?: (dashboard: Dashboard, indicatorMode: ChannelIndicatorMode) => 'pulse' | 'static' | 'fade' | null;
+  onToggleIndicator?: (channelKey: string) => void;
   onSelect?: () => void;
 }
 
@@ -26,6 +30,9 @@ export function Sidebar({
   selectedId,
   onCreateClick,
   onTriggerSchedule,
+  getIndicatorMode,
+  getDashboardActivityState,
+  onToggleIndicator,
   onSelect,
 }: SidebarProps) {
   const navigate = useNavigate();
@@ -68,13 +75,39 @@ export function Sidebar({
         emptyMessage="No agents yet"
         renderIcon={(item) => {
           if (item.kind !== 'dashboard') {
-            return <StatusDot status={item.agent.status} />;
+            const indicatorMode = getIndicatorMode?.(`agent:${item.agent.id}`) ?? 'animated';
+            return <StatusDot status={item.agent.status} indicatorMode={indicatorMode} />;
           }
 
+          const indicatorMode = getIndicatorMode?.(`dashboard:${item.dashboard.root_agent_id}:${item.dashboard.slug}`) ?? 'animated';
+          const activityState = getDashboardActivityState?.(item.dashboard, indicatorMode) ?? null;
           return (
-            <span className="dashboard-item__icon" title="dashboard">
-              <LayoutDashboard size={12} />
+            <span className="dashboard-item__icon-wrap">
+              <span className="dashboard-item__icon" title="dashboard">
+                <LayoutDashboard size={12} />
+              </span>
+              {activityState && (
+                <span className={`dashboard-item__activity dashboard-item__activity--${activityState}`} />
+              )}
             </span>
+          );
+        }}
+        renderActions={(item) => {
+          if (!getIndicatorMode || !onToggleIndicator) return null;
+          const channelKey = item.kind === 'dashboard'
+            ? `dashboard:${item.dashboard.root_agent_id}:${item.dashboard.slug}`
+            : `agent:${item.agent.id}`;
+          const isMuted = getIndicatorMode(channelKey) === 'muted';
+          const IndicatorIcon = isMuted ? EyeOff : Eye;
+          return (
+            <button
+              type="button"
+              className="tree-indicator-btn"
+              onClick={() => onToggleIndicator(channelKey)}
+              title={isMuted ? 'Indicators muted for this channel. Click to follow the profile setting.' : 'Indicators follow the profile setting. Click to mute this channel.'}
+            >
+              <IndicatorIcon size={12} />
+            </button>
           );
         }}
         renderLabel={(item) => item.kind === 'dashboard'

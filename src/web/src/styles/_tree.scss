@@ -170,7 +170,28 @@
   transition: opacity 0.1s;
 }
 
-.tv__node:hover .tv__actions { opacity: 1; }
+.tv__node:hover .tv__actions,
+.tv__node--selected .tv__actions,
+.tv__node:focus-within .tv__actions { opacity: 1; }
+
+.tree-indicator-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+
+  &:hover {
+    color: var(--c-text);
+    background: var(--c-hover);
+  }
+}
 
 // ── Secondary line (below label, aligned to same column) ──
 

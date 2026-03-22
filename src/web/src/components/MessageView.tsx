@@ -5,6 +5,7 @@ import {
   Wrench, Minimize2, Maximize2, X, ArrowDown,
 } from 'lucide-react';
 import type { MessageRecord } from '../types';
+import { usePreferences } from '../hooks/usePreferences';
 import { Markdown } from './Markdown';
 import { fmtSmartTime, stripInjectedMessageEnvelope } from '../utils/format';
 import { JsonKV } from './JsonKV';
@@ -72,8 +73,12 @@ function ZoomableBlock({ children }: { children: (onZoom: () => void) => React.R
 
 // ── Collapsible system prompt block ──
 
-function SystemPromptBlock({ text }: { text: string }) {
-  const [collapsed, setCollapsed] = useState(true);
+function SystemPromptBlock({ text, defaultCollapsed = true }: { text: string; defaultCollapsed?: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    setCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
 
   return (
     <div className={`system-prompt-block ${collapsed ? 'system-prompt-block--collapsed' : ''}`}>
@@ -95,8 +100,12 @@ function SystemPromptBlock({ text }: { text: string }) {
 
 // ── Collapsible compaction block ──
 
-function CompactionBlock({ msg }: { msg: MessageRecord }) {
-  const [collapsed, setCollapsed] = useState(true);
+function CompactionBlock({ msg, defaultCollapsed = true }: { msg: MessageRecord; defaultCollapsed?: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    setCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
 
   const { tokensBefore, messagesCompacted } = msg.compaction ?? {};
 
@@ -178,9 +187,19 @@ function ThinkingBlock({ text, defaultCollapsed = true, showTokens = false }: { 
 
 // ── Content block rendering ──
 
-function ContentBlockView({ block, showMetadata, toolMeta }: { block: any; showMetadata?: boolean; toolMeta?: Record<string, any> }) {
+function ContentBlockView({
+  block,
+  showMetadata,
+  toolMeta,
+  outputStyle,
+}: {
+  block: any;
+  showMetadata?: boolean;
+  toolMeta?: Record<string, any>;
+  outputStyle: 'compact' | 'detailed';
+}) {
   if (block.type === 'thinking') {
-    return <ThinkingBlock text={block.thinking} showTokens={showMetadata} />;
+    return <ThinkingBlock text={block.thinking} defaultCollapsed={outputStyle === 'compact'} showTokens={showMetadata} />;
   }
   if (block.type === 'text') {
     return <Markdown>{block.text}</Markdown>;
@@ -303,16 +322,30 @@ function ContentBlockView({ block, showMetadata, toolMeta }: { block: any; showM
   return <pre className="msg-raw">{JSON.stringify(block, null, 2)}</pre>;
 }
 
-function MessageContent({ content, role, showMetadata, toolMeta }: { content: unknown; role?: string; showMetadata?: boolean; toolMeta?: Record<string, any> }) {
+function MessageContent({
+  content,
+  role,
+  showMetadata,
+  toolMeta,
+  outputStyle,
+  allowUserMarkdown = false,
+}: {
+  content: unknown;
+  role?: string;
+  showMetadata?: boolean;
+  toolMeta?: Record<string, any>;
+  outputStyle: 'compact' | 'detailed';
+  allowUserMarkdown?: boolean;
+}) {
   if (typeof content === 'string') {
-    if (role === 'user') return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
+    if (role === 'user' && !allowUserMarkdown) return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
     return <Markdown>{content}</Markdown>;
   }
   if (Array.isArray(content)) {
     return (
       <>
         {content.map((block, i) => (
-          <ContentBlockView key={i} block={block} showMetadata={showMetadata} toolMeta={toolMeta} />
+          <ContentBlockView key={i} block={block} showMetadata={showMetadata} toolMeta={toolMeta} outputStyle={outputStyle} />
         ))}
       </>
     );
@@ -374,6 +407,7 @@ function MessageRoleLabel({ message, onOpenRun }: { message: MessageRecord; onOp
 }
 
 export function MessageView({ runId, messages, streamingText, streamingThinking, streamingToolOutput, isCompacting, runStatus, runError, showMetadata, onInspect, onDelete, onOpenRun, children }: MessageViewProps) {
+  const { outputStyle } = usePreferences();
   const containerRef = useRef<HTMLDivElement>(null);
   const toolOutputRef = useRef<HTMLPreElement>(null);
   const wasNearBottom = useRef(true);
@@ -469,6 +503,7 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
   }
 
   const isStreaming = !!(streamingText || streamingThinking);
+  const compactOutput = outputStyle === 'compact';
 
   // Auto-collapse thinking when output text starts arriving
   const thinkingDone = !!streamingText;
@@ -485,7 +520,7 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
                   <span className="message__role">system</span>
                 </div>
                 <div className="message__body">
-                  <SystemPromptBlock text={text} />
+                  <SystemPromptBlock text={text} defaultCollapsed={compactOutput} />
                 </div>
               </div>
             );
@@ -493,7 +528,7 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
           if (msg.role === 'compaction') {
             return (
               <div key={msg.id} className="message message--compaction">
-                <CompactionBlock msg={msg} />
+                <CompactionBlock msg={msg} defaultCollapsed={compactOutput} />
                 {showMetadata && msg.usage && (
                   <div className="message__footer">
                     <UsageSummary usage={msg.usage} cost={msg.cost} />
@@ -519,7 +554,14 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
               {!isOptimistic && <MessageMenu message={msg} onInspect={onInspect} onDelete={onDelete} />}
             </div>
             <div className="message__body">
-              <MessageContent content={getDisplayMessageContent(msg)} role={msg.role} showMetadata={showMetadata} toolMeta={allToolMeta} />
+              <MessageContent
+                content={getDisplayMessageContent(msg)}
+                role={msg.role}
+                showMetadata={showMetadata}
+                toolMeta={allToolMeta}
+                outputStyle={outputStyle}
+                allowUserMarkdown={msg.author?.kind === 'agent'}
+              />
             </div>
             {showMetadata && msg.usage && (
               <div className="message__footer">
@@ -568,7 +610,7 @@ export function MessageView({ runId, messages, streamingText, streamingThinking,
             </div>
             <div className="message__body">
               {streamingThinking && (
-                <ThinkingBlock text={streamingThinking} defaultCollapsed={thinkingDone} showTokens={showMetadata} />
+                <ThinkingBlock text={streamingThinking} defaultCollapsed={compactOutput ? thinkingDone : false} showTokens={showMetadata} />
               )}
               {streamingText && <Markdown>{streamingText}</Markdown>}
             </div>

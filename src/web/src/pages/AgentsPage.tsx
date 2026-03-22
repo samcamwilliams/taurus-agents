@@ -15,16 +15,53 @@ import { InspectModal } from '../components/InspectModal';
 import { useToast, ToastContainer } from '../components/Toast';
 import { TreeView, type TreeItem } from '../components/TreeView';
 import { useTheme } from '../hooks/useTheme';
+import { usePreferences } from '../hooks/usePreferences';
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { UserMenu } from '../components/UserMenu';
 import { ThemePicker } from '../components/ThemePicker';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useAgentNotifications } from '../hooks/useAgentNotifications';
-import { Play, Square, PlayCircle, FastForward, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, ExternalLink, LayoutDashboard } from 'lucide-react';
+import { Play, Square, PlayCircle, FastForward, RefreshCw, MessageSquare, FileCode, TerminalSquare, Settings, Clock, Menu, List, Bell, BellOff, ExternalLink, LayoutDashboard, Lock, Eye, EyeOff, Globe } from 'lucide-react';
 import '../styles/components.scss';
 
 type Tab = 'runs' | 'editor' | 'terminal' | 'settings';
+type DashboardIndicatorState = 'pulse' | 'static' | 'fade' | null;
+
+const DASHBOARD_INDICATOR_PULSE_MS = 15_000;
+const DASHBOARD_INDICATOR_FADE_MS = 1_500;
+const DASHBOARD_SEEN_STORAGE_KEY = 'taurus-dashboard-seen';
+
+function getDashboardVisibilityLabel(value: Dashboard['public']): string {
+  if (value === true) return 'Public';
+  if (value === false) return 'Private';
+  return 'Unlisted';
+}
+
+function getDashboardVisibilityTitle(value: Dashboard['public']): string {
+  if (value === true) return 'Public. Click to make private.';
+  if (value === false) return 'Private. Click to make public.';
+  return 'Unlisted. Click to make public.';
+}
+
+function getDashboardVisibilityIcon(value: Dashboard['public']) {
+  if (value === true) return Globe;
+  if (value === false) return Lock;
+  return EyeOff;
+}
+
+function getAgentChannelKey(agentId: string): string {
+  return `agent:${agentId}`;
+}
+
+function getRunChannelKey(runId: string): string {
+  return `run:${runId}`;
+}
+
+function getDashboardChannelKey(rootAgentId: string, slug: string): string {
+  return `dashboard:${rootAgentId}:${slug}`;
+}
+
 function findRootAgentId(agents: Agent[], agentId: string | undefined): string | null {
   if (!agentId) return null;
   let currentId: string | null = agentId;
@@ -90,6 +127,20 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [agents, setAgents] = useState<Agent[]>([]);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
+  const [dashboardAccessSaving, setDashboardAccessSaving] = useState(false);
+  const [seenDashboardWrites, setSeenDashboardWrites] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const parsed = JSON.parse(localStorage.getItem(DASHBOARD_SEEN_STORAGE_KEY) || '{}');
+      if (!parsed || typeof parsed !== 'object') return {};
+      return Object.fromEntries(
+        Object.entries(parsed as Record<string, unknown>).filter(([, value]) => typeof value === 'number' && Number.isFinite(value)),
+      );
+    } catch {
+      return {};
+    }
+  });
+  const [fadingDashboards, setFadingDashboards] = useState<Record<string, boolean>>({});
   const [runs, setRuns] = useState<Run[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -110,12 +161,31 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showResourceLimits, setShowResourceLimits] = useState(false);
   const mountedForAgent = useRef<string | null>(null);
+  const dashboardRefreshInFlight = useRef(false);
+  const dashboardFadeTimers = useRef<Record<string, number>>({});
+  const previousSelectedDashboardKey = useRef<string | null>(null);
   const { toasts, showToast, dismiss, pause, resume } = useToast();
   const { theme } = useTheme();
+  const {
+    channelIndicators,
+    channelIndicatorOverrides,
+    setChannelIndicatorOverrides,
+    getChannelIndicatorMode,
+  } = usePreferences();
   const conn = useConnectionStatus();
   const isMobile = useIsMobile();
   const { canInstall, isInstalled, install, installLabel, installHelpText } = usePwaInstall();
   const notifications = useAgentNotifications(showToast);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DASHBOARD_SEEN_STORAGE_KEY, JSON.stringify(seenDashboardWrites));
+    } catch {}
+  }, [seenDashboardWrites]);
+
+  useEffect(() => () => {
+    Object.values(dashboardFadeTimers.current).forEach((timer) => window.clearTimeout(timer));
+  }, []);
 
   // Remember last selected run per agent so switching back restores it
   const lastRunByAgent = useRef<Record<string, string>>({});
@@ -187,7 +257,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
 
   // ── Poll dashboards from all root agents ──
 
-  useEffect(() => {
+  const loadDashboards = useCallback(async (showLoading = false) => {
     const rootAgents = agents.filter((agent) => !agent.parent_agent_id);
     if (rootAgents.length === 0) {
       setDashboards([]);
@@ -195,30 +265,30 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       return;
     }
 
-    let stale = false;
-    let refreshing = false;
+    if (dashboardRefreshInFlight.current) return;
 
-    const refreshDashboards = async (showLoading = false) => {
-      if (refreshing) return;
-      refreshing = true;
-      if (showLoading) setDashboardsLoading(true);
-      try {
-        const results = await Promise.all(
-          rootAgents.map(async (rootAgent) => {
-            try { return await api.listDashboards(rootAgent.id); } catch { return []; }
-          }),
-        );
-        if (stale) return;
-        setDashboards(results.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })));
-      } finally {
-        refreshing = false;
-        if (showLoading && !stale) setDashboardsLoading(false);
-      }
-    };
-
-    void refreshDashboards(true);
-    return () => { stale = true; };
+    dashboardRefreshInFlight.current = true;
+    if (showLoading) setDashboardsLoading(true);
+    try {
+      const results = await Promise.all(
+        rootAgents.map(async (rootAgent) => {
+          try { return await api.listDashboards(rootAgent.id); } catch { return []; }
+        }),
+      );
+      setDashboards(results.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })));
+    } finally {
+      dashboardRefreshInFlight.current = false;
+      if (showLoading) setDashboardsLoading(false);
+    }
   }, [agents]);
+
+  useEffect(() => {
+    void loadDashboards(true);
+    const interval = window.setInterval(() => {
+      void loadDashboards(false);
+    }, 2_000);
+    return () => window.clearInterval(interval);
+  }, [loadDashboards]);
 
   // ── Load runs when agent changes + auto-select latest ──
 
@@ -301,6 +371,62 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
   useEffect(() => {
     setDashboardFrameKey(0);
   }, [agentId, dashboardName]);
+
+  const markDashboardSeen = useCallback((dashboard: Dashboard, fade: boolean) => {
+    if (!dashboard.updated_at) return;
+
+    const dashboardKey = getDashboardChannelKey(dashboard.root_agent_id, dashboard.slug);
+    const seenAt = new Date(dashboard.updated_at).getTime();
+
+    setSeenDashboardWrites((current) => {
+      if ((current[dashboardKey] ?? 0) >= seenAt) return current;
+      return { ...current, [dashboardKey]: seenAt };
+    });
+
+    const existingTimer = dashboardFadeTimers.current[dashboardKey];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      delete dashboardFadeTimers.current[dashboardKey];
+    }
+
+    if (fade) {
+      setFadingDashboards((current) => ({ ...current, [dashboardKey]: true }));
+      dashboardFadeTimers.current[dashboardKey] = window.setTimeout(() => {
+        setFadingDashboards((current) => {
+          if (!current[dashboardKey]) return current;
+          const next = { ...current };
+          delete next[dashboardKey];
+          return next;
+        });
+        delete dashboardFadeTimers.current[dashboardKey];
+      }, DASHBOARD_INDICATOR_FADE_MS);
+      return;
+    }
+
+    setFadingDashboards((current) => {
+      if (!current[dashboardKey]) return current;
+      const next = { ...current };
+      delete next[dashboardKey];
+      return next;
+    });
+  }, []);
+
+  const getDashboardIndicatorState = useCallback((dashboard: Dashboard, indicatorMode: 'animated' | 'static' | 'muted'): DashboardIndicatorState => {
+    if (indicatorMode === 'muted' || !dashboard.updated_at) return null;
+
+    const dashboardKey = getDashboardChannelKey(dashboard.root_agent_id, dashboard.slug);
+    const updatedAt = new Date(dashboard.updated_at).getTime();
+    const seenAt = seenDashboardWrites[dashboardKey] ?? 0;
+
+    if (updatedAt <= seenAt) {
+      return indicatorMode === 'animated' && fadingDashboards[dashboardKey] ? 'fade' : null;
+    }
+
+    if (indicatorMode === 'static') return 'static';
+
+    const ageMs = Date.now() - updatedAt;
+    return ageMs <= DASHBOARD_INDICATOR_PULSE_MS ? 'pulse' : 'static';
+  }, [fadingDashboards, seenDashboardWrites]);
 
   function activateTab(tab: Tab) {
     setActiveTab(tab);
@@ -526,12 +652,34 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       d.root_agent_id === (selectedRootAgentId ?? agentId),
     ) ?? null
     : null;
+  const DashboardVisibilityIcon = getDashboardVisibilityIcon(selectedDashboard?.public ?? 'unlisted');
+  const selectedDashboardIndicatorMode = selectedDashboard
+    ? getChannelIndicatorMode(getDashboardChannelKey(selectedDashboard.root_agent_id, selectedDashboard.slug))
+    : channelIndicators;
+  const selectedAgentIndicatorMode = selectedAgent ? getChannelIndicatorMode(getAgentChannelKey(selectedAgent.id)) : channelIndicators;
   const selectedRun = runs.find(r => r.id === runId) ?? null;
   const selectedTreeId = dashboardName
     ? `dashboard:${selectedDashboard?.root_agent_id ?? selectedRootAgentId ?? agentId}:${dashboardName}`
     : agentId
       ? `agent:${agentId}`
       : null;
+
+  useEffect(() => {
+    const selectedDashboardKey = selectedDashboard
+      ? getDashboardChannelKey(selectedDashboard.root_agent_id, selectedDashboard.slug)
+      : null;
+    const isFreshSelection = !!selectedDashboardKey && selectedDashboardKey !== previousSelectedDashboardKey.current;
+
+    if (selectedDashboard && selectedDashboard.updated_at && selectedDashboardKey) {
+      const updatedAt = new Date(selectedDashboard.updated_at).getTime();
+      const seenAt = seenDashboardWrites[selectedDashboardKey] ?? 0;
+      if (updatedAt > seenAt) {
+        markDashboardSeen(selectedDashboard, isFreshSelection && selectedDashboardIndicatorMode === 'animated');
+      }
+    }
+
+    previousSelectedDashboardKey.current = selectedDashboardKey;
+  }, [markDashboardSeen, seenDashboardWrites, selectedDashboard, selectedDashboardIndicatorMode]);
 
   // Adapt runs for TreeView
   const treeRuns: (Run & TreeItem)[] = runs.map(r => ({
@@ -626,6 +774,43 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       navigate(`/agents/${id}/runs/${newRunId}`);
     } catch (err: any) {
       showToast(err.message);
+    }
+  }
+
+  async function handleToggleDashboardAccess() {
+    if (!selectedDashboard || dashboardAccessSaving) return;
+
+    const nextAccess: Dashboard['public'] = selectedDashboard.public === true ? false : true;
+
+    try {
+      setDashboardAccessSaving(true);
+      const updated = await api.updateDashboard(selectedDashboard.root_agent_id, selectedDashboard.slug, { public: nextAccess });
+      setDashboards((current) => current.map((dashboard) => (
+        dashboard.root_agent_id === updated.root_agent_id && dashboard.slug === updated.slug ? updated : dashboard
+      )));
+      showToast(`${updated.name}: ${getDashboardVisibilityLabel(updated.public).toLowerCase()}`, 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Could not update dashboard access', 'error');
+    } finally {
+      setDashboardAccessSaving(false);
+    }
+  }
+
+  async function handleToggleChannelIndicator(channelKey: string) {
+    const isMuted = getChannelIndicatorMode(channelKey) === 'muted';
+    const previousOverrides = channelIndicatorOverrides;
+    const nextOverrides = { ...channelIndicatorOverrides };
+
+    if (isMuted) delete nextOverrides[channelKey];
+    else nextOverrides[channelKey] = 'muted';
+
+    setChannelIndicatorOverrides(nextOverrides);
+
+    try {
+      await api.updatePreferences({ channel_indicator_overrides: nextOverrides });
+    } catch (err: any) {
+      setChannelIndicatorOverrides(previousOverrides);
+      showToast(err.message || 'Could not save channel indicator setting', 'error');
     }
   }
 
@@ -729,8 +914,12 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
       onSelect={handleSelectRun}
       emptyMessage="No runs yet"
       renderIcon={(run) => {
+        const indicatorMode = getChannelIndicatorMode(getRunChannelKey(run.id));
+        if (indicatorMode === 'muted') {
+          return <span className="status-dot-placeholder" style={{ width: 8, height: 8 }} aria-hidden />;
+        }
         if (run.trigger !== 'schedule') {
-          return <StatusDot status={run.status} />;
+          return <StatusDot status={run.status} indicatorMode={indicatorMode} />;
         }
         const color = run.status === 'running' ? 'var(--c-amber)'
           : run.status === 'error' ? 'var(--c-red)'
@@ -738,9 +927,23 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
           : run.status === 'paused' ? 'var(--c-yellow)'
           : 'var(--c-muted)';
         return (
-          <span className={`run-trigger-icon${run.status === 'running' ? ' run-trigger-icon--running' : ''}`} title="scheduled">
+          <span className={`run-trigger-icon${run.status === 'running' && indicatorMode === 'animated' ? ' run-trigger-icon--running' : ''}`} title="scheduled">
             <Clock size={11} color={color} />
           </span>
+        );
+      }}
+      renderActions={(run) => {
+        const isMuted = getChannelIndicatorMode(getRunChannelKey(run.id)) === 'muted';
+        const IndicatorIcon = isMuted ? EyeOff : Eye;
+        return (
+          <button
+            type="button"
+            className="tree-indicator-btn"
+            onClick={() => void handleToggleChannelIndicator(getRunChannelKey(run.id))}
+            title={isMuted ? 'Indicators muted for this channel. Click to follow the profile setting.' : 'Indicators follow the profile setting. Click to mute this channel.'}
+          >
+            <IndicatorIcon size={12} />
+          </button>
         );
       }}
       renderLabel={(run) => (
@@ -784,6 +987,9 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
                 setMobileAgentsOpen(false);
               }}
               onTriggerSchedule={handleTriggerSchedule}
+              getIndicatorMode={getChannelIndicatorMode}
+              getDashboardActivityState={getDashboardIndicatorState}
+              onToggleIndicator={(channelKey) => void handleToggleChannelIndicator(channelKey)}
               onSelect={() => setMobileAgentsOpen(false)}
             />
           </aside>
@@ -805,6 +1011,9 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
           selectedId={selectedTreeId}
           onCreateClick={() => setShowCreateModal(true)}
           onTriggerSchedule={handleTriggerSchedule}
+          getIndicatorMode={getChannelIndicatorMode}
+          getDashboardActivityState={getDashboardIndicatorState}
+          onToggleIndicator={(channelKey) => void handleToggleChannelIndicator(channelKey)}
         />
       )}
 
@@ -859,15 +1068,26 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
                   <div className="panel-header__details">
                     <span className="panel-header__meta">{selectedRootAgent?.name ?? selectedAgent?.name}</span>
                     {selectedDashboard && <span className="panel-header__meta">{selectedDashboard.path}</span>}
+                    {selectedDashboard && <span className="panel-header__meta">{getDashboardVisibilityLabel(selectedDashboard.public)}</span>}
                   </div>
                 </div>
               </div>
               <div className="panel-header__actions">
                 <div className="panel-header__action-row panel-header__action-row--utility">
                   {conn === 'disconnected' && <span className="conn-label">Reconnecting...</span>}
-                  <button className="btn icon-btn" onClick={() => setDashboardFrameKey(key => key + 1)} title="Refresh dashboard">
-                    <RefreshCw size={13} />
-                  </button>
+                  {selectedDashboard && (
+                    <button
+                      className="btn icon-btn"
+                      onClick={handleToggleDashboardAccess}
+                      title={getDashboardVisibilityTitle(selectedDashboard.public)}
+                      disabled={dashboardAccessSaving}
+                    >
+                      <DashboardVisibilityIcon size={13} />
+                    </button>
+                  )}
+                    <button className="btn icon-btn" onClick={() => setDashboardFrameKey(key => key + 1)} title="Refresh dashboard">
+                      <RefreshCw size={13} />
+                    </button>
                   {selectedDashboard && (
                     <a className="btn icon-btn" href={selectedDashboard.url} target="_blank" rel="noreferrer" title="Open dashboard">
                       <ExternalLink size={13} />
@@ -914,7 +1134,7 @@ export function AgentsPage({ authEnabled, username, onLogout }: AgentsPageProps)
                 )}
                 <div className="panel-header__title">
                   <div className="panel-header__title-main">
-                    <StatusDot status={selectedAgent.status} />
+                    <StatusDot status={selectedAgent.status} indicatorMode={selectedAgentIndicatorMode} />
                     <h2>{selectedAgent.name}</h2>
                   </div>
                   <div className="panel-header__details">
