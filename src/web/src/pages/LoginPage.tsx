@@ -1,9 +1,19 @@
 import type { Theme } from '../hooks/useTheme';
 import { useState, type FormEvent } from 'react';
 import { Logo } from '../components/Logo';
+import type { ChannelIndicatorMode, OutputStyle } from '../hooks/usePreferences';
 
 interface LoginPageProps {
-  onLogin: (payload: { csrfToken: string; username?: string | null; theme?: Theme | null }) => void;
+  onLogin: (payload: {
+    csrfToken: string;
+    username?: string | null;
+    theme?: Theme | null;
+    preferences?: {
+      output_style: OutputStyle;
+      channel_indicators: ChannelIndicatorMode;
+      channel_indicator_overrides: Record<string, ChannelIndicatorMode>;
+    } | null;
+  }) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -35,6 +45,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         csrfToken: data.csrfToken,
         username: data.username ?? null,
         theme: data.theme ?? null,
+        preferences: data.preferences ?? null,
       });
     } catch {
       setError('Connection failed');

@@ -24,11 +24,52 @@ import { getExtensions } from '../../core/extensions.js';
 import { capabilities } from '../../core/config/index.js';
 
 const THEMES = new Set(['light', 'night', 'dark', 'vivid', 'catppuccin', 'vivid-catppuccin']);
+const OUTPUT_STYLES = new Set(['compact', 'detailed']);
+const CHANNEL_INDICATORS = new Set(['animated', 'static', 'muted']);
 const DEFAULT_THEME = 'light';
+const DEFAULT_OUTPUT_STYLE = 'compact';
+const DEFAULT_CHANNEL_INDICATORS = 'animated';
 
 function getUserTheme(meta: Record<string, any> | null | undefined): string {
   const theme = meta?.theme;
   return typeof theme === 'string' && THEMES.has(theme) ? theme : DEFAULT_THEME;
+}
+
+function getUserOutputStyle(meta: Record<string, any> | null | undefined): string {
+  const outputStyle = meta?.output_style;
+  return typeof outputStyle === 'string' && OUTPUT_STYLES.has(outputStyle) ? outputStyle : DEFAULT_OUTPUT_STYLE;
+}
+
+function getUserChannelIndicators(meta: Record<string, any> | null | undefined): string {
+  const channelIndicators = meta?.channel_indicators;
+  return typeof channelIndicators === 'string' && CHANNEL_INDICATORS.has(channelIndicators)
+    ? channelIndicators
+    : DEFAULT_CHANNEL_INDICATORS;
+}
+
+function getUserChannelIndicatorOverrides(
+  meta: Record<string, any> | null | undefined,
+  defaultMode = getUserChannelIndicators(meta),
+): Record<string, 'animated' | 'static' | 'muted'> {
+  const raw = meta?.channel_indicator_overrides;
+  if (!raw || typeof raw !== 'object') return {};
+
+  const normalized: Record<string, 'animated' | 'static' | 'muted'> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== 'string' || !CHANNEL_INDICATORS.has(value) || value === defaultMode) continue;
+    normalized[key] = value as 'animated' | 'static' | 'muted';
+  }
+  return normalized;
+}
+
+function getUserPreferences(meta: Record<string, any> | null | undefined) {
+  const output_style = getUserOutputStyle(meta);
+  const channel_indicators = getUserChannelIndicators(meta);
+  return {
+    output_style,
+    channel_indicators,
+    channel_indicator_overrides: getUserChannelIndicatorOverrides(meta, channel_indicators),
+  };
 }
 
 export function authRoutes(): Route[] {
@@ -49,6 +90,7 @@ export function authRoutes(): Route[] {
       // Look up user for username/role
       const user = await User.findByPk(session.userId, { attributes: ['username', 'role', 'meta'] });
       const theme = getUserTheme(user?.meta);
+      const preferences = getUserPreferences(user?.meta);
       ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': themeCookieHeader(theme),
@@ -60,6 +102,7 @@ export function authRoutes(): Route[] {
         username: user?.username ?? null,
         role: user?.role ?? session.role,
         theme,
+        preferences,
         // Cloud/enterprise feature flags — empty object in community edition.
         features: getExtensions().featureFlags(),
       }));
@@ -96,6 +139,7 @@ export function authRoutes(): Route[] {
       clearLoginFailures(ip);
       const session = createSession(user.id, user.role);
       const theme = getUserTheme(user.meta);
+      const preferences = getUserPreferences(user.meta);
 
       ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -107,6 +151,7 @@ export function authRoutes(): Route[] {
         username: user.username,
         role: user.role,
         theme,
+        preferences,
       }));
     }),
 
@@ -128,27 +173,57 @@ export function authRoutes(): Route[] {
     // Per-user preferences
     route('PUT', '/api/auth/preferences', async (ctx) => {
       const body = await parseBody(ctx.req);
-      const { theme } = body;
-
-      if (typeof theme !== 'string' || !THEMES.has(theme)) {
-        throw new DisplayableError('A valid theme is required', 400);
-      }
+      const { theme, output_style, channel_indicators, channel_indicator_overrides } = body ?? {};
 
       const user = await User.findByPk(ctx.user.id);
       if (!user) throw new NotFoundError('User not found');
 
+      if (theme != null && (typeof theme !== 'string' || !THEMES.has(theme))) {
+        throw new DisplayableError('A valid theme is required', 400);
+      }
+      if (output_style != null && (typeof output_style !== 'string' || !OUTPUT_STYLES.has(output_style))) {
+        throw new DisplayableError('A valid output style is required', 400);
+      }
+      if (channel_indicators != null && (typeof channel_indicators !== 'string' || !CHANNEL_INDICATORS.has(channel_indicators))) {
+        throw new DisplayableError('A valid channel indicator mode is required', 400);
+      }
+      if (channel_indicator_overrides != null && (!channel_indicator_overrides || typeof channel_indicator_overrides !== 'object' || Array.isArray(channel_indicator_overrides))) {
+        throw new DisplayableError('channel_indicator_overrides must be an object', 400);
+      }
+
+      if (theme == null && output_style == null && channel_indicators == null && channel_indicator_overrides == null) {
+        throw new DisplayableError('At least one preference is required', 400);
+      }
+
+      const nextMeta = { ...(user.meta ?? {}) } as Record<string, any>;
+      if (theme != null) nextMeta.theme = theme;
+      if (output_style != null) nextMeta.output_style = output_style;
+      if (channel_indicators != null) nextMeta.channel_indicators = channel_indicators;
+
+      const normalizedChannelIndicators = getUserChannelIndicators(nextMeta);
+      if (channel_indicator_overrides != null) {
+        const nextOverrides: Record<string, string> = {};
+        for (const [key, value] of Object.entries(channel_indicator_overrides as Record<string, unknown>)) {
+          if (typeof value !== 'string' || !CHANNEL_INDICATORS.has(value) || value === normalizedChannelIndicators) continue;
+          nextOverrides[key] = value;
+        }
+        nextMeta.channel_indicator_overrides = nextOverrides;
+      } else if (channel_indicators != null) {
+        nextMeta.channel_indicator_overrides = getUserChannelIndicatorOverrides(nextMeta, normalizedChannelIndicators);
+      }
+
       await user.update({
-        meta: {
-          ...(user.meta ?? {}),
-          theme,
-        },
+        meta: nextMeta,
       });
+
+      const resolvedTheme = getUserTheme(nextMeta);
+      const preferences = getUserPreferences(nextMeta);
 
       ctx.res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Set-Cookie': themeCookieHeader(theme),
+        'Set-Cookie': themeCookieHeader(resolvedTheme),
       });
-      ctx.res.end(JSON.stringify({ ok: true, theme }));
+      ctx.res.end(JSON.stringify({ ok: true, theme: resolvedTheme, preferences }));
     }),
 
     // Self-service password change — rate-limited by user ID (unforgeable from session)

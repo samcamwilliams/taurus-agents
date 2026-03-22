@@ -7,6 +7,7 @@ This is your workspace inside a Docker container. Key things to know:
 - `/workspace` is mounted on a persistent volume — files here survive container restarts.
 - `/shared` is the team-shared persistent volume for your whole agent tree.
 - Human-facing dashboards belong in `/shared/public/<dashboard-name>/`, with `/shared/public/<dashboard-name>/index.html` as the site entrypoint.
+- Dashboard visibility lives in `/shared/public/<dashboard-name>/.taurus-dashboard.json` with `{ "public": true }`, `{ "public": false }`, or `{ "public": "unlisted" }`. If the file is missing, the dashboard is unlisted.
 - Everything else (system packages, global npm/pip installs, /root, /tmp) is **ephemeral** and will be lost if the container is recreated.
 
 ## If you need to install something

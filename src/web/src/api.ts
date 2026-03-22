@@ -1,5 +1,6 @@
 import type { Agent, Dashboard, Run, MessageRecord } from './types';
 import type { Theme } from './hooks/useTheme';
+import type { ChannelIndicatorMode, OutputStyle } from './hooks/usePreferences';
 
 // ── CSRF token management ──
 
@@ -54,6 +55,13 @@ export const api = {
 
   listDashboards(agentId: string): Promise<Dashboard[]> {
     return request(`/api/agents/${agentId}/dashboards`);
+  },
+
+  updateDashboard(agentId: string, dashboardName: string, data: { public: true | false | 'unlisted' }): Promise<Dashboard> {
+    return request(`/api/agents/${agentId}/dashboards/${encodeURIComponent(dashboardName)}`, {
+      method: 'PUT',
+      body: data,
+    });
   },
 
   createAgent(data: {
@@ -167,7 +175,20 @@ export const api = {
     return request('/api/auth/password', { method: 'PUT', body: { current_password, new_password } });
   },
 
-  updatePreferences(preferences: { theme: Theme }): Promise<{ ok: boolean; theme: Theme }> {
+  updatePreferences(preferences: Partial<{
+    theme: Theme;
+    output_style: OutputStyle;
+    channel_indicators: ChannelIndicatorMode;
+    channel_indicator_overrides: Record<string, ChannelIndicatorMode>;
+  }>): Promise<{
+    ok: boolean;
+    theme: Theme;
+    preferences: {
+      output_style: OutputStyle;
+      channel_indicators: ChannelIndicatorMode;
+      channel_indicator_overrides: Record<string, ChannelIndicatorMode>;
+    };
+  }> {
     return request('/api/auth/preferences', { method: 'PUT', body: preferences });
   },
 

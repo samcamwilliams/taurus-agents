@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { Pencil, X } from 'lucide-react';
 import { THEMES, THEME_DESCRIPTIONS, THEME_LABELS, useTheme, type Theme } from '../hooks/useTheme';
+import {
+  CHANNEL_INDICATOR_MODES,
+  OUTPUT_STYLES,
+  usePreferences,
+  type ChannelIndicatorMode,
+  type OutputStyle,
+} from '../hooks/usePreferences';
 
 interface AccountSettingsModalProps {
   onClose: () => void;
@@ -16,6 +23,7 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
   const [appearanceMessage, setAppearanceMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [appearanceSaving, setAppearanceSaving] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { outputStyle, setOutputStyle, channelIndicators, setChannelIndicators } = usePreferences();
 
   // Password change
   const [currentPw, setCurrentPw] = useState('');
@@ -56,23 +64,53 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
     setEdits(prev => ({ ...prev, [key]: '' }));
   }
 
-  async function handleThemeSelect(nextTheme: Theme) {
-    if (nextTheme === theme || appearanceSaving) return;
-
+  async function persistAppearanceChange(
+    patch: Partial<{
+      theme: Theme;
+      outputStyle: OutputStyle;
+      channelIndicators: ChannelIndicatorMode;
+    }>,
+  ) {
     const previousTheme = theme;
-    setTheme(nextTheme);
+    const previousOutputStyle = outputStyle;
+    const previousChannelIndicators = channelIndicators;
+
+    if (patch.theme) setTheme(patch.theme);
+    if (patch.outputStyle) setOutputStyle(patch.outputStyle);
+    if (patch.channelIndicators) setChannelIndicators(patch.channelIndicators);
     setAppearanceSaving(true);
     setAppearanceMessage(null);
 
     try {
-      await api.updatePreferences({ theme: nextTheme });
+      await api.updatePreferences({
+        ...(patch.theme ? { theme: patch.theme } : {}),
+        ...(patch.outputStyle ? { output_style: patch.outputStyle } : {}),
+        ...(patch.channelIndicators ? { channel_indicators: patch.channelIndicators } : {}),
+      });
       setAppearanceMessage({ text: 'Appearance saved' });
     } catch (err: any) {
       setTheme(previousTheme);
+      setOutputStyle(previousOutputStyle);
+      setChannelIndicators(previousChannelIndicators);
       setAppearanceMessage({ text: err.message || 'Failed to save appearance', error: true });
     } finally {
       setAppearanceSaving(false);
     }
+  }
+
+  async function handleThemeSelect(nextTheme: Theme) {
+    if (nextTheme === theme || appearanceSaving) return;
+    await persistAppearanceChange({ theme: nextTheme });
+  }
+
+  async function handleOutputStyleSelect(nextOutputStyle: OutputStyle) {
+    if (nextOutputStyle === outputStyle || appearanceSaving) return;
+    await persistAppearanceChange({ outputStyle: nextOutputStyle });
+  }
+
+  async function handleChannelIndicatorsSelect(nextChannelIndicators: ChannelIndicatorMode) {
+    if (nextChannelIndicators === channelIndicators || appearanceSaving) return;
+    await persistAppearanceChange({ channelIndicators: nextChannelIndicators });
   }
 
   async function handleSaveKeys() {
@@ -182,6 +220,45 @@ export function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
                     <p className="appearance-option__description">{THEME_DESCRIPTIONS[option]}</p>
                   </button>
                 ))}
+              </div>
+              <div className="appearance-settings">
+                <div className="appearance-setting">
+                  <div className="appearance-setting__copy">
+                    <span className="appearance-setting__label">Output style</span>
+                    <p className="appearance-setting__description">How much of the internal structure opens by default in run output.</p>
+                  </div>
+                  <select
+                    className="appearance-setting__select"
+                    value={outputStyle}
+                    onChange={(e) => void handleOutputStyleSelect(e.target.value as OutputStyle)}
+                    disabled={appearanceSaving}
+                  >
+                    {OUTPUT_STYLES.map((option) => (
+                      <option key={option} value={option}>
+                        {option === 'compact' ? 'Compact' : 'Detailed'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="appearance-setting">
+                  <div className="appearance-setting__copy">
+                    <span className="appearance-setting__label">Default channel indicators</span>
+                    <p className="appearance-setting__description">Sets the starting behavior for agent, run, and dashboard activity markers.</p>
+                  </div>
+                  <select
+                    className="appearance-setting__select"
+                    value={channelIndicators}
+                    onChange={(e) => void handleChannelIndicatorsSelect(e.target.value as ChannelIndicatorMode)}
+                    disabled={appearanceSaving}
+                  >
+                    {CHANNEL_INDICATOR_MODES.map((option) => (
+                      <option key={option} value={option}>
+                        {option === 'animated' ? 'Animated' : option === 'static' ? 'Static' : 'Muted'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="modal__actions">
                 {(appearanceMessage || appearanceSaving) && (

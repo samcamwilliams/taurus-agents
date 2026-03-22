@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { registerPwaServiceWorker } from './pwa';
 import { ThemeProvider } from './hooks/useTheme';
+import { PreferencesProvider } from './hooks/usePreferences';
 import './styles/global.scss';
 
 registerPwaServiceWorker();
@@ -11,9 +12,11 @@ registerPwaServiceWorker();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <PreferencesProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </PreferencesProvider>
     </ThemeProvider>
   </StrictMode>,
 );

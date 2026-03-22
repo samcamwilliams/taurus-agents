@@ -34,6 +34,7 @@ export interface Dashboard {
   path: string;
   root_agent_id: string;
   url: string;
+  public: true | false | 'unlisted';
   updated_at: string | null;
 }
 
